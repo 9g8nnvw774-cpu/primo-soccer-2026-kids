@@ -31,7 +31,7 @@ function setSync(msg,type="warn"){const el=document.getElementById("syncStatus")
 function scheduleSave(){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloud,700)}
 function setCategory(cat){activeCategory=cat;renderAll()}
 function openCategory(cat){activeCategory=cat;showPage("disputa")}
-function showPage(page){["dashboard","cadastro","agenda","disputa","ranking","imprimir","config"].forEach(p=>{document.getElementById("page-"+p).classList.toggle("hidden",p!==page);document.getElementById("tab-"+p).classList.toggle("active",p===page)});renderAll()}
+function showPage(page){["dashboard","cadastro","agenda","disputa","ranking","imprimir","config","pais"].forEach(p=>{document.getElementById("page-"+p).classList.toggle("hidden",p!==page);document.getElementById("tab-"+p)?.classList.toggle("active",p===page)});renderAll()}
 function renderAll(){norm();renderMonth();renderSelectors();renderDashboard();renderStudents();renderAgenda();renderScore();renderRankings();renderPrintSelect()}
 function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.dataset.ready){sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");sel.dataset.ready="1";sel.onchange=()=>{currentMonth=sel.value;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}};scheduleSave();renderAll()}}sel.value=currentMonth;document.getElementById("heroMonth").textContent=currentMonth}
 function renderSelectors(){document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");["agendaCategory","disputeCategory"].forEach(id=>{document.getElementById(id).innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");document.getElementById(id).value=activeCategory});document.getElementById("studentPicker").innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;const sch=SCHEDULES[activeCategory]||[];document.getElementById("schedulePicker").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreSchedule").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreWeek").innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");renderCopyMonthPicker()}
@@ -57,4 +57,82 @@ async function initCloud(){try{setSync("Conectando ao banco online...");if(!wind
 async function saveCloud(){if(!sb){if(!window.supabase)return;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok")}catch(e){console.error(e);setSync("Erro ao salvar online.","error")}}
 async function syncNow(){await saveCloud();alert("Sincronizado")}
 async function loadCloud(){await initCloud()}
-renderAll();showPage("dashboard");initCloud();
+
+// ===== Logo + Link dos Pais v4 =====
+let parentCategory = CATEGORIES[0][0];
+
+function isParentMode(){
+  const p = new URLSearchParams(location.search);
+  return p.get("pais")==="1" || p.get("parents")==="1" || location.hash==="#pais";
+}
+
+function copyParentLink(){
+  const url = location.origin + location.pathname + "?pais=1";
+  const el = document.getElementById("parentLinkText");
+  if(el) el.textContent = url;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(()=>alert("Link dos pais copiado!")).catch(()=>alert(url));
+  } else {
+    alert(url);
+  }
+}
+
+function setParentCategory(cat){
+  parentCategory = cat;
+  renderParentMode();
+}
+
+function renderParentMode(){
+  const m = document.getElementById("parentMonth");
+  if(m) m.textContent = currentMonth;
+
+  const tabs = document.getElementById("parentCategoryTabs");
+  if(tabs){
+    tabs.innerHTML = CATEGORIES.map(c=>{
+      const active = c[0]===parentCategory ? "active" : "";
+      return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`;
+    }).join("");
+  }
+
+  const area = document.getElementById("parentRankingArea");
+  if(area){
+    const all = ranked();
+    const list = ranked(parentCategory);
+    area.innerHTML = `
+      <div class="card">
+        <h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2>
+        <div class="rankList">${list.map(rankRow).join("") || "<p>Nenhum resultado nesta categoria.</p>"}</div>
+      </div>
+      <div class="card">
+        <h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> Ranking Geral do Mês</h2>
+        <div class="rankList">${all.map(rankRow).join("") || "<p>Nenhum resultado no mês.</p>"}</div>
+      </div>`;
+  }
+}
+
+const renderRankingsBase = renderRankings;
+renderRankings = function(){
+  renderRankingsBase();
+  if(isParentMode()) renderParentMode();
+};
+
+preparePrint = function(type){
+  const cat=document.getElementById("printCategory").value;
+  const list=type==="general"?ranked():ranked(cat);
+  const title=type==="general"?"RANKING GERAL DO MÊS":cat;
+  document.getElementById("printArea").innerHTML=`<div class="printCard">
+    <img src="primo-logo.png" class="printLogo">
+    <h1>PRIMO SOCCER 2026 KIDS</h1>
+    <h2>${title} • ${currentMonth}</h2>
+    ${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}
+  </div>`;
+};
+
+function initParentModeIfNeeded(){
+  if(!isParentMode()) return;
+  document.body.classList.add("parentMode");
+  showPage("pais");
+  renderParentMode();
+}
+
+renderAll();showPage("dashboard");initCloud();setTimeout(initParentModeIfNeeded,700);
