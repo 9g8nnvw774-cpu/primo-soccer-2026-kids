@@ -9,13 +9,16 @@
 </head>
 <body>
 <main class="app">
-<header class="hero">
-  <div class="logoBox"><img src="primo-logo.png" alt="Primo Soccer"></div>
-  <div>
-    <h1>PRIMO SOCCER 2026 KIDS</h1>
-    <h2>MÊS: <span id="heroMonth">MAIO</span></h2>
+<header class="hero coverHero">
+  <div class="coverOverlay">
+    <div class="coverTitle">
+      <div class="titleMain">PRIMO SOCCER</div>
+      <div class="titleYear">2026</div>
+      <div class="titleKids">Kids</div>
+      <div class="titleMonth" id="heroMonth">MAIO</div>
+    </div>
   </div>
-  <select id="monthSelect"></select>
+  <select id="monthSelect" class="coverMonthSelect"></select>
 </header>
 
 <nav class="tabs">
@@ -161,7 +164,7 @@
     <h2>Configurações</h2>
     <button onclick="syncNow()" class="success">Sincronizar agora</button>
     <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v4.0 • Logo + Link dos Pais</p>
+    <p><strong>Versão:</strong> Kids v5.0 • Capa Dashboard Mensal</p>
     <p><strong>App ID:</strong> primo_soccer_2026_kids</p>
   </div>
 </section>
