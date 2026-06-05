@@ -1,16 +1,3 @@
-PRIMO SOCCER 2026 KIDS - VERSÃO FUNCIONALIDADES
+PRIMO SOCCER 2026 KIDS - CATEGORIAS v2.0
 
-Supabase:
-- URL: https://beaudafzwragumrqgkhu.supabase.co
-- App ID: primo_soccer_2026_kids
-
-Arquivos:
-- index.html
-- style.css
-- script.js
-- supabase-config.js
-- manifest.json
-- vercel.json
-- SUPABASE_SQL_SETUP.sql
-
-Envie os arquivos abertos ao GitHub, conecte na Vercel e teste em Config > Sincronizar.
+Ranking, agenda e pontuação próprios por categoria. Impressão 1080x1920. Supabase já configurado.
