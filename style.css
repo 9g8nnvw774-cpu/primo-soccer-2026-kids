@@ -18,7 +18,7 @@
 @media print{.printCard .printLogo{width:240px!important;height:240px!important;margin-bottom:20px!important}}
 
 /* Editable Dashboard Cover v6 */
-.editableCoverHero{position:relative;display:block!important;min-height:430px;padding:22px 26px 26px!important;background:linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)),url("default-cover.jpeg?v=9") center center/cover no-repeat;border-bottom:1px solid rgba(126,224,255,.35);overflow:hidden}
+.editableCoverHero{position:relative;display:block!important;min-height:430px;padding:22px 26px 26px!important;background:linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)),url("default-cover.jpeg") center center/cover no-repeat;border-bottom:1px solid rgba(126,224,255,.35);overflow:hidden}
 .coverShade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.12) 55%,rgba(2,8,23,.88));pointer-events:none}
 .coverTop{position:relative;z-index:2;display:flex;align-items:center;gap:16px}
 .coverLogo{width:92px;height:92px;object-fit:contain;filter:drop-shadow(0 8px 15px rgba(0,0,0,.75))}
@@ -31,7 +31,7 @@
 @media(max-width:800px){.editableCoverHero{min-height:410px;padding:18px 22px 22px!important}.coverTop{align-items:flex-start}.coverLogo{width:76px;height:76px}.coverText h1{font-size:28px}.coverText h2{font-size:20px}.coverMonthSelect{left:22px;right:22px;bottom:22px;width:calc(100% - 44px)!important}}
 
 /* Dashboard Pro v7 */
-.proHero{position:relative!important;display:block!important;min-height:560px!important;padding:0 34px 30px!important;overflow:hidden!important;background:linear-gradient(180deg,rgba(1,7,25,.02) 0%,rgba(1,7,25,.14) 43%,rgba(1,7,25,.92) 100%),url("default-cover.jpeg?v=9") center center/cover no-repeat!important;border-bottom:1px solid rgba(126,224,255,.30)!important}
+.proHero{position:relative!important;display:block!important;min-height:560px!important;padding:0 34px 30px!important;overflow:hidden!important;background:linear-gradient(180deg,rgba(1,7,25,.02) 0%,rgba(1,7,25,.14) 43%,rgba(1,7,25,.92) 100%),url("default-cover.jpeg") center center/cover no-repeat!important;border-bottom:1px solid rgba(126,224,255,.30)!important}
 .proHeroShade{position:absolute;inset:0;background:radial-gradient(circle at center 32%,rgba(255,255,255,.08),transparent 34%),linear-gradient(180deg,rgba(6,17,122,.02),rgba(2,8,23,.86));z-index:1;pointer-events:none}
 .proHeroContent{position:relative;z-index:2;min-height:455px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding-top:28px}
 .proMainLogo{width:190px;height:190px;object-fit:contain;display:block;margin:0 auto 18px;filter:drop-shadow(0 10px 24px rgba(0,0,0,.88))}
@@ -43,7 +43,7 @@
 .tabs button{min-height:92px!important;font-size:22px!important;font-family:"Arial Black",Arial,sans-serif!important;background:rgba(2,8,23,.98)!important}
 .tabs button.active{background:#1557ff!important;color:#fff!important}
 .parentMode .proHero{min-height:500px!important}.parentMode .proMonthSelect{display:none!important}.parentMode .tabs{display:none!important}
-.printCard{background:linear-gradient(180deg,rgba(1,7,25,.08),rgba(1,7,25,.45) 44%,rgba(2,8,23,.96)),url("default-cover.jpeg?v=9") center top/cover no-repeat!important;border:2px solid #7eeaff!important;box-shadow:0 0 28px rgba(126,224,255,.25)}
+.printCard{background:linear-gradient(180deg,rgba(1,7,25,.08),rgba(1,7,25,.45) 44%,rgba(2,8,23,.96)),url("default-cover.jpeg") center top/cover no-repeat!important;border:2px solid #7eeaff!important;box-shadow:0 0 28px rgba(126,224,255,.25)}
 .printLogo,.printCard .printLogo{width:130px!important;height:130px!important;object-fit:contain!important;display:block!important;margin:0 auto 10px!important;filter:drop-shadow(0 10px 22px rgba(0,0,0,.90))}
 .printCard h1{font-family:"Arial Black",Impact,sans-serif!important;color:#fff!important;text-align:center!important;text-shadow:0 6px 16px rgba(0,0,0,.95)!important}
 .printCard h2{font-family:"Arial Black",Impact,sans-serif!important;color:#7eeaff!important;text-align:center!important;text-shadow:0 6px 16px rgba(0,0,0,.95)!important}
@@ -58,7 +58,7 @@
 body{
   background:
     linear-gradient(180deg,rgba(2,8,23,.94),rgba(6,17,122,.98)),
-    url("default-cover.jpeg?v=9") center top/cover fixed no-repeat!important;
+    url("default-cover.jpeg") center top/cover fixed no-repeat!important;
 }
 
 .officialHero{
@@ -69,7 +69,7 @@ body{
   overflow:hidden!important;
   background:
     linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%),
-    url("default-cover.jpeg?v=9") center center/cover no-repeat!important;
+    url("default-cover.jpeg") center center/cover no-repeat!important;
   border-bottom:1px solid rgba(126,234,255,.35)!important;
 }
 
@@ -180,7 +180,7 @@ body{
 .catCard{
   background:
     linear-gradient(180deg,rgba(8,45,164,.86),rgba(3,10,43,.96)),
-    url("default-cover.jpeg?v=9") center center/cover no-repeat!important;
+    url("default-cover.jpeg") center center/cover no-repeat!important;
   background-blend-mode:normal,soft-light;
   border:1px solid rgba(126,234,255,.34)!important;
   box-shadow:0 16px 36px rgba(0,0,0,.35)!important;
@@ -202,7 +202,7 @@ body{
 .parentMode .app{
   background:
     linear-gradient(180deg,rgba(2,8,23,.88),rgba(6,17,122,.96)),
-    url("default-cover.jpeg?v=9") center top/cover fixed no-repeat!important;
+    url("default-cover.jpeg") center top/cover fixed no-repeat!important;
 }
 
 .parentMode .officialHero{
@@ -218,7 +218,7 @@ body{
 .printCard{
   background:
     linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.42) 44%,rgba(2,8,23,.96)),
-    url("default-cover.jpeg?v=9") center top/cover no-repeat!important;
+    url("default-cover.jpeg") center top/cover no-repeat!important;
   border:2px solid #7eeaff!important;
   box-shadow:0 0 28px rgba(126,234,255,.28)!important;
 }
@@ -323,15 +323,15 @@ body{
 }
 
 
-/* ===== CORREÇÃO CAPA OFICIAL v9.1 ===== */
-/* Esta regra força a imagem nova e evita cache antigo do navegador. */
+/* ===== CAPA OFICIAL KIDS v10 - FORÇADA ===== */
 #appHero,
+.hero,
 .officialHero,
 .proHero,
 .editableCoverHero{
   background-image:
     linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%),
-    url("default-cover.jpeg?v=9")!important;
+    url("capa-oficial-kids-v10.jpeg?v=10")!important;
   background-size:cover!important;
   background-position:center center!important;
   background-repeat:no-repeat!important;
@@ -340,14 +340,44 @@ body{
 body{
   background-image:
     linear-gradient(180deg,rgba(2,8,23,.94),rgba(6,17,122,.98)),
-    url("default-cover.jpeg?v=9")!important;
+    url("capa-oficial-kids-v10.jpeg?v=10")!important;
+  background-size:cover!important;
+  background-attachment:fixed!important;
 }
 
-.printCard,
+.printCard{
+  background-image:
+    linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.42) 44%,rgba(2,8,23,.96)),
+    url("capa-oficial-kids-v10.jpeg?v=10")!important;
+  background-size:cover!important;
+  background-position:center top!important;
+}
+
 .card,
 .slotCard,
 .catCard{
   background-image:
     linear-gradient(180deg,rgba(8,45,164,.86),rgba(3,10,43,.96)),
-    url("default-cover.jpeg?v=9")!important;
+    url("capa-oficial-kids-v10.jpeg?v=10")!important;
+  background-size:cover!important;
+  background-position:center!important;
 }
+
+.categoryDivider td{
+  text-align:left!important;
+  font-family:"Arial Black",Arial,sans-serif!important;
+  font-size:18px!important;
+  color:#fff!important;
+  padding:14px!important;
+  text-transform:uppercase!important;
+  letter-spacing:.5px!important;
+  border-top:3px solid rgba(126,234,255,.55)!important;
+  border-bottom:3px solid rgba(126,234,255,.25)!important;
+}
+
+.categoryDivider.cat-futbaby23 td{background:linear-gradient(90deg,#78350f,#451a03)!important}
+.categoryDivider.cat-futbaby45 td{background:linear-gradient(90deg,#065f46,#022c22)!important}
+.categoryDivider.cat-sub678 td{background:linear-gradient(90deg,#075985,#082f49)!important}
+.categoryDivider.cat-sub8910 td{background:linear-gradient(90deg,#3730a3,#1e1b4b)!important}
+.categoryDivider.cat-meninas td{background:linear-gradient(90deg,#be185d,#500724)!important}
+.categoryDivider.cat-sub1114 td{background:linear-gradient(90deg,#7c2d12,#431407)!important}

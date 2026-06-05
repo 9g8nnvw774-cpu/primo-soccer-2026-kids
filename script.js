@@ -37,7 +37,31 @@ function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.
 function renderSelectors(){document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");["agendaCategory","disputeCategory"].forEach(id=>{document.getElementById(id).innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");document.getElementById(id).value=activeCategory});document.getElementById("studentPicker").innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;const sch=SCHEDULES[activeCategory]||[];document.getElementById("schedulePicker").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreSchedule").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreWeek").innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");renderCopyMonthPicker()}
 function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0)}
 function addStudent(){const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;if(!name)return alert("Digite o nome do aluno.");state.students.push({id:uid(),name,birth,category,active:true,photo:"",createdAt:new Date().toISOString()});document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";scheduleSave();renderAll();alert("Aluno cadastrado!")}
-function renderStudents(){document.getElementById("studentsTable").innerHTML=state.students.filter(s=>s.active!==false).map((s,i)=>`<tr><td>${i+1}</td><td>${photoPickerHtml(s)}</td><td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)"></td><td><input type="date" value="${s.birth||""}" oninput="editStudent('${s.id}','birth',this.value)"></td><td>${ageFromBirth(s.birth)} anos</td><td><select onchange="editStudent('${s.id}','category',this.value)">${CATEGORIES.map(c=>`<option value="${c[0]}" ${s.category===c[0]?"selected":""}>${c[0]}</option>`).join("")}</select></td><td><button class="danger" onclick="deleteStudent('${s.id}')">Excluir</button></td></tr>`).join("")||`<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`}
+function renderStudents(){
+  const body = document.getElementById("studentsTable");
+  if(!body) return;
+  const active = state.students.filter(s=>s.active!==false);
+  if(!active.length){
+    body.innerHTML = `<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`;
+    return;
+  }
+  let html = "";
+  CATEGORIES.forEach(cat=>{
+    const list = active.filter(s=>s.category===cat[0]);
+    if(!list.length) return;
+    html += `<tr class="categoryDivider cat-${cat[1]}"><td colspan="7">🏆 ${cat[0]} • ${list.length} aluno(s)</td></tr>`;
+    html += list.map((s,i)=>`<tr>
+      <td>${i+1}</td>
+      <td>${photoPickerHtml(s)}</td>
+      <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)"></td>
+      <td><input type="date" value="${s.birth||""}" oninput="editStudent('${s.id}','birth',this.value)"></td>
+      <td>${ageFromBirth(s.birth)} anos</td>
+      <td><select onchange="editStudent('${s.id}','category',this.value)">${CATEGORIES.map(c=>`<option value="${c[0]}" ${s.category===c[0]?"selected":""}>${c[0]}</option>`).join("")}</select></td>
+      <td><button class="danger" onclick="deleteStudent('${s.id}')">Excluir</button></td>
+    </tr>`).join("");
+  });
+  body.innerHTML = html || `<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`;
+}
 function editStudent(id,field,value){const s=studentById(id);if(s){s[field]=value;scheduleSave();renderAll()}}
 function deleteStudent(id){if(!confirm("Excluir aluno e todos os pontos dele?"))return;state.students=state.students.filter(s=>s.id!==id);Object.values(state.months||{}).forEach(m=>{if(m.participants)delete m.participants[id]});scheduleSave();renderAll()}
 function addToSchedule(){const id=document.getElementById("studentPicker").value,sch=document.getElementById("schedulePicker").value;if(!id||!sch)return;const studentsInSlot=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));if(studentsInSlot.length>=6)return alert("Esse horário já está com 6 vagas preenchidas.");const p=participant(id);if(!p.schedules.includes(sch))p.schedules.push(sch);scheduleSave();renderAll()}
@@ -140,12 +164,7 @@ function initParentModeIfNeeded(){
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  const cover = state?.settings?.dashboardCoverV9 || "";
-  if(cover){
-    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
-  }else{
-    hero.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%), url("default-cover.jpeg?v=9")`;
-  }
+  hero.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%), url("capa-oficial-kids-v10.jpeg?v=10")`;
 }
 function uploadCover(event){
   const file = event.target.files && event.target.files[0];
@@ -161,7 +180,7 @@ function uploadCover(event){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       state.settings = state.settings || {};
-      state.settings.dashboardCoverV9 = canvas.toDataURL("image/jpeg",0.86);
+      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");
@@ -173,7 +192,7 @@ function uploadCover(event){
 function clearCover(){
   if(!confirm("Remover capa personalizada?")) return;
   state.settings = state.settings || {};
-  delete state.settings.dashboardCover; delete state.settings.dashboardCoverV9;
+  delete state.settings.dashboardCover;
   scheduleSave();
   applyDashboardCover();
 }
@@ -183,7 +202,7 @@ function clearCover(){
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  const cover = state?.settings?.dashboardCoverV9 || "";
+  const cover = "";
   if(cover){
     hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
   }else{
@@ -204,7 +223,7 @@ function uploadCover(event){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       state.settings = state.settings || {};
-      state.settings.dashboardCoverV9 = canvas.toDataURL("image/jpeg",0.86);
+      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");
@@ -216,7 +235,7 @@ function uploadCover(event){
 function clearCover(){
   if(!confirm("Remover capa personalizada?")) return;
   state.settings = state.settings || {};
-  delete state.settings.dashboardCover; delete state.settings.dashboardCoverV9;
+  delete state.settings.dashboardCover;
   scheduleSave();
   applyDashboardCover();
 }
