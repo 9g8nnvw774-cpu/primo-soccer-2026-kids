@@ -140,11 +140,11 @@ function initParentModeIfNeeded(){
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  const cover = state?.settings?.dashboardCover || "";
+  const cover = state?.settings?.dashboardCoverV9 || "";
   if(cover){
     hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
   }else{
-    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)), url("default-cover.jpeg")`;
+    hero.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%), url("default-cover.jpeg?v=9")`;
   }
 }
 function uploadCover(event){
@@ -161,7 +161,7 @@ function uploadCover(event){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       state.settings = state.settings || {};
-      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
+      state.settings.dashboardCoverV9 = canvas.toDataURL("image/jpeg",0.86);
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");
@@ -173,7 +173,7 @@ function uploadCover(event){
 function clearCover(){
   if(!confirm("Remover capa personalizada?")) return;
   state.settings = state.settings || {};
-  delete state.settings.dashboardCover;
+  delete state.settings.dashboardCover; delete state.settings.dashboardCoverV9;
   scheduleSave();
   applyDashboardCover();
 }
@@ -183,7 +183,7 @@ function clearCover(){
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  const cover = state?.settings?.dashboardCover || "";
+  const cover = state?.settings?.dashboardCoverV9 || "";
   if(cover){
     hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
   }else{
@@ -204,7 +204,7 @@ function uploadCover(event){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       state.settings = state.settings || {};
-      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
+      state.settings.dashboardCoverV9 = canvas.toDataURL("image/jpeg",0.86);
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");
@@ -216,7 +216,7 @@ function uploadCover(event){
 function clearCover(){
   if(!confirm("Remover capa personalizada?")) return;
   state.settings = state.settings || {};
-  delete state.settings.dashboardCover;
+  delete state.settings.dashboardCover; delete state.settings.dashboardCoverV9;
   scheduleSave();
   applyDashboardCover();
 }
