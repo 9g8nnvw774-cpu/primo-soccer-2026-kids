@@ -32,7 +32,7 @@ function scheduleSave(){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout
 function setCategory(cat){activeCategory=cat;renderAll()}
 function openCategory(cat){activeCategory=cat;showPage("disputa")}
 function showPage(page){["dashboard","cadastro","agenda","disputa","ranking","imprimir","config","pais"].forEach(p=>{document.getElementById("page-"+p).classList.toggle("hidden",p!==page);document.getElementById("tab-"+p)?.classList.toggle("active",p===page)});renderAll()}
-function renderAll(){norm();renderMonth();renderSelectors();renderDashboard();renderStudents();renderAgenda();renderScore();renderRankings();renderPrintSelect()}
+function renderAll(){norm();renderMonth();renderSelectors();renderDashboard();renderStudents();renderAgenda();renderScore();renderRankings();renderPrintSelect(); if(typeof applyDashboardCover==="function") applyDashboardCover();}
 function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.dataset.ready){sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");sel.dataset.ready="1";sel.onchange=()=>{currentMonth=sel.value;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}};scheduleSave();renderAll()}}sel.value=currentMonth;document.getElementById("heroMonth").textContent=currentMonth}
 function renderSelectors(){document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");["agendaCategory","disputeCategory"].forEach(id=>{document.getElementById(id).innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");document.getElementById(id).value=activeCategory});document.getElementById("studentPicker").innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;const sch=SCHEDULES[activeCategory]||[];document.getElementById("schedulePicker").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreSchedule").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreWeek").innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");renderCopyMonthPicker()}
 function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0)}
@@ -135,4 +135,90 @@ function initParentModeIfNeeded(){
   renderParentMode();
 }
 
-renderAll();showPage("dashboard");initCloud();setTimeout(initParentModeIfNeeded,700);
+
+// ===== Capa editável v6 =====
+function applyDashboardCover(){
+  const hero = document.getElementById("appHero");
+  if(!hero) return;
+  const cover = state?.settings?.dashboardCover || "";
+  if(cover){
+    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
+  }else{
+    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)), url("default-cover.jpeg")`;
+  }
+}
+function uploadCover(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1200;
+      let w = img.width, h = img.height;
+      if(w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      state.settings = state.settings || {};
+      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
+      scheduleSave();
+      applyDashboardCover();
+      alert("Capa do Dashboard atualizada!");
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function clearCover(){
+  if(!confirm("Remover capa personalizada?")) return;
+  state.settings = state.settings || {};
+  delete state.settings.dashboardCover;
+  scheduleSave();
+  applyDashboardCover();
+}
+
+
+// ===== Capa editável v6 =====
+function applyDashboardCover(){
+  const hero = document.getElementById("appHero");
+  if(!hero) return;
+  const cover = state?.settings?.dashboardCover || "";
+  if(cover){
+    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
+  }else{
+    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)), url("default-cover.jpeg")`;
+  }
+}
+function uploadCover(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1200;
+      let w = img.width, h = img.height;
+      if(w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      state.settings = state.settings || {};
+      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
+      scheduleSave();
+      applyDashboardCover();
+      alert("Capa do Dashboard atualizada!");
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function clearCover(){
+  if(!confirm("Remover capa personalizada?")) return;
+  state.settings = state.settings || {};
+  delete state.settings.dashboardCover;
+  scheduleSave();
+  applyDashboardCover();
+}
+
+renderAll();showPage("dashboard");initCloud();setTimeout(applyDashboardCover,700);setTimeout(()=>{initParentModeIfNeeded&&initParentModeIfNeeded();applyDashboardCover();},700);

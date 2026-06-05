@@ -17,88 +17,15 @@
 @media(max-width:800px){.logoBox{width:86px!important;height:86px!important}.parentLogo{width:96px;height:96px}}
 @media print{.printCard .printLogo{width:240px!important;height:240px!important;margin-bottom:20px!important}}
 
-/* Dashboard Cover v5 */
-.coverHero{
-  display:block!important;
-  position:relative;
-  min-height:520px;
-  padding:0 32px 28px!important;
-  background:
-    linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.12) 55%,rgba(2,8,23,.9)),
-    url("dashboard-cover.jpeg") center top/cover no-repeat!important;
-  border-bottom:1px solid rgba(126,224,255,.35);
-}
-.coverOverlay{
-  min-height:440px;
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  text-align:center;
-  padding-top:35px;
-}
-.coverTitle{
-  width:100%;
-  text-shadow:0 5px 15px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.9);
-}
-.titleMain{
-  font-family:Impact,Haettenschweiler,"Arial Black",sans-serif;
-  font-size:clamp(48px,10vw,104px);
-  line-height:.9;
-  color:#ffe36b;
-  font-style:italic;
-  letter-spacing:2px;
-  transform:skew(-6deg);
-  text-transform:uppercase;
-}
-.titleYear{
-  margin-top:24px;
-  font-family:Arial Black,Arial,sans-serif;
-  color:#ffe36b;
-  font-size:clamp(44px,8vw,82px);
-  line-height:.85;
-  font-weight:900;
-}
-.titleKids{
-  color:#ffe36b;
-  font-size:clamp(32px,6vw,58px);
-  font-weight:500;
-  line-height:1;
-}
-.titleMonth{
-  margin-top:38px;
-  font-family:Impact,Haettenschweiler,"Arial Black",sans-serif;
-  font-size:clamp(54px,11vw,112px);
-  line-height:.85;
-  color:#61f1ff;
-  font-style:italic;
-  transform:skew(-8deg);
-  text-transform:uppercase;
-  letter-spacing:3px;
-}
-.coverMonthSelect{
-  position:absolute;
-  left:32px;
-  right:32px;
-  bottom:28px;
-  width:calc(100% - 64px)!important;
-  max-width:none!important;
-  min-height:58px;
-  border-radius:16px!important;
-  background:rgba(8,29,57,.92)!important;
-  color:white!important;
-  border:2px solid rgba(126,224,255,.6)!important;
-  font-size:24px!important;
-  font-weight:900!important;
-  box-shadow:0 0 18px rgba(0,0,0,.45);
-}
-.parentMode .coverHero{min-height:420px}
-.parentMode .coverMonthSelect{display:none!important}
-@media(max-width:800px){
-  .coverHero{min-height:520px;padding:0 32px 28px!important;background-position:center top!important}
-  .coverOverlay{min-height:430px;padding-top:38px}
-  .titleMain{font-size:58px}
-  .titleYear{font-size:58px;margin-top:28px}
-  .titleKids{font-size:38px}
-  .titleMonth{font-size:64px;margin-top:42px}
-  .coverMonthSelect{min-height:58px;font-size:22px!important}
-}
+/* Editable Dashboard Cover v6 */
+.editableCoverHero{position:relative;display:block!important;min-height:430px;padding:22px 26px 26px!important;background:linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)),url("default-cover.jpeg") center center/cover no-repeat;border-bottom:1px solid rgba(126,224,255,.35);overflow:hidden}
+.coverShade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.12) 55%,rgba(2,8,23,.88));pointer-events:none}
+.coverTop{position:relative;z-index:2;display:flex;align-items:center;gap:16px}
+.coverLogo{width:92px;height:92px;object-fit:contain;filter:drop-shadow(0 8px 15px rgba(0,0,0,.75))}
+.coverText h1{margin:0;font-size:34px;font-weight:900;line-height:1.04;text-shadow:0 5px 14px rgba(0,0,0,.9)}
+.coverText h2{margin:6px 0 0;color:#7ee0ff;font-size:22px;text-shadow:0 5px 14px rgba(0,0,0,.9)}
+.coverMonthSelect{position:absolute;z-index:3;left:26px;right:26px;bottom:26px;width:calc(100% - 52px)!important;min-height:56px;border-radius:16px!important;background:rgba(8,29,57,.92)!important;border:2px solid rgba(126,224,255,.65)!important;font-size:22px!important;font-weight:900!important;box-shadow:0 0 18px rgba(0,0,0,.5)}
+.softLine{border:0;border-top:1px solid rgba(126,224,255,.25);margin:18px 0}
+#coverUpload{margin:8px 0 10px}
+.parentMode .editableCoverHero{min-height:310px}.parentMode .coverMonthSelect{display:none!important}
+@media(max-width:800px){.editableCoverHero{min-height:410px;padding:18px 22px 22px!important}.coverTop{align-items:flex-start}.coverLogo{width:76px;height:76px}.coverText h1{font-size:28px}.coverText h2{font-size:20px}.coverMonthSelect{left:22px;right:22px;bottom:22px;width:calc(100% - 44px)!important}}
