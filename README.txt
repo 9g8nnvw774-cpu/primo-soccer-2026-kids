@@ -1,3 +1,3 @@
-PRIMO SOCCER 2026 KIDS - CATEGORIAS v2.0
+PRIMO SOCCER 2026 KIDS - DISPUTA v3.0
 
-Ranking, agenda e pontuação próprios por categoria. Impressão 1080x1920. Supabase já configurado.
+Fluxo igual ao app adulto: Agenda > Disputa por horário > Pontuação > Ranking. Mantém divisão por categoria.
