@@ -31,8 +31,27 @@ function setSync(msg,type="warn"){const el=document.getElementById("syncStatus")
 function scheduleSave(){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloud,700)}
 function setCategory(cat){activeCategory=cat;renderAll()}
 function openCategory(cat){activeCategory=cat;showPage("disputa")}
-function showPage(page){["dashboard","cadastro","agenda","disputa","ranking","imprimir","config","pais"].forEach(p=>{document.getElementById("page-"+p).classList.toggle("hidden",p!==page);document.getElementById("tab-"+p)?.classList.toggle("active",p===page)});renderAll()}
-function renderAll(){norm();renderMonth();renderSelectors();renderDashboard();renderStudents();renderAgenda();renderScore();renderRankings();renderPrintSelect(); if(typeof applyDashboardCover==="function") applyDashboardCover();}
+function showPage(page){
+  ["dashboard","cadastro","agenda","disputa","ranking","imprimir","config","pais"].forEach(p=>{
+    const pg = document.getElementById("page-"+p);
+    const tb = document.getElementById("tab-"+p);
+    if(pg) pg.classList.toggle("hidden",p!==page);
+    if(tb) tb.classList.toggle("active",p===page);
+  });
+  renderAll();
+}
+function renderAll(){
+  norm();
+  renderMonth();
+  renderSelectors();
+  renderDashboard();
+  renderStudents();
+  renderAgenda();
+  renderScore();
+  renderRankings();
+  renderPrintSelect();
+  applyDashboardCover();
+}
 function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.dataset.ready){sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");sel.dataset.ready="1";sel.onchange=()=>{currentMonth=sel.value;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}};scheduleSave();renderAll()}}sel.value=currentMonth;document.getElementById("heroMonth").textContent=currentMonth}
 function renderSelectors(){document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");["agendaCategory","disputeCategory"].forEach(id=>{document.getElementById(id).innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");document.getElementById(id).value=activeCategory});document.getElementById("studentPicker").innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;const sch=SCHEDULES[activeCategory]||[];document.getElementById("schedulePicker").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreSchedule").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreWeek").innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");renderCopyMonthPicker()}
 function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0)}
@@ -45,10 +64,12 @@ function renderStudents(){
     body.innerHTML = `<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`;
     return;
   }
+
   let html = "";
   CATEGORIES.forEach(cat=>{
     const list = active.filter(s=>s.category===cat[0]);
     if(!list.length) return;
+
     html += `<tr class="categoryDivider cat-${cat[1]}"><td colspan="7">🏆 ${cat[0]} • ${list.length} aluno(s)</td></tr>`;
     html += list.map((s,i)=>`<tr>
       <td>${i+1}</td>
@@ -56,10 +77,13 @@ function renderStudents(){
       <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)"></td>
       <td><input type="date" value="${s.birth||""}" oninput="editStudent('${s.id}','birth',this.value)"></td>
       <td>${ageFromBirth(s.birth)} anos</td>
-      <td><select onchange="editStudent('${s.id}','category',this.value)">${CATEGORIES.map(c=>`<option value="${c[0]}" ${s.category===c[0]?"selected":""}>${c[0]}</option>`).join("")}</select></td>
+      <td><select onchange="editStudent('${s.id}','category',this.value)">
+        ${CATEGORIES.map(c=>`<option value="${c[0]}" ${s.category===c[0]?"selected":""}>${c[0]}</option>`).join("")}
+      </select></td>
       <td><button class="danger" onclick="deleteStudent('${s.id}')">Excluir</button></td>
     </tr>`).join("");
   });
+
   body.innerHTML = html || `<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`;
 }
 function editStudent(id,field,value){const s=studentById(id);if(s){s[field]=value;scheduleSave();renderAll()}}
@@ -164,7 +188,7 @@ function initParentModeIfNeeded(){
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  hero.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%), url("capa-oficial-kids-v10.jpeg?v=10")`;
+  hero.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.20) 42%,rgba(2,8,23,.94) 100%), url("primo-kids-cover-v11.jpg?v=11")`;
 }
 function uploadCover(event){
   const file = event.target.files && event.target.files[0];
@@ -180,7 +204,7 @@ function uploadCover(event){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       state.settings = state.settings || {};
-      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
+      state.settings.dashboardCoverCustom = canvas.toDataURL("image/jpeg",0.86);
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");
@@ -202,7 +226,7 @@ function clearCover(){
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  const cover = "";
+  const cover = state?.settings?.dashboardCover || "";
   if(cover){
     hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
   }else{
@@ -223,7 +247,7 @@ function uploadCover(event){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       state.settings = state.settings || {};
-      state.settings.dashboardCover = canvas.toDataURL("image/jpeg",0.86);
+      state.settings.dashboardCoverCustom = canvas.toDataURL("image/jpeg",0.86);
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");

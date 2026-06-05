@@ -323,15 +323,15 @@ body{
 }
 
 
-/* ===== CAPA OFICIAL KIDS v10 - FORÇADA ===== */
+/* ===== v11 CAPA OFICIAL LIMPA ===== */
 #appHero,
 .hero,
 .officialHero,
 .proHero,
 .editableCoverHero{
   background-image:
-    linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.18) 38%,rgba(2,8,23,.92) 100%),
-    url("capa-oficial-kids-v10.jpeg?v=10")!important;
+    linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.20) 42%,rgba(2,8,23,.94) 100%),
+    url("primo-kids-cover-v11.jpg?v=11")!important;
   background-size:cover!important;
   background-position:center center!important;
   background-repeat:no-repeat!important;
@@ -340,25 +340,18 @@ body{
 body{
   background-image:
     linear-gradient(180deg,rgba(2,8,23,.94),rgba(6,17,122,.98)),
-    url("capa-oficial-kids-v10.jpeg?v=10")!important;
+    url("primo-kids-cover-v11.jpg?v=11")!important;
   background-size:cover!important;
   background-attachment:fixed!important;
 }
 
-.printCard{
-  background-image:
-    linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.42) 44%,rgba(2,8,23,.96)),
-    url("capa-oficial-kids-v10.jpeg?v=10")!important;
-  background-size:cover!important;
-  background-position:center top!important;
-}
-
+.printCard,
 .card,
 .slotCard,
 .catCard{
   background-image:
-    linear-gradient(180deg,rgba(8,45,164,.86),rgba(3,10,43,.96)),
-    url("capa-oficial-kids-v10.jpeg?v=10")!important;
+    linear-gradient(180deg,rgba(8,45,164,.88),rgba(3,10,43,.97)),
+    url("primo-kids-cover-v11.jpg?v=11")!important;
   background-size:cover!important;
   background-position:center!important;
 }
@@ -374,7 +367,6 @@ body{
   border-top:3px solid rgba(126,234,255,.55)!important;
   border-bottom:3px solid rgba(126,234,255,.25)!important;
 }
-
 .categoryDivider.cat-futbaby23 td{background:linear-gradient(90deg,#78350f,#451a03)!important}
 .categoryDivider.cat-futbaby45 td{background:linear-gradient(90deg,#065f46,#022c22)!important}
 .categoryDivider.cat-sub678 td{background:linear-gradient(90deg,#075985,#082f49)!important}
