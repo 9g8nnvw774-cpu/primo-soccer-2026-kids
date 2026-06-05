@@ -1,8 +1,7 @@
 {
   "name": "Primo Soccer 2026 Kids",
-  "short_name": "Primo Kids 2026",
+  "short_name": "Primo Kids",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
   "theme_color": "#06117a",
   "background_color": "#06117a"

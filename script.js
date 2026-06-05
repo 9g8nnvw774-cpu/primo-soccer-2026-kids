@@ -24,8 +24,17 @@ function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if
 function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthObj(m).participants||{}).filter(([id,p])=>p.schedules&&p.schedules.length).map(([id])=>id));return state.students.filter(s=>s.active!==false&&ids.has(s.id))}
 function activeByCategory(cat=activeCategory){return activeStudents().filter(s=>s.category===cat)}
 function ranked(cat=null){return activeStudents().filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
-function avatarHtml(s){return s.photo?`<span class="avatar"><img src="${s.photo}"></span>`:`<span class="avatar">${initials(s.name)}</span>`}
-function photoPickerHtml(s){return`<label class="avatarInputLabel">${s.photo?`<img src="${s.photo}">`:initials(s.name)}<input class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')"></label>`}
+function avatarHtml(s){
+  return s.photo
+    ? `<span class="avatar"><img src="${s.photo}" onclick="openPhoto('${s.photo}')"></span>`
+    : `<span class="avatar">${initials(s.name)}</span>`;
+}
+function photoPickerHtml(s){
+  return `<label class="avatarInputLabel">
+    ${s.photo?`<img src="${s.photo}" onclick="event.preventDefault(); openPhoto('${s.photo}')">`:initials(s.name)}
+    <input class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
+  </label>`;
+}
 function loadPhoto(e,id){const file=e.target.files&&e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{let w=img.width,h=img.height,max=420;if(w>h&&w>max){h=Math.round(h*max/w);w=max}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);const s=studentById(id);if(s){s.photo=c.toDataURL("image/jpeg",.82);scheduleSave();renderAll()}};img.src=r.result};r.readAsDataURL(file)}
 function setSync(msg,type="warn"){const el=document.getElementById("syncStatus");el.textContent=msg;el.style.color=type==="ok"?"#8ff0b3":type==="error"?"#ff8b8b":"#ffe082"}
 function scheduleSave(){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloud,700)}
@@ -50,7 +59,7 @@ function renderAll(){
   renderScore();
   renderRankings();
   renderPrintSelect();
-  applyDashboardCover();
+  if(typeof applyDashboardCover==="function") applyDashboardCover();
 }
 function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.dataset.ready){sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");sel.dataset.ready="1";sel.onchange=()=>{currentMonth=sel.value;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}};scheduleSave();renderAll()}}sel.value=currentMonth;document.getElementById("heroMonth").textContent=currentMonth}
 function renderSelectors(){document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");["agendaCategory","disputeCategory"].forEach(id=>{document.getElementById(id).innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");document.getElementById(id).value=activeCategory});document.getElementById("studentPicker").innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;const sch=SCHEDULES[activeCategory]||[];document.getElementById("schedulePicker").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreSchedule").innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");document.getElementById("scoreWeek").innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");renderCopyMonthPicker()}
@@ -164,17 +173,7 @@ renderRankings = function(){
   if(isParentMode()) renderParentMode();
 };
 
-preparePrint = function(type){
-  const cat=document.getElementById("printCategory").value;
-  const list=type==="general"?ranked():ranked(cat);
-  const title=type==="general"?"RANKING GERAL DO MÊS":cat;
-  document.getElementById("printArea").innerHTML=`<div class="printCard">
-    <img src="primo-logo.png" class="printLogo">
-    <h1>PRIMO SOCCER 2026 KIDS</h1>
-    <h2>${title} • ${currentMonth}</h2>
-    ${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}
-  </div>`;
-};
+
 
 function initParentModeIfNeeded(){
   if(!isParentMode()) return;
@@ -183,28 +182,43 @@ function initParentModeIfNeeded(){
   renderParentMode();
 }
 
+/* ===== PATCH FINAL JOÃO - IMPRESSÃO INTERNA + FOTO AMPLIADA + CAPA ESTÁVEL ===== */
 
-// ===== Capa editável v6 =====
 function applyDashboardCover(){
   const hero = document.getElementById("appHero");
   if(!hero) return;
-  hero.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.20) 42%,rgba(2,8,23,.94) 100%), url("primo-kids-cover-v11.jpg?v=11")`;
+
+  const cover = state?.settings?.dashboardCoverCustom || "visual-kids-oficial.jpeg";
+
+  hero.style.backgroundImage =
+    `linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.20) 42%,rgba(2,8,23,.94)), url("${cover}")`;
 }
+
 function uploadCover(event){
   const file = event.target.files && event.target.files[0];
   if(!file) return;
+
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
       const maxW = 1200;
-      let w = img.width, h = img.height;
-      if(w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+      let w = img.width;
+      let h = img.height;
+
+      if(w > maxW){
+        h = Math.round(h * maxW / w);
+        w = maxW;
+      }
+
       const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
+      canvas.width = w;
+      canvas.height = h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
+
       state.settings = state.settings || {};
       state.settings.dashboardCoverCustom = canvas.toDataURL("image/jpeg",0.86);
+
       scheduleSave();
       applyDashboardCover();
       alert("Capa do Dashboard atualizada!");
@@ -213,55 +227,59 @@ function uploadCover(event){
   };
   reader.readAsDataURL(file);
 }
+
 function clearCover(){
   if(!confirm("Remover capa personalizada?")) return;
+
   state.settings = state.settings || {};
   delete state.settings.dashboardCover;
+  delete state.settings.dashboardCoverV9;
+  delete state.settings.dashboardCoverCustom;
+
   scheduleSave();
   applyDashboardCover();
 }
 
+function openPhoto(src){
+  let modal = document.getElementById("photoModal");
 
-// ===== Capa editável v6 =====
-function applyDashboardCover(){
-  const hero = document.getElementById("appHero");
-  if(!hero) return;
-  const cover = state?.settings?.dashboardCover || "";
-  if(cover){
-    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.08),rgba(2,8,23,.90)), url("${cover}")`;
-  }else{
-    hero.style.backgroundImage = `linear-gradient(180deg,rgba(6,17,122,.2),rgba(2,8,23,.94)), url("default-cover.jpeg")`;
+  if(!modal){
+    modal = document.createElement("div");
+    modal.id = "photoModal";
+    modal.innerHTML = '<img id="photoModalImg" alt="Foto ampliada">';
+    modal.onclick = () => modal.classList.remove("show");
+    document.body.appendChild(modal);
   }
-}
-function uploadCover(event){
-  const file = event.target.files && event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const img = new Image();
-    img.onload = () => {
-      const maxW = 1200;
-      let w = img.width, h = img.height;
-      if(w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img,0,0,w,h);
-      state.settings = state.settings || {};
-      state.settings.dashboardCoverCustom = canvas.toDataURL("image/jpeg",0.86);
-      scheduleSave();
-      applyDashboardCover();
-      alert("Capa do Dashboard atualizada!");
-    };
-    img.src = reader.result;
-  };
-  reader.readAsDataURL(file);
-}
-function clearCover(){
-  if(!confirm("Remover capa personalizada?")) return;
-  state.settings = state.settings || {};
-  delete state.settings.dashboardCover;
-  scheduleSave();
-  applyDashboardCover();
+
+  const img = document.getElementById("photoModalImg");
+  img.src = src;
+  modal.classList.add("show");
 }
 
-renderAll();showPage("dashboard");initCloud();setTimeout(applyDashboardCover,700);setTimeout(()=>{initParentModeIfNeeded&&initParentModeIfNeeded();applyDashboardCover();},700);
+function preparePrint(type){
+  const cat = document.getElementById("printCategory").value;
+  const list = type==="general" ? ranked() : ranked(cat);
+  const title = type==="general" ? "RANKING GERAL DO MÊS" : cat;
+
+  document.getElementById("printArea").innerHTML = `
+    <div class="printCard printOnlyCard">
+      <img src="primo-logo.png" class="printLogo">
+      <h1>PRIMO SOCCER 2026 KIDS</h1>
+      <h2>${title} • ${currentMonth}</h2>
+      <div class="printTableOnly">
+        ${list.map((s,i)=>`
+          <div class="printRow">
+            <span>${i+1}º</span>
+            <span class="printPhoto">
+              ${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}
+            </span>
+            <span>${esc(s.name)}</span>
+            <strong>${s.total} pts</strong>
+          </div>
+        `).join("") || "<p>Nenhum aluno.</p>"}
+      </div>
+    </div>`;
+}
+
+
+renderAll();showPage("dashboard");initCloud();setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); applyDashboardCover(); },700);
