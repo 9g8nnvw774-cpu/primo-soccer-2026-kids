@@ -509,3 +509,10 @@ body{
     height:68px!important;
   }
 }
+
+/* ===== V13 - DOIS HORÁRIOS + RANKING ANUAL POR CATEGORIA ===== */
+.item.multiSchedule{background:linear-gradient(90deg,rgba(255,193,7,.30),rgba(255,255,255,.08))!important;border:1px solid rgba(255,221,87,.55)!important}
+.item.singleSchedule{background:linear-gradient(90deg,rgba(126,234,255,.18),rgba(255,255,255,.08))!important}
+.annualTitle{margin-top:18px!important;padding-top:12px!important;border-top:1px solid rgba(126,234,255,.35)!important;color:#7eeaff!important}
+.catCard h3,#categoryRanking h3,#parentRankingArea h3{font-family:"Arial Black",Arial,sans-serif!important;font-size:17px!important;text-transform:uppercase!important;margin:12px 0 8px!important;color:#fff!important;text-shadow:0 4px 12px rgba(0,0,0,.85)!important}
+#rankingGeneral{display:none!important}

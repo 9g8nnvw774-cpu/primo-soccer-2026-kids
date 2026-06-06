@@ -130,7 +130,7 @@
 
 <section id="page-ranking" class="page hidden">
   <div class="card">
-    <h2>Ranking geral do mês</h2>
+    <h2>Rankings por categoria</h2>
     <div id="rankingGeneral" class="rankList"></div>
   </div>
   <div id="allCategoryRankings" class="gridCards"></div>
@@ -141,7 +141,7 @@
     <h2>Impressão Instagram 1080x1920</h2>
     <select id="printCategory"></select>
     <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
-    <button onclick="preparePrint('general')" class="secondary">Gerar ranking geral</button>
+    <button onclick="preparePrint('annual')" class="secondary">Gerar ranking anual da categoria</button>
     <button onclick="window.print()" class="success">Imprimir / Salvar imagem</button>
   </div>
   <div id="printArea" class="printArea"></div>
@@ -168,7 +168,7 @@
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v12 • Impressão Interna + Foto Ampliada</p>
+    <p><strong>Versão:</strong> Kids v13 • Ranking Anual por Categoria</p>
     <p><strong>App ID:</strong> primo_soccer_2026_kids</p>
   </div>
 </section>
