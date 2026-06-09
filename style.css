@@ -516,3 +516,51 @@ body{
 .annualTitle{margin-top:18px!important;padding-top:12px!important;border-top:1px solid rgba(126,234,255,.35)!important;color:#7eeaff!important}
 .catCard h3,#categoryRanking h3,#parentRankingArea h3{font-family:"Arial Black",Arial,sans-serif!important;font-size:17px!important;text-transform:uppercase!important;margin:12px 0 8px!important;color:#fff!important;text-shadow:0 4px 12px rgba(0,0,0,.85)!important}
 #rankingGeneral{display:none!important}
+
+/* ===== V14 JOÃO - PONTUAÇÃO RÁPIDA + CORES NA IMPRESSÃO ===== */
+.quickScore{
+  display:grid!important;
+  grid-template-columns:44px 64px 44px!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  min-width:166px!important;
+}
+.quickScore button{
+  width:44px!important;
+  min-height:44px!important;
+  height:44px!important;
+  border-radius:14px!important;
+  padding:0!important;
+  font-size:26px!important;
+  line-height:1!important;
+  font-family:"Arial Black",Arial,sans-serif!important;
+  color:#fff!important;
+  box-shadow:0 4px 12px rgba(0,0,0,.35)!important;
+}
+.scoreMinus{background:linear-gradient(180deg,#ff5252,#991b1b)!important}
+.scorePlus{background:linear-gradient(180deg,#22c55e,#14532d)!important}
+.quickScoreInput{
+  width:64px!important;
+  min-width:64px!important;
+  height:44px!important;
+  font-size:20px!important;
+  border-radius:14px!important;
+  background:#020817!important;
+  color:#fff!important;
+  border:2px solid rgba(126,234,255,.65)!important;
+}
+.scoreTable th:nth-child(3),.scoreTable th:nth-child(4){min-width:180px!important}
+.scoreTable td:nth-child(3),.scoreTable td:nth-child(4){min-width:180px!important}
+#printColor{margin:10px 0!important}
+.print-azul .printRow{background:rgba(2,8,23,.72)!important;border-color:rgba(126,234,255,.38)!important}.print-azul h2{color:#7eeaff!important}.print-azul .printPhoto{border-color:#7eeaff!important}
+.print-preto .printRow{background:rgba(0,0,0,.82)!important;border-color:rgba(255,255,255,.35)!important}.print-preto h2{color:#fff!important}.print-preto .printPhoto{border-color:#fff!important}
+.print-verde .printRow{background:rgba(5,95,70,.76)!important;border-color:rgba(134,239,172,.55)!important}.print-verde h2{color:#86efac!important}.print-verde .printPhoto{border-color:#86efac!important}
+.print-roxo .printRow{background:rgba(88,28,135,.78)!important;border-color:rgba(216,180,254,.55)!important}.print-roxo h2{color:#d8b4fe!important}.print-roxo .printPhoto{border-color:#d8b4fe!important}
+.print-rosa .printRow{background:rgba(190,24,93,.76)!important;border-color:rgba(249,168,212,.55)!important}.print-rosa h2{color:#f9a8d4!important}.print-rosa .printPhoto{border-color:#f9a8d4!important}
+.print-dourado .printRow{background:rgba(120,83,10,.78)!important;border-color:rgba(253,224,71,.65)!important}.print-dourado h2{color:#fde047!important}.print-dourado .printPhoto{border-color:#fde047!important}
+@media(max-width:800px){
+  table.scoreTable{min-width:1040px!important}
+  .quickScore{grid-template-columns:42px 62px 42px!important;min-width:156px!important}
+  .quickScore button{width:42px!important;height:42px!important;min-height:42px!important}
+}

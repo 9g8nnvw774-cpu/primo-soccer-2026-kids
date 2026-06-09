@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Primo Soccer 2026 Kids</title>
+<title>Kids Infanto Juvenil 2016</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -13,8 +13,8 @@
   <div class="officialHeroShade"></div>
   <div class="officialHeroContent">
     <img src="primo-logo.png" class="officialLogo" alt="Primo Soccer">
-    <div class="officialTitle">PRIMO SOCCER</div>
-    <div class="officialSubTitle">2026 KIDS</div>
+    <div class="officialTitle">KIDS INFANTO</div>
+    <div class="officialSubTitle">JUVENIL 2016</div>
     <div class="officialMonth">MÊS: <span id="heroMonth">MAIO</span></div>
   </div>
   <select id="monthSelect" class="officialMonthSelect"></select>
@@ -140,6 +140,14 @@
   <div class="card noPrint">
     <h2>Impressão Instagram 1080x1920</h2>
     <select id="printCategory"></select>
+    <select id="printColor">
+      <option value="azul">Tabela Azul Oficial</option>
+      <option value="preto">Tabela Preta Premium</option>
+      <option value="verde">Tabela Verde Campo</option>
+      <option value="roxo">Tabela Roxa</option>
+      <option value="rosa">Tabela Rosa Meninas</option>
+      <option value="dourado">Tabela Dourada Campeões</option>
+    </select>
     <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
     <button onclick="preparePrint('annual')" class="secondary">Gerar ranking anual da categoria</button>
     <button onclick="window.print()" class="success">Imprimir / Salvar imagem</button>
@@ -151,7 +159,7 @@
 <section id="page-pais" class="page hidden parentOnlyPage">
   <div class="card parentHeader">
     <img src="primo-logo.png" class="parentLogo" alt="Primo Soccer">
-    <h2>Ranking Primo Soccer Kids</h2>
+    <h2>Kids Infanto Juvenil 2016</h2>
     <p>Resultados por categoria — MÊS: <strong id="parentMonth">MAIO</strong></p>
     <div id="parentCategoryTabs" class="parentTabs"></div>
   </div>

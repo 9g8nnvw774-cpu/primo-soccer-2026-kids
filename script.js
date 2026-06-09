@@ -136,8 +136,22 @@ function renderAgenda(){
   }).join("");
 }
 function removeFromSchedule(id,sch){const p=participant(id,false);if(p){p.schedules=p.schedules.filter(x=>x!==sch);scheduleSave();renderAll()}}
-function renderScore(){const sch=document.getElementById("scoreSchedule").value||(SCHEDULES[activeCategory]||[])[0]||"",week=+document.getElementById("scoreWeek").value||0;document.getElementById("scoreTitle").textContent=`${activeCategory} • ${sch} • Semana ${week+1}`;const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));document.getElementById("scoreTable").innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);return`<tr><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td><input class="scoreInput" type="number" value="${score.pd}" oninput="setScore('${s.id}',${week},'${sch}','pd',this.value,this)"></td><td><input class="scoreInput" type="number" value="${score.pe}" oninput="setScore('${s.id}',${week},'${sch}','pe',this.value,this)"></td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange="setScore('${s.id}',${week},'${sch}','${field}',this.value,this)"><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`}
+function scoreStepperHtml(id,week,sch,field,value){
+  const safeId=JSON.stringify(id), safeSch=JSON.stringify(sch), safeField=JSON.stringify(field);
+  return `<div class="quickScore" data-field="${field}">
+    <button type="button" class="scoreMinus" onclick='adjustScore(${safeId},${week},${safeSch},${safeField},-1,this)'>−</button>
+    <input class="scoreInput quickScoreInput" type="number" value="${value}" oninput='setScore(${safeId},${week},${safeSch},${safeField},this.value,this)'>
+    <button type="button" class="scorePlus" onclick='adjustScore(${safeId},${week},${safeSch},${safeField},1,this)'>+</button>
+  </div>`;
+}
+function renderScore(){
+  const sch=document.getElementById("scoreSchedule").value||(SCHEDULES[activeCategory]||[])[0]||"",week=+document.getElementById("scoreWeek").value||0;
+  document.getElementById("scoreTitle").textContent=`${activeCategory} • ${sch} • Semana ${week+1}`;
+  const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
+  document.getElementById("scoreTable").innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);return`<tr><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
+}
 function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
+function adjustScore(id,week,sch,field,delta,el){const sc=getScore(id,week,sch);sc[field]=(+sc[field]||0)+delta;const wrap=el.closest(".quickScore");const input=wrap?.querySelector("input");if(input)input.value=sc[field];const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
 function renderRankings(){
@@ -151,7 +165,7 @@ function renderCopyMonthPicker(){const picker=document.getElementById("copyMonth
 function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=SCHEDULES[activeCategory]||[];const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
 function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=SCHEDULES[activeCategory]||[];activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
-function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>PRIMO SOCCER 2026 KIDS</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
+function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>KIDS INFANTO JUVENIL 2016</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){const keep=currentMonth;state=data.data;currentMonth=keep;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
 async function saveCloud(){if(!sb){if(!window.supabase)return;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok")}catch(e){console.error(e);setSync("Erro ao salvar online.","error")}}
 async function syncNow(){await saveCloud();alert("Sincronizado")}
@@ -283,7 +297,7 @@ function preparePrint(type){
   document.getElementById("printArea").innerHTML = `
     <div class="printCard printOnlyCard">
       <img src="primo-logo.png" class="printLogo">
-      <h1>PRIMO SOCCER 2026 KIDS</h1>
+      <h1>KIDS INFANTO JUVENIL 2016</h1>
       <h2>${title} • ${currentMonth}</h2>
       <div class="printTableOnly">
         ${list.map((s,i)=>`
@@ -305,9 +319,10 @@ function preparePrint(type){
 /* ===== V13 PRINT POR CATEGORIA ===== */
 preparePrint = function(type){
   const cat=document.getElementById("printCategory").value;
+  const color=document.getElementById("printColor")?.value||"azul";
   const list=type==="annual"?rankedAnnual(cat):ranked(cat);
   const title=type==="annual"?`RANKING ANUAL • ${cat}`:`${cat} • ${currentMonth}`;
-  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard"><img src="primo-logo.png" class="printLogo"><h1>PRIMO SOCCER 2026 KIDS</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
+  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>KIDS INFANTO JUVENIL 2016</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
 };
 
 renderAll();showPage("dashboard");initCloud();setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); applyDashboardCover(); },700);
