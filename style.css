@@ -564,3 +564,5 @@ body{
   .quickScore{grid-template-columns:42px 62px 42px!important;min-width:156px!important}
   .quickScore button{width:42px!important;height:42px!important;min-height:42px!important}
 }
+
+.officialYear{text-align:center;font-size:22px;font-weight:800;color:#fff;margin-top:6px}
