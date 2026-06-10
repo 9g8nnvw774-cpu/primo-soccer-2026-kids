@@ -3,12 +3,23 @@ const SUPABASE_KEY=window.PRIMO_SUPABASE_CONFIG?.anonKey;
 const APP_ID=window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_2026_kids";
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Meninas","meninas"],["Sub 11-12-13-14 anos","sub1114"]];
-const SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Meninas":["Quarta 10:45 • Meninas"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
+const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Meninas":["Quarta 10:45 • Meninas"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
 const STORAGE_KEY="primo_soccer_2026_kids_state_v3",MONTH_KEY="primo_soccer_2026_kids_month_v3";
-let currentMonth=localStorage.getItem(MONTH_KEY)||"MAIO",state=loadLocal(),sb=null,saveTimer=null,activeCategory=CATEGORIES[0][0];
-function defaultState(){return{students:[],months:{},currentMonth,schemaVersion:3}}
+const APP_TITLE_HTML = "<span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span>";
+const APP_TITLE_TEXT = "PRIMO SOCCER KIDS / INFANTO / JUVENIL 2026";
+const DEFAULT_RULES = `🏆 Regras do campeonato
+• Pontuação por treino: P/D + P/E + bônus.
+• Bônus: uniforme, fruta e comportamento.
+• Ranking mensal por categoria.
+• Respeito, disciplina e presença contam para evolução do atleta.`;
+let currentMonth=localStorage.getItem(MONTH_KEY)||MONTHS[new Date().getMonth()],state=loadLocal(),sb=null,saveTimer=null,activeCategory=CATEGORIES[0][0];
+function defaultState(){return{students:[],months:{},currentMonth,settings:{rules:DEFAULT_RULES,customSchedules:{}},schemaVersion:4}}
 function loadLocal(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||defaultState()}catch(e){return defaultState()}}
-function norm(){if(!state||typeof state!=="object")state=defaultState();if(!Array.isArray(state.students))state.students=[];if(!state.months)state.months={};state.currentMonth=currentMonth;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}}}
+function norm(){if(!state||typeof state!=="object")state=defaultState();if(!Array.isArray(state.students))state.students=[];if(!state.months)state.months={};if(!state.settings)state.settings={};if(!state.settings.rules)state.settings.rules=DEFAULT_RULES;if(!state.settings.customSchedules)state.settings.customSchedules={};state.currentMonth=currentMonth;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}}}
+function schedulesFor(cat){const base=DEFAULT_SCHEDULES[cat]||[];const custom=state?.settings?.customSchedules?.[cat]||[];return [...base,...custom].filter((v,i,a)=>v&&a.indexOf(v)===i)}
+function appTitleBlock(cls="appTitleBlock"){return `<div class="${cls}">${APP_TITLE_HTML}</div>`}
+function rulesHtml(){return esc(state?.settings?.rules||DEFAULT_RULES).replace(/\n/g,"<br>")}
+function applyAppTitle(){document.title=APP_TITLE_TEXT;document.querySelectorAll("[data-app-title]").forEach(el=>el.innerHTML=APP_TITLE_HTML)}
 function saveLocal(){norm();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));localStorage.setItem(MONTH_KEY,currentMonth)}
 function uid(){return"KID-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase()}
 function esc(t){return String(t??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
@@ -30,8 +41,8 @@ function avatarHtml(s){
     : `<span class="avatar">${initials(s.name)}</span>`;
 }
 function photoPickerHtml(s){
-  return `<label class="avatarInputLabel">
-    ${s.photo?`<img src="${s.photo}" onclick="event.preventDefault(); openPhoto('${s.photo}')">`:initials(s.name)}
+  return `<label class="avatarInputLabel" title="Toque para alterar a foto">
+    ${s.photo?`<img src="${s.photo}">`:initials(s.name)}
     <input class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
   </label>`;
 }
@@ -59,6 +70,9 @@ function renderAll(){
   renderScore();
   renderRankings();
   renderPrintSelect();
+  renderRules();
+  renderCustomScheduleControls();
+  applyAppTitle();
   if(typeof applyDashboardCover==="function") applyDashboardCover();
 }
 function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.dataset.ready){sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");sel.dataset.ready="1";sel.onchange=()=>{currentMonth=sel.value;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}};scheduleSave();renderAll()}}sel.value=currentMonth;document.getElementById("heroMonth").textContent=currentMonth}
@@ -79,13 +93,56 @@ function renderSelectors(){
   ["agendaCategory","disputeCategory"].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");el.value=activeCategory});
   const sp=document.getElementById("studentPicker");
   if(sp){sp.innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(studentOptionLabel(s))}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;restoreSelectValue("studentPicker",currentStudent)}
-  const sch=SCHEDULES[activeCategory]||[];
+  const sch=schedulesFor(activeCategory);
   const ap=document.getElementById("schedulePicker");if(ap){ap.innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");restoreSelectValue("schedulePicker",currentSchedule)}
   const ss=document.getElementById("scoreSchedule");if(ss){ss.innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");restoreSelectValue("scoreSchedule",currentScoreSchedule)}
   const sw=document.getElementById("scoreWeek");if(sw){sw.innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");restoreSelectValue("scoreWeek",currentWeek)}
   renderCopyMonthPicker();
 }
-function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0)}
+function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0);renderRules()}
+
+function renderRules(){
+  const dash=document.getElementById("championshipRules");
+  if(dash)dash.innerHTML=rulesHtml();
+  const parent=document.getElementById("parentRules");
+  if(parent)parent.innerHTML=rulesHtml();
+  const editor=document.getElementById("rulesEditor");
+  if(editor&&document.activeElement!==editor)editor.value=state?.settings?.rules||DEFAULT_RULES;
+}
+function saveRules(){
+  const editor=document.getElementById("rulesEditor");
+  state.settings=state.settings||{};
+  state.settings.rules=(editor?.value||DEFAULT_RULES).trim()||DEFAULT_RULES;
+  scheduleSave();renderRules();alert("Regras atualizadas!");
+}
+function renderCustomScheduleControls(){
+  const catSel=document.getElementById("newScheduleCategory");
+  if(catSel&&!catSel.dataset.ready){catSel.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");catSel.dataset.ready="1"}
+  const list=document.getElementById("customScheduleList");
+  if(list){const items=Object.entries(state?.settings?.customSchedules||{}).flatMap(([cat,arr])=>(arr||[]).map((sch,i)=>({cat,sch,i})));list.innerHTML=items.map(x=>`<div class="item"><span><strong>${esc(x.cat)}</strong><br>${esc(x.sch)}</span><button class="danger" onclick="removeCustomSchedule('${esc(x.cat)}',${x.i})">Excluir</button></div>`).join("")||"<p>Nenhum horário extra cadastrado.</p>"}
+}
+function addCustomSchedule(){
+  const cat=document.getElementById("newScheduleCategory")?.value||activeCategory;
+  const day=document.getElementById("newScheduleDay")?.value||"";
+  const time=document.getElementById("newScheduleTime")?.value||"";
+  const label=(document.getElementById("newScheduleLabel")?.value||cat).trim();
+  if(!day||!time)return alert("Escolha o dia e o horário.");
+  const sch=`${day} ${time} • ${label}`;
+  state.settings=state.settings||{};state.settings.customSchedules=state.settings.customSchedules||{};
+  state.settings.customSchedules[cat]=state.settings.customSchedules[cat]||[];
+  if(state.settings.customSchedules[cat].includes(sch)||schedulesFor(cat).includes(sch))return alert("Esse horário já existe.");
+  state.settings.customSchedules[cat].push(sch);
+  activeCategory=cat;
+  scheduleSave();renderAll();alert("Novo horário adicionado!");
+}
+function removeCustomSchedule(cat,index){
+  if(!confirm("Excluir esse horário extra?"))return;
+  const arr=state?.settings?.customSchedules?.[cat];if(!arr)return;
+  const sch=arr[index];arr.splice(index,1);
+  Object.values(state.months||{}).forEach(m=>Object.values(m.participants||{}).forEach(p=>{if(p.schedules)p.schedules=p.schedules.filter(x=>x!==sch)}));
+  scheduleSave();renderAll();
+}
+
 function addStudent(){const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;if(!name)return alert("Digite o nome do aluno.");state.students.push({id:uid(),name,birth,category,active:true,photo:"",createdAt:new Date().toISOString()});document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";scheduleSave();renderAll();alert("Aluno cadastrado!")}
 function renderStudents(){
   const body = document.getElementById("studentsTable");
@@ -129,7 +186,7 @@ function addToSchedule(){
   p.schedules.push(sch);scheduleSave();renderAll();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
 }
 function renderAgenda(){
-  const schList=SCHEDULES[activeCategory]||[];
+  const schList=schedulesFor(activeCategory);
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
     const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
     return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/6</span></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
@@ -145,13 +202,13 @@ function scoreStepperHtml(id,week,sch,field,value){
   </div>`;
 }
 function renderScore(){
-  const sch=document.getElementById("scoreSchedule").value||(SCHEDULES[activeCategory]||[])[0]||"",week=+document.getElementById("scoreWeek").value||0;
+  const sch=document.getElementById("scoreSchedule").value||(schedulesFor(activeCategory))[0]||"",week=+document.getElementById("scoreWeek").value||0;
   document.getElementById("scoreTitle").textContent=`${activeCategory} • ${sch} • Semana ${week+1}`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
   document.getElementById("scoreTable").innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);return`<tr><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
 function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
-function adjustScore(id,week,sch,field,delta,el){const sc=getScore(id,week,sch);sc[field]=(+sc[field]||0)+delta;const wrap=el.closest(".quickScore");const input=wrap?.querySelector("input");if(input)input.value=sc[field];const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
+function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=(+sc[field]||0)+delta;const wrap=el.closest(".quickScore");const input=wrap?.querySelector("input");if(input)input.value=sc[field];const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
 function renderRankings(){
@@ -161,12 +218,12 @@ function renderRankings(){
   const all=document.getElementById("allCategoryRankings");
   if(all){all.innerHTML=CATEGORIES.map(c=>{const monthly=ranked(c[0]),annual=rankedAnnual(c[0]);return`<div class="catCard cat-${c[1]}"><h2>${c[0]}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthly.map(rankRow).join("")||"<p>Nenhum aluno ativo no mês.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${annual.map(rankRow).join("")||"<p>Nenhuma pontuação anual.</p>"}</div>`}).join("")}
 }
-function renderCopyMonthPicker(){const picker=document.getElementById("copyMonthPicker");const available=MONTHS.filter(m=>m!==currentMonth&&Object.values(state.months?.[m]?.participants||{}).some(p=>p.schedules&&p.schedules.some(s=>(SCHEDULES[activeCategory]||[]).includes(s))));picker.innerHTML=available.map(m=>`<option value="${m}">${m}</option>`).join("")||`<option value="">Nenhum mês com agenda</option>`}
-function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=SCHEDULES[activeCategory]||[];const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
-function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=SCHEDULES[activeCategory]||[];activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
+function renderCopyMonthPicker(){const picker=document.getElementById("copyMonthPicker");const available=MONTHS.filter(m=>m!==currentMonth&&Object.values(state.months?.[m]?.participants||{}).some(p=>p.schedules&&p.schedules.some(s=>(schedulesFor(activeCategory)).includes(s))));picker.innerHTML=available.map(m=>`<option value="${m}">${m}</option>`).join("")||`<option value="">Nenhum mês com agenda</option>`}
+function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
+function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
-function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>PRIMO SOCCER<br>KIDS / INFANTO / JUVENIL<br>2026</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
-async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){const keep=currentMonth;state=data.data;currentMonth=keep;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
+function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
+async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){const localMonth=currentMonth;state=data.data;currentMonth=state.currentMonth||localMonth;if(!isParentMode()&&localStorage.getItem(MONTH_KEY))currentMonth=state.currentMonth||localMonth;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
 async function saveCloud(){if(!sb){if(!window.supabase)return;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok")}catch(e){console.error(e);setSync("Erro ao salvar online.","error")}}
 async function syncNow(){await saveCloud();alert("Sincronizado")}
 async function loadCloud(){await initCloud()}
@@ -180,7 +237,7 @@ function isParentMode(){
 }
 
 function copyParentLink(){
-  const url = location.origin + location.pathname + "?pais=1";
+  const url = location.origin + location.pathname + "?pais=1&t=" + Date.now();
   const el = document.getElementById("parentLinkText");
   if(el) el.textContent = url;
   if(navigator.clipboard){
@@ -198,7 +255,7 @@ function setParentCategory(cat){
 function renderParentMode(){
   const m=document.getElementById("parentMonth");if(m)m.textContent=currentMonth;
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
-  const area=document.getElementById("parentRankingArea");if(area){const monthList=ranked(parentCategory),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
+  const area=document.getElementById("parentRankingArea");if(area){const monthList=ranked(parentCategory),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard"><h2>Regras do campeonato</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
 }
 const renderRankingsBase = renderRankings;
 renderRankings = function(){
@@ -297,7 +354,7 @@ function preparePrint(type){
   document.getElementById("printArea").innerHTML = `
     <div class="printCard printOnlyCard">
       <img src="primo-logo.png" class="printLogo">
-      <h1>PRIMO SOCCER<br>KIDS / INFANTO / JUVENIL<br>2026</h1>
+      <h1>${APP_TITLE_HTML}</h1>
       <h2>${title} • ${currentMonth}</h2>
       <div class="printTableOnly">
         ${list.map((s,i)=>`
@@ -322,7 +379,7 @@ preparePrint = function(type){
   const color=document.getElementById("printColor")?.value||"azul";
   const list=type==="annual"?rankedAnnual(cat):ranked(cat);
   const title=type==="annual"?`RANKING ANUAL • ${cat}`:`${cat} • ${currentMonth}`;
-  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>PRIMO SOCCER<br>KIDS / INFANTO / JUVENIL<br>2026</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
+  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
 };
 
-renderAll();showPage("dashboard");initCloud();setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); applyDashboardCover(); },700);
+renderAll();showPage("dashboard");initCloud();setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); applyDashboardCover(); },700);setInterval(()=>{if(isParentMode())loadCloud();},15000);

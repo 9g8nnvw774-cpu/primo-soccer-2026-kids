@@ -565,4 +565,20 @@ body{
   .quickScore button{width:42px!important;height:42px!important;min-height:42px!important}
 }
 
-.officialYear{text-align:center;font-size:22px;font-weight:800;color:#fff;margin-top:6px}
+
+/* ===== V15 JOÃO - LINK PAIS, REGRAS, HORÁRIOS E TÍTULO 2026 ===== */
+.officialTitle[data-app-title], [data-app-title]{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:2px!important;line-height:1.02!important;text-align:center!important;font-family:"Arial Black",Arial,sans-serif!important;text-transform:uppercase!important}
+.officialTitle[data-app-title] span:first-child{font-size:34px!important;color:#fff!important;text-shadow:0 4px 14px rgba(0,0,0,.75)!important}
+.officialTitle[data-app-title] span:nth-child(2){font-size:24px!important;color:#7eeaff!important;text-shadow:0 4px 14px rgba(0,0,0,.75)!important}
+.officialTitle[data-app-title] span:nth-child(3){font-size:30px!important;color:#fff!important;text-shadow:0 4px 14px rgba(0,0,0,.75)!important}
+.parentHeader [data-app-title] span{display:block;font-family:"Arial Black",Arial,sans-serif;line-height:1.05}.parentHeader [data-app-title] span:nth-child(2){color:#7eeaff}.parentHeader [data-app-title] span:nth-child(3){font-size:1.15em}
+.rulesCard{border-color:rgba(253,224,71,.45)!important;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(2,8,23,.96))!important}.rulesCard h2{color:#fde047!important}.rulesCard p,.rulesMini{white-space:normal!important;line-height:1.45!important;color:#fff!important;font-weight:800!important}.rulesMini{background:rgba(0,0,0,.28);border:1px solid rgba(253,224,71,.35);border-radius:14px;padding:10px;margin:10px 0;text-align:left}
+#rulesEditor{width:100%;min-height:140px;border-radius:14px;border:1px solid rgba(126,224,255,.45);background:#10233d;color:#fff;padding:12px;font-size:16px;font-weight:800}
+.customScheduleForm{grid-template-columns:1.4fr 1fr 1fr 1.8fr 1fr!important}.avatarInputLabel{cursor:pointer!important;position:relative}.avatarInputLabel:after{content:"ALTERAR";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);font-size:8px;background:#7eeaff;color:#020817;border-radius:999px;padding:2px 5px;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+#page-disputa .tableWrap{overscroll-behavior:contain!important;touch-action:pan-x!important;max-height:calc(100vh - 260px)!important;overflow:auto!important;-webkit-overflow-scrolling:auto!important}.quickScore button{touch-action:manipulation!important;user-select:none!important}.quickScoreInput{touch-action:manipulation!important}
+.printCard h1 .appTitleBlock,.printCard h1{line-height:1.05!important;text-align:center!important}.printCard h1 span{display:block}.printCard h1 span:nth-child(2){color:#7eeaff!important;font-size:.78em!important}.printCard h1 span:nth-child(3){font-size:1.05em!important}
+.print-neon .printRow{background:rgba(8,47,73,.82)!important;border-color:rgba(34,211,238,.65)!important}.print-neon h2{color:#22d3ee!important}.print-neon .printPhoto{border-color:#22d3ee!important}
+.print-vermelho .printRow{background:rgba(127,29,29,.78)!important;border-color:rgba(252,165,165,.58)!important}.print-vermelho h2{color:#fca5a5!important}.print-vermelho .printPhoto{border-color:#fca5a5!important}
+.print-branco .printRow{background:rgba(255,255,255,.9)!important;color:#020817!important;border-color:rgba(30,64,175,.45)!important}.print-branco h2{color:#dbeafe!important}.print-branco .printPhoto{border-color:#1d4ed8!important}
+.print-grafite .printRow{background:rgba(31,41,55,.86)!important;border-color:rgba(209,213,219,.5)!important}.print-grafite h2{color:#d1d5db!important}.print-grafite .printPhoto{border-color:#d1d5db!important}
+@media(max-width:800px){.customScheduleForm{grid-template-columns:1fr!important}.officialTitle[data-app-title] span:first-child{font-size:28px!important}.officialTitle[data-app-title] span:nth-child(2){font-size:18px!important}.officialTitle[data-app-title] span:nth-child(3){font-size:24px!important}#page-disputa .tableWrap{max-height:calc(100vh - 230px)!important}}

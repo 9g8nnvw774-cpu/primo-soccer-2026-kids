@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>PRIMO SOCCER - KIDS / INFANTO / JUVENIL 2026</title>
+<title>PRIMO SOCCER KIDS / INFANTO / JUVENIL 2026</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -13,8 +13,7 @@
   <div class="officialHeroShade"></div>
   <div class="officialHeroContent">
     <img src="primo-logo.png" class="officialLogo" alt="Primo Soccer">
-    <div class="officialTitle">PRIMO SOCCER</div>
-    <div class="officialSubTitle">KIDS / INFANTO / JUVENIL</div><div class="officialYear">2026</div>
+    <div class="officialTitle" data-app-title><span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span></div>
     <div class="officialMonth">MÊS: <span id="heroMonth">MAIO</span></div>
   </div>
   <select id="monthSelect" class="officialMonthSelect"></select>
@@ -42,6 +41,10 @@
     <div class="card mini"><h3>Ativos no mês</h3><strong id="dashActive">0</strong></div>
     <div class="card mini"><h3>Cadastrados</h3><strong id="dashBank">0</strong></div>
     <div class="card mini"><h3>Pontos do mês</h3><strong id="dashPoints">0</strong></div>
+  </div>
+  <div class="card rulesCard">
+    <h2>Regras do campeonato</h2>
+    <p id="championshipRules"></p>
   </div>
 </section>
 
@@ -84,6 +87,19 @@
       <button onclick="copyAgendaFromMonth()" class="secondary">Copiar mês escolhido</button>
       <button onclick="clearCategoryAgenda()" class="danger">Limpar agenda categoria</button>
     </div>
+  </div>
+  <div class="card">
+    <h2>Adicionar novo horário</h2>
+    <div class="form customScheduleForm">
+      <select id="newScheduleCategory"></select>
+      <select id="newScheduleDay">
+        <option>Segunda</option><option>Terça</option><option>Quarta</option><option>Quinta</option><option>Sexta</option><option>Sábado</option><option>Domingo</option>
+      </select>
+      <input id="newScheduleTime" type="time">
+      <input id="newScheduleLabel" placeholder="Nome do horário/categoria">
+      <button onclick="addCustomSchedule()" class="success">Adicionar horário</button>
+    </div>
+    <div id="customScheduleList"></div>
   </div>
   <div id="agendaGrid" class="gridCards"></div>
 </section>
@@ -147,6 +163,10 @@
       <option value="roxo">Tabela Roxa</option>
       <option value="rosa">Tabela Rosa Meninas</option>
       <option value="dourado">Tabela Dourada Campeões</option>
+      <option value="neon">Tabela Azul Neon</option>
+      <option value="vermelho">Tabela Vermelha Premium</option>
+      <option value="branco">Tabela Branco e Azul</option>
+      <option value="grafite">Tabela Grafite Profissional</option>
     </select>
     <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
     <button onclick="preparePrint('annual')" class="secondary">Gerar ranking anual da categoria</button>
@@ -159,8 +179,9 @@
 <section id="page-pais" class="page hidden parentOnlyPage">
   <div class="card parentHeader">
     <img src="primo-logo.png" class="parentLogo" alt="Primo Soccer">
-    <h2>Kids Infanto Juvenil 2016</h2>
+    <h2 data-app-title><span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span></h2>
     <p>Resultados por categoria — MÊS: <strong id="parentMonth">MAIO</strong></p>
+    <div class="rulesMini"><strong>Regras:</strong><br><span id="parentRules"></span></div>
     <div id="parentCategoryTabs" class="parentTabs"></div>
   </div>
   <div id="parentRankingArea"></div>
@@ -172,11 +193,15 @@
     <button onclick="syncNow()" class="success">Sincronizar agora</button>
     <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button>
       <hr class="softLine">
+      <h3>Regras do campeonato</h3>
+      <textarea id="rulesEditor" rows="6" placeholder="Digite as regras do campeonato"></textarea>
+      <button onclick="saveRules()" class="success">Salvar regras</button>
+      <hr class="softLine">
       <h3>Capa do Dashboard</h3>
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v13 • Ranking Anual por Categoria</p>
+    <p><strong>Versão:</strong> Kids v15 • Foto no cadastro + Link pais atualizado + Horários extras</p>
     <p><strong>App ID:</strong> primo_soccer_2026_kids</p>
   </div>
 </section>
