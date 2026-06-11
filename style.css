@@ -759,3 +759,61 @@ body.disputeFocus #page-disputa > .card:nth-of-type(2){
 body.disputeFocus #page-disputa .scoreControls{grid-template-columns:1fr 1.25fr .8fr auto!important;}
 body.disputeFocus #page-disputa .scoreControls button.success:first-of-type,
 body.disputeFocus #page-disputa .scoreControls button.danger{display:none!important;}
+
+/* ===== V19 - DISPUTA SUPER COMPACTA: 1 ATLETA POR LINHA ===== */
+#page-disputa .scoreCards{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:5px!important;
+}
+#page-disputa .scorePlayerCard.scorePlayerCompact{
+  padding:5px 6px!important;
+  border-radius:12px!important;
+  min-height:0!important;
+  box-shadow:none!important;
+}
+#page-disputa .compactMain{
+  display:grid!important;
+  grid-template-columns:24px 34px minmax(92px,1fr) minmax(184px,1.25fr) 118px 48px!important;
+  align-items:center!important;
+  gap:5px!important;
+}
+#page-disputa .scorePlayerCompact .scorePos{width:22px!important;height:22px!important;font-size:12px!important;}
+#page-disputa .scorePlayerCompact .avatar{width:32px!important;height:32px!important;font-size:12px!important;}
+#page-disputa .compactName strong{font-size:13px!important;line-height:1.05!important;display:block!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+#page-disputa .compactName small{font-size:8px!important;color:#7eeaff!important;display:block!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+#page-disputa .compactControls{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;}
+#page-disputa .compactField{display:grid!important;grid-template-columns:25px 1fr!important;align-items:center!important;gap:3px!important;background:rgba(255,255,255,.055)!important;border-radius:9px!important;padding:3px!important;}
+#page-disputa .compactField label{font-size:11px!important;font-weight:900!important;color:#7eeaff!important;text-align:center!important;margin:0!important;}
+#page-disputa .compactField .quickScore{display:grid!important;grid-template-columns:28px 34px 28px!important;gap:3px!important;min-width:0!important;width:auto!important;align-items:center!important;}
+#page-disputa .compactField .quickScore button{width:28px!important;height:28px!important;min-height:28px!important;border-radius:9px!important;font-size:20px!important;padding:0!important;line-height:1!important;}
+#page-disputa .compactField .quickScoreInput{width:34px!important;height:28px!important;min-height:28px!important;font-size:17px!important;padding:0!important;border-radius:9px!important;text-align:center!important;}
+#page-disputa .compactBonus{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:3px!important;}
+#page-disputa .bonusMini{height:30px!important;min-height:30px!important;border-radius:9px!important;border:1px solid rgba(126,234,255,.3)!important;background:#172554!important;color:#fff!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:2px!important;font-size:14px!important;font-weight:900!important;}
+#page-disputa .bonusMini small{font-size:10px!important;color:#dbeafe!important;line-height:1!important;}
+#page-disputa .bonusMini.active{background:linear-gradient(180deg,#22c55e,#14532d)!important;border-color:#86efac!important;}
+#page-disputa .scorePlayerCompact .scoreTotalBadge{border-radius:10px!important;padding:4px 2px!important;min-width:46px!important;}
+#page-disputa .scorePlayerCompact .scoreTotalBadge span{font-size:18px!important;line-height:1!important;}
+#page-disputa .scorePlayerCompact .scoreTotalBadge small{font-size:8px!important;}
+#page-disputa > .card:nth-of-type(2){height:calc(100vh - 128px)!important;overflow:auto!important;}
+body.disputeFocus #page-disputa > .card:nth-of-type(2){height:calc(100vh - 112px)!important;overflow:auto!important;}
+body.disputeFocus #page-disputa .scorePlayerCard{padding:5px 6px!important;border-radius:12px!important;}
+@media(max-width:700px){
+  #page-disputa .compactMain{grid-template-columns:20px 30px minmax(74px,1fr) minmax(150px,1.4fr) 92px 42px!important;gap:3px!important;}
+  #page-disputa .compactName strong{font-size:11px!important;}
+  #page-disputa .compactName small{display:none!important;}
+  #page-disputa .scorePlayerCompact .avatar{width:28px!important;height:28px!important;}
+  #page-disputa .compactField{grid-template-columns:20px 1fr!important;padding:2px!important;}
+  #page-disputa .compactField label{font-size:10px!important;}
+  #page-disputa .compactField .quickScore{grid-template-columns:24px 28px 24px!important;gap:2px!important;}
+  #page-disputa .compactField .quickScore button{width:24px!important;height:24px!important;min-height:24px!important;font-size:18px!important;}
+  #page-disputa .compactField .quickScoreInput{width:28px!important;height:24px!important;min-height:24px!important;font-size:15px!important;}
+  #page-disputa .bonusMini{height:26px!important;min-height:26px!important;font-size:12px!important;}
+  #page-disputa .bonusMini small{display:none!important;}
+  #page-disputa .scorePlayerCompact .scoreTotalBadge{min-width:40px!important;}
+  #page-disputa .scorePlayerCompact .scoreTotalBadge span{font-size:16px!important;}
+}
+@media(max-width:700px) and (orientation:portrait){
+  #page-disputa .compactMain{grid-template-columns:22px 32px 1fr 1fr 88px 44px!important;grid-template-areas:'pos av name name total total' 'pos av controls controls bonus bonus'!important;}
+  #page-disputa .scorePos{grid-area:pos}.scorePlayerCompact .avatar{grid-area:av}.compactName{grid-area:name}.compactControls{grid-area:controls}.compactBonus{grid-area:bonus}.scoreTotalBadge{grid-area:total;justify-self:end;}
+}

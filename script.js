@@ -107,14 +107,23 @@ function scoreKey(id,week,sch){return `${id}__${week}__${sch}`}
 function scoreCardHtml(s,i,week,sch,score){
   const key=esc(scoreKey(s.id,week,sch));
   const id=JSON.stringify(s.id), safeSch=JSON.stringify(sch);
-  const bonus=(field,label)=>`<button type="button" class="bonusChip ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${id},${week},${safeSch},${JSON.stringify(field)},this)'>${label}<strong data-bonus="${field}">${+score[field]||0}</strong></button>`;
-  return `<div class="scorePlayerCard" data-score-key="${key}">
-    <div class="scorePlayerTop"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<div><strong>${esc(s.name)}</strong><small>ID: ${esc(s.studentCode||s.id)}</small></div><div class="scoreTotalBadge"><span data-total>${scoreTotal(score)}</span><small>pts</small></div></div>
-    <div class="scoreBigControls">
-      <div class="scoreField"><label>P/D</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div>
-      <div class="scoreField"><label>P/E</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>
+  const bonus=(field,label,icon)=>`<button type="button" class="bonusMini ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${id},${week},${safeSch},${JSON.stringify(field)},this)' title="${label}"><span>${icon}</span><small data-bonus="${field}">${+score[field]||0}</small></button>`;
+  return `<div class="scorePlayerCard scorePlayerCompact" data-score-key="${key}">
+    <div class="compactMain">
+      <span class="scorePos">${i+1}</span>
+      ${avatarHtml(s)}
+      <div class="compactName"><strong>${esc(s.name)}</strong><small>ID: ${esc(s.studentCode||s.id)}</small></div>
+      <div class="compactControls">
+        <div class="compactField"><label>PD</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div>
+        <div class="compactField"><label>PE</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>
+      </div>
+      <div class="compactBonus">
+        ${bonus("comportamento","Comportamento","🙂")}
+        ${bonus("fruta","Fruta","🍎")}
+        ${bonus("uniforme","Uniforme","👕")}
+      </div>
+      <div class="scoreTotalBadge"><span data-total>${scoreTotal(score)}</span><small>pts</small></div>
     </div>
-    <div class="bonusChips">${bonus("uniforme","Uniforme")}${bonus("fruta","Fruta")}${bonus("comportamento","Comport.")}</div>
   </div>`;
 }
 function updateScoreDisplays(id,week,sch){
