@@ -582,3 +582,18 @@ body{
 .print-branco .printRow{background:rgba(255,255,255,.9)!important;color:#020817!important;border-color:rgba(30,64,175,.45)!important}.print-branco h2{color:#dbeafe!important}.print-branco .printPhoto{border-color:#1d4ed8!important}
 .print-grafite .printRow{background:rgba(31,41,55,.86)!important;border-color:rgba(209,213,219,.5)!important}.print-grafite h2{color:#d1d5db!important}.print-grafite .printPhoto{border-color:#d1d5db!important}
 @media(max-width:800px){.customScheduleForm{grid-template-columns:1fr!important}.officialTitle[data-app-title] span:first-child{font-size:28px!important}.officialTitle[data-app-title] span:nth-child(2){font-size:18px!important}.officialTitle[data-app-title] span:nth-child(3){font-size:24px!important}#page-disputa .tableWrap{max-height:calc(100vh - 230px)!important}}
+
+
+/* ===== V16 JOÃO - ID DO ALUNO + DIA DO TREINO + FINALIZAR TREINO ===== */
+.studentIdCode{display:inline-block;max-width:120px;overflow:hidden;text-overflow:ellipsis;background:rgba(126,234,255,.14);border:1px solid rgba(126,234,255,.45);border-radius:999px;padding:5px 8px;color:#7eeaff;font-size:11px;font-weight:900}
+.studentMiniId{display:block;color:#7eeaff;font-size:10px;margin-left:50px;margin-top:2px;opacity:.95}
+.finishStatus{background:rgba(0,0,0,.28);border:1px solid rgba(143,240,179,.45);border-radius:12px;padding:10px;color:#fff!important;font-weight:900!important}
+.scoreControls{grid-template-columns:1fr 1.6fr 1fr 1fr 1fr!important;position:sticky;top:0;z-index:8;background:linear-gradient(180deg,rgba(3,10,43,.98),rgba(3,10,43,.88));padding:8px;border-radius:14px}
+#page-pais .parentHeader .rulesMini{display:none!important}
+#page-pais .parentRulesOnly{margin-top:16px!important}
+#page-pais .parentRulesOnly h2{font-size:34px!important;color:#fde047!important;line-height:1.05!important}
+#page-pais .parentRulesOnly p{font-size:18px!important;line-height:1.48!important;color:#fff!important}
+#page-disputa{overscroll-behavior:contain!important}
+#page-disputa .card:has(.scoreControls){position:sticky;top:0;z-index:9}
+.quickScore button:active{transform:scale(.96)}
+@media(max-width:800px){.scoreControls{grid-template-columns:1fr!important;position:sticky;top:0}.studentIdCode{max-width:96px;font-size:10px}.studentMiniId{margin-left:0}}

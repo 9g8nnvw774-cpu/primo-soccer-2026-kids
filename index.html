@@ -62,7 +62,7 @@
     <h2>Alunos cadastrados</h2>
     <div class="tableWrap">
       <table>
-        <thead><tr><th>#</th><th>Foto</th><th>Nome</th><th>Nascimento</th><th>Idade</th><th>Categoria</th><th>Ações</th></tr></thead>
+        <thead><tr><th>#</th><th>ID</th><th>Foto</th><th>Nome</th><th>Nascimento</th><th>Idade</th><th>Categoria</th><th>Ações</th></tr></thead>
         <tbody id="studentsTable"></tbody>
       </table>
     </div>
@@ -112,10 +112,13 @@
       <button onclick="showPage('agenda')" class="secondary">Organizar agenda</button>
     </div>
     <div class="form scoreControls">
-      <select id="scoreSchedule"></select>
-      <select id="scoreWeek"></select>
+      <select id="scoreDay" onchange="renderSelectors();renderScore()"></select>
+      <select id="scoreSchedule" onchange="renderScore()"></select>
+      <select id="scoreWeek" onchange="renderScore()"></select>
+      <button onclick="finishTraining()" class="success">Finalizar treino</button>
       <button onclick="clearTrainingScore()" class="danger">Limpar treino</button>
     </div>
+    <p id="finishStatus" class="finishStatus"></p>
   </div>
   <div class="card">
     <h2 id="scoreTitle">Pontuação</h2>
@@ -181,7 +184,6 @@
     <img src="primo-logo.png" class="parentLogo" alt="Primo Soccer">
     <h2 data-app-title><span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span></h2>
     <p>Resultados por categoria — MÊS: <strong id="parentMonth">MAIO</strong></p>
-    <div class="rulesMini"><strong>Regras:</strong><br><span id="parentRules"></span></div>
     <div id="parentCategoryTabs" class="parentTabs"></div>
   </div>
   <div id="parentRankingArea"></div>
@@ -201,7 +203,7 @@
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v15 • Foto no cadastro + Link pais atualizado + Horários extras</p>
+    <p><strong>Versão:</strong> Kids v16 • ID do aluno + Dia de treino + Finalizar treino + Link pais corrigido</p>
     <p><strong>App ID:</strong> primo_soccer_2026_kids</p>
   </div>
 </section>

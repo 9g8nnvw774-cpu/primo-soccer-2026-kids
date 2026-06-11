@@ -15,7 +15,7 @@ const DEFAULT_RULES = `🏆 Regras do campeonato
 let currentMonth=localStorage.getItem(MONTH_KEY)||MONTHS[new Date().getMonth()],state=loadLocal(),sb=null,saveTimer=null,activeCategory=CATEGORIES[0][0];
 function defaultState(){return{students:[],months:{},currentMonth,settings:{rules:DEFAULT_RULES,customSchedules:{}},schemaVersion:4}}
 function loadLocal(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||defaultState()}catch(e){return defaultState()}}
-function norm(){if(!state||typeof state!=="object")state=defaultState();if(!Array.isArray(state.students))state.students=[];if(!state.months)state.months={};if(!state.settings)state.settings={};if(!state.settings.rules)state.settings.rules=DEFAULT_RULES;if(!state.settings.customSchedules)state.settings.customSchedules={};state.currentMonth=currentMonth;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}}}
+function norm(){if(!state||typeof state!=="object")state=defaultState();if(!Array.isArray(state.students))state.students=[];state.students.forEach(s=>{if(!s.id)s.id=uid();if(!s.studentCode)s.studentCode=s.id});if(!state.months)state.months={};Object.values(state.months).forEach(m=>{if(m){if(!m.participants)m.participants={};if(!m.finishedTrainings)m.finishedTrainings={}}});if(!state.settings)state.settings={};if(!state.settings.rules)state.settings.rules=DEFAULT_RULES;if(!state.settings.customSchedules)state.settings.customSchedules={};state.currentMonth=currentMonth;if(!state.months[currentMonth])state.months[currentMonth]={participants:{},finishedTrainings:{}};if(!state.months[currentMonth].finishedTrainings)state.months[currentMonth].finishedTrainings={}}
 function schedulesFor(cat){const base=DEFAULT_SCHEDULES[cat]||[];const custom=state?.settings?.customSchedules?.[cat]||[];return [...base,...custom].filter((v,i,a)=>v&&a.indexOf(v)===i)}
 function appTitleBlock(cls="appTitleBlock"){return `<div class="${cls}">${APP_TITLE_HTML}</div>`}
 function rulesHtml(){return esc(state?.settings?.rules||DEFAULT_RULES).replace(/\n/g,"<br>")}
@@ -26,7 +26,7 @@ function esc(t){return String(t??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function ageFromBirth(b){if(!b)return"";const d=new Date(b+"T00:00:00"),now=new Date();let a=now.getFullYear()-d.getFullYear();const m=now.getMonth()-d.getMonth();if(m<0||(m===0&&now.getDate()<d.getDate()))a--;return a}
 function initials(n){return String(n||"A").trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("").toUpperCase()||"A"}
 function studentById(id){return state.students.find(s=>s.id===id)}
-function monthObj(m=currentMonth){norm();if(!state.months[m])state.months[m]={participants:{}};return state.months[m]}
+function monthObj(m=currentMonth){norm();if(!state.months[m])state.months[m]={participants:{},finishedTrainings:{}};if(!state.months[m].participants)state.months[m].participants={};if(!state.months[m].finishedTrainings)state.months[m].finishedTrainings={};return state.months[m]}
 function participant(id,create=true,m=currentMonth){const mo=monthObj(m);if(!mo.participants[id]&&create)mo.participants[id]={studentId:id,schedules:[],weeks:Array.from({length:5},()=>({}))};return mo.participants[id]||null}
 function emptyScore(){return{pd:0,pe:0,uniforme:0,fruta:0,comportamento:0}}
 function getScore(id,w,sch){const p=participant(id);if(!p.weeks[w])p.weeks[w]={};if(!p.weeks[w][sch])p.weeks[w][sch]=emptyScore();return p.weeks[w][sch]}
@@ -83,11 +83,15 @@ function annualTotalStudent(id){return MONTHS.reduce((sum,m)=>sum+totalStudent(i
 function rankedAnnual(cat=null){return state.students.filter(s=>s.active!==false&&(!cat||s.category===cat)).map(s=>({...s,total:annualTotalStudent(s.id)})).filter(s=>s.total>0).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 function studentOptionLabel(s){const p=participant(s.id,false);const count=p?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";return `${icon} ${s.name} • ${s.category}`}
 function restoreSelectValue(id,value){const el=document.getElementById(id);if(el&&value&&[...el.options].some(o=>o.value===value))el.value=value}
+function scheduleDay(sch){return String(sch||"").split(" ")[0]||""}
+function trainingKey(cat,week,sch){return `${cat}__S${week+1}__${sch}`}
+function isTrainingFinished(cat,week,sch){return !!monthObj().finishedTrainings?.[trainingKey(cat,week,sch)]}
 
 function renderSelectors(){
   const currentStudent=document.getElementById("studentPicker")?.value||"";
   const currentSchedule=document.getElementById("schedulePicker")?.value||"";
   const currentScoreSchedule=document.getElementById("scoreSchedule")?.value||"";
+  const currentScoreDay=document.getElementById("scoreDay")?.value||"";
   const currentWeek=document.getElementById("scoreWeek")?.value||"";
   document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");
   ["agendaCategory","disputeCategory"].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");el.value=activeCategory});
@@ -95,7 +99,12 @@ function renderSelectors(){
   if(sp){sp.innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(studentOptionLabel(s))}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;restoreSelectValue("studentPicker",currentStudent)}
   const sch=schedulesFor(activeCategory);
   const ap=document.getElementById("schedulePicker");if(ap){ap.innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");restoreSelectValue("schedulePicker",currentSchedule)}
-  const ss=document.getElementById("scoreSchedule");if(ss){ss.innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");restoreSelectValue("scoreSchedule",currentScoreSchedule)}
+  const daySel=document.getElementById("scoreDay");
+  const days=[...new Set(sch.map(scheduleDay).filter(Boolean))];
+  if(daySel){daySel.innerHTML=[`<option value="">Todos os dias</option>`,...days.map(d=>`<option value="${d}">${d}</option>`)].join("");restoreSelectValue("scoreDay",currentScoreDay)}
+  const selectedDay=daySel?.value||"";
+  const scoreSchedules=selectedDay?sch.filter(x=>scheduleDay(x)===selectedDay):sch;
+  const ss=document.getElementById("scoreSchedule");if(ss){ss.innerHTML=scoreSchedules.map(s=>`<option value="${s}">${s}</option>`).join("")||`<option value="">Nenhum horário neste dia</option>`;restoreSelectValue("scoreSchedule",currentScoreSchedule)}
   const sw=document.getElementById("scoreWeek");if(sw){sw.innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");restoreSelectValue("scoreWeek",currentWeek)}
   renderCopyMonthPicker();
 }
@@ -104,8 +113,6 @@ function renderDashboard(){document.getElementById("categoryButtons").innerHTML=
 function renderRules(){
   const dash=document.getElementById("championshipRules");
   if(dash)dash.innerHTML=rulesHtml();
-  const parent=document.getElementById("parentRules");
-  if(parent)parent.innerHTML=rulesHtml();
   const editor=document.getElementById("rulesEditor");
   if(editor&&document.activeElement!==editor)editor.value=state?.settings?.rules||DEFAULT_RULES;
 }
@@ -143,13 +150,13 @@ function removeCustomSchedule(cat,index){
   scheduleSave();renderAll();
 }
 
-function addStudent(){const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;if(!name)return alert("Digite o nome do aluno.");state.students.push({id:uid(),name,birth,category,active:true,photo:"",createdAt:new Date().toISOString()});document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";scheduleSave();renderAll();alert("Aluno cadastrado!")}
+function addStudent(){const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;if(!name)return alert("Digite o nome do aluno.");const id=uid();state.students.push({id,studentCode:id,name,birth,category,active:true,photo:"",createdAt:new Date().toISOString()});document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";scheduleSave();renderAll();alert("Aluno cadastrado!")}
 function renderStudents(){
   const body = document.getElementById("studentsTable");
   if(!body) return;
   const active = state.students.filter(s=>s.active!==false);
   if(!active.length){
-    body.innerHTML = `<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8">Nenhum aluno cadastrado.</td></tr>`;
     return;
   }
 
@@ -158,9 +165,10 @@ function renderStudents(){
     const list = active.filter(s=>s.category===cat[0]);
     if(!list.length) return;
 
-    html += `<tr class="categoryDivider cat-${cat[1]}"><td colspan="7">🏆 ${cat[0]} • ${list.length} aluno(s)</td></tr>`;
+    html += `<tr class="categoryDivider cat-${cat[1]}"><td colspan="8">🏆 ${cat[0]} • ${list.length} aluno(s)</td></tr>`;
     html += list.map((s,i)=>`<tr>
       <td>${i+1}</td>
+      <td><code class="studentIdCode">${esc(s.studentCode||s.id)}</code></td>
       <td>${photoPickerHtml(s)}</td>
       <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)"></td>
       <td><input type="date" value="${s.birth||""}" oninput="editStudent('${s.id}','birth',this.value)"></td>
@@ -172,7 +180,7 @@ function renderStudents(){
     </tr>`).join("");
   });
 
-  body.innerHTML = html || `<tr><td colspan="7">Nenhum aluno cadastrado.</td></tr>`;
+  body.innerHTML = html || `<tr><td colspan="8">Nenhum aluno cadastrado.</td></tr>`;
 }
 function editStudent(id,field,value){const s=studentById(id);if(s){s[field]=value;scheduleSave();renderAll()}}
 function deleteStudent(id){if(!confirm("Excluir aluno e todos os pontos dele?"))return;state.students=state.students.filter(s=>s.id!==id);Object.values(state.months||{}).forEach(m=>{if(m.participants)delete m.participants[id]});scheduleSave();renderAll()}
@@ -196,20 +204,24 @@ function removeFromSchedule(id,sch){const p=participant(id,false);if(p){p.schedu
 function scoreStepperHtml(id,week,sch,field,value){
   const safeId=JSON.stringify(id), safeSch=JSON.stringify(sch), safeField=JSON.stringify(field);
   return `<div class="quickScore" data-field="${field}">
-    <button type="button" class="scoreMinus" onclick='adjustScore(${safeId},${week},${safeSch},${safeField},-1,this)'>−</button>
+    <button type="button" class="scoreMinus" onpointerdown="event.preventDefault()" onclick='adjustScore(${safeId},${week},${safeSch},${safeField},-1,this)'>−</button>
     <input class="scoreInput quickScoreInput" type="number" value="${value}" oninput='setScore(${safeId},${week},${safeSch},${safeField},this.value,this)'>
-    <button type="button" class="scorePlus" onclick='adjustScore(${safeId},${week},${safeSch},${safeField},1,this)'>+</button>
+    <button type="button" class="scorePlus" onpointerdown="event.preventDefault()" onclick='adjustScore(${safeId},${week},${safeSch},${safeField},1,this)'>+</button>
   </div>`;
 }
 function renderScore(){
-  const sch=document.getElementById("scoreSchedule").value||(schedulesFor(activeCategory))[0]||"",week=+document.getElementById("scoreWeek").value||0;
-  document.getElementById("scoreTitle").textContent=`${activeCategory} • ${sch} • Semana ${week+1}`;
+  const sch=document.getElementById("scoreSchedule")?.value||(schedulesFor(activeCategory))[0]||"",week=+document.getElementById("scoreWeek")?.value||0;
+  document.getElementById("scoreTitle").textContent=`${activeCategory} • ${sch||"Selecione um horário"} • Semana ${week+1}`;
+  const finished=isTrainingFinished(activeCategory,week,sch);
+  const finishBox=document.getElementById("finishStatus");
+  if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Ao terminar, toque em <strong>Finalizar treino</strong> para gravar no banco online.`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
-  document.getElementById("scoreTable").innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);return`<tr><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
+  document.getElementById("scoreTable").innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);return`<tr><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
 function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
 function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=(+sc[field]||0)+delta;const wrap=el.closest(".quickScore");const input=wrap?.querySelector("input");if(input)input.value=sc[field];const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
+function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();saveCloud().then(()=>{renderScore();renderRankings();if(isParentMode())renderParentMode();alert("Treino finalizado e salvo no banco online!")});}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
 function renderRankings(){
   const categoryRanking=document.getElementById("categoryRanking");
@@ -223,7 +235,7 @@ function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPi
 function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
-async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){const localMonth=currentMonth;state=data.data;currentMonth=state.currentMonth||localMonth;if(!isParentMode()&&localStorage.getItem(MONTH_KEY))currentMonth=state.currentMonth||localMonth;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
+async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
 async function saveCloud(){if(!sb){if(!window.supabase)return;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok")}catch(e){console.error(e);setSync("Erro ao salvar online.","error")}}
 async function syncNow(){await saveCloud();alert("Sincronizado")}
 async function loadCloud(){await initCloud()}
@@ -255,7 +267,7 @@ function setParentCategory(cat){
 function renderParentMode(){
   const m=document.getElementById("parentMonth");if(m)m.textContent=currentMonth;
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
-  const area=document.getElementById("parentRankingArea");if(area){const monthList=ranked(parentCategory),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard"><h2>Regras do campeonato</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
+  const area=document.getElementById("parentRankingArea");if(area){const monthList=ranked(parentCategory),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
 }
 const renderRankingsBase = renderRankings;
 renderRankings = function(){
