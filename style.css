@@ -597,3 +597,38 @@ body{
 #page-disputa .card:has(.scoreControls){position:sticky;top:0;z-index:9}
 .quickScore button:active{transform:scale(.96)}
 @media(max-width:800px){.scoreControls{grid-template-columns:1fr!important;position:sticky;top:0}.studentIdCode{max-width:96px;font-size:10px}.studentMiniId{margin-left:0}}
+
+/* ===== V17 JOÃO - TELA EXCLUSIVA DA DISPUTA / PONTUAÇÃO MAIS DINÂMICA ===== */
+.scoreHeaderLine{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.exitFocusBtn{display:none;width:auto!important;min-height:40px!important;padding:8px 14px!important;background:#ff8585!important;color:#071629!important}
+.scoreCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin:12px 0}
+.scorePlayerCard{background:linear-gradient(180deg,rgba(7,28,71,.98),rgba(2,8,23,.98));border:1px solid rgba(126,234,255,.35);border-radius:18px;padding:12px;box-shadow:0 10px 24px rgba(0,0,0,.28)}
+.scorePlayerTop{display:grid;grid-template-columns:34px 44px 1fr 64px;gap:8px;align-items:center;margin-bottom:10px}
+.scorePlayerTop .avatar{width:44px;height:44px}.scorePlayerTop strong{font-size:17px}.scorePlayerTop small{display:block;color:#7eeaff;font-size:10px;font-weight:900;margin-top:2px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scorePos{width:30px;height:30px;display:grid;place-items:center;border-radius:999px;background:#7eeaff;color:#020817;font-weight:900}.scoreTotalBadge{background:#fde047;color:#020817;border-radius:14px;text-align:center;padding:6px 4px;font-weight:900}.scoreTotalBadge span{display:block;font-size:22px;line-height:1}.scoreTotalBadge small{color:#020817;font-size:10px;text-transform:uppercase}
+.scoreBigControls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.scoreField{background:rgba(255,255,255,.06);border-radius:14px;padding:8px;text-align:center}.scoreField label{display:block;color:#7eeaff;font-size:13px;font-weight:900;margin-bottom:6px}.scoreField .quickScore{min-width:0!important;width:100%!important;grid-template-columns:46px 1fr 46px!important}.scoreField .quickScoreInput{width:100%!important;min-width:0!important}.bonusChips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.bonusChip{min-height:48px!important;padding:6px!important;border-radius:14px!important;background:#172554!important;color:#dbeafe!important;border:1px solid rgba(126,234,255,.25)!important;font-size:12px!important}.bonusChip strong{display:block;font-size:18px;color:#fff}.bonusChip.active{background:linear-gradient(180deg,#22c55e,#14532d)!important;color:#fff!important;border-color:#86efac!important}.emptyScoreNotice{padding:16px;border-radius:14px;background:rgba(0,0,0,.28);border:1px dashed rgba(126,234,255,.45);font-weight:900;text-align:center}
+body.disputeFocus .hero,body.disputeFocus .tabs,body.disputeFocus .sync,body.disputeFocus #page-disputa>div.card:nth-of-type(3){display:none!important}
+body.disputeFocus #page-disputa{position:fixed!important;inset:0!important;z-index:9999!important;overflow:hidden!important;background:radial-gradient(circle at top,#0b52ff 0,#06117a 42%,#020817 100%)!important;padding:8px!important}
+body.disputeFocus #page-disputa .card{margin:6px 0!important;padding:10px!important;border-radius:14px!important}
+body.disputeFocus #page-disputa .card:first-child{position:sticky!important;top:0!important;z-index:20!important;background:linear-gradient(180deg,rgba(3,10,43,.99),rgba(3,10,43,.95))!important}
+body.disputeFocus #page-disputa .card:first-child h2{font-size:18px!important;margin-bottom:4px!important}
+body.disputeFocus .categoryTop{grid-template-columns:1fr 120px!important;margin-top:4px!important}
+body.disputeFocus .categoryTop button{display:none!important}
+body.disputeFocus .scoreControls{position:static!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;padding:0!important;background:transparent!important}
+body.disputeFocus .scoreControls button.danger{display:none!important}
+body.disputeFocus .scoreControls button.success:first-of-type{display:none!important}
+body.disputeFocus .finishStatus{font-size:12px!important;padding:6px!important;margin:6px 0 0!important}
+body.disputeFocus #page-disputa .card:nth-of-type(2){height:calc(100vh - 188px)!important;overflow:auto!important;-webkit-overflow-scrolling:auto!important;overscroll-behavior:contain!important;touch-action:pan-y!important}
+body.disputeFocus .exitFocusBtn{display:inline-block!important}
+body.disputeFocus .scoreTableWrap{display:none!important}
+body.disputeFocus .scoreCards{grid-template-columns:1fr!important;gap:8px;margin:8px 0 0!important}
+body.disputeFocus .scorePlayerCard{padding:10px!important;border-radius:16px!important}
+body.disputeFocus .scorePlayerTop{grid-template-columns:30px 42px 1fr 58px!important;margin-bottom:8px!important}.scorePlayerTop .avatar{width:42px;height:42px}
+body.disputeFocus .scoreBigControls{grid-template-columns:1fr 1fr!important;gap:6px!important}.scoreField{padding:6px!important}.scoreField .quickScore button{width:44px!important;height:44px!important;min-height:44px!important}.bonusChips{gap:6px!important;margin-top:8px!important}.bonusChip{min-height:42px!important;font-size:11px!important}
+@media(max-width:800px){
+  #page-disputa .scoreTableWrap{display:none!important}
+  #page-disputa .scoreCards{display:grid!important;grid-template-columns:1fr!important}
+  #page-disputa .card:nth-of-type(2){max-height:none!important;overflow:visible!important}
+  .scoreControls{grid-template-columns:1fr!important}
+  .scoreBigControls{grid-template-columns:1fr 1fr!important}
+  .bonusChips{grid-template-columns:repeat(3,1fr)!important}
+}

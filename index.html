@@ -115,15 +115,17 @@
       <select id="scoreDay" onchange="renderSelectors();renderScore()"></select>
       <select id="scoreSchedule" onchange="renderScore()"></select>
       <select id="scoreWeek" onchange="renderScore()"></select>
+      <button onclick="enterDisputeFocus()" class="success">Iniciar disputa</button>
       <button onclick="finishTraining()" class="success">Finalizar treino</button>
       <button onclick="clearTrainingScore()" class="danger">Limpar treino</button>
     </div>
     <p id="finishStatus" class="finishStatus"></p>
   </div>
   <div class="card">
-    <h2 id="scoreTitle">Pontuação</h2>
+    <div class="scoreHeaderLine"><h2 id="scoreTitle">Pontuação</h2><button type="button" class="exitFocusBtn" onclick="exitDisputeFocus()">Sair da tela cheia</button></div>
     <p>Os alunos aparecem automaticamente conforme o horário selecionado na agenda.</p>
-    <div class="tableWrap">
+    <div id="scoreCards" class="scoreCards"></div>
+    <div class="tableWrap scoreTableWrap">
       <table class="scoreTable">
         <thead>
           <tr>

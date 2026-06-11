@@ -87,6 +87,52 @@ function scheduleDay(sch){return String(sch||"").split(" ")[0]||""}
 function trainingKey(cat,week,sch){return `${cat}__S${week+1}__${sch}`}
 function isTrainingFinished(cat,week,sch){return !!monthObj().finishedTrainings?.[trainingKey(cat,week,sch)]}
 
+let disputeFocusMode=false;
+function enterDisputeFocus(){
+  disputeFocusMode=true;
+  document.body.classList.add("disputeFocus");
+  document.body.style.overflow="hidden";
+  const wrap=document.querySelector("#page-disputa .scoreTableWrap");
+  if(wrap)wrap.scrollTop=0;
+  if(document.documentElement.requestFullscreen){document.documentElement.requestFullscreen().catch(()=>{});}
+  renderScore();
+}
+function exitDisputeFocus(){
+  disputeFocusMode=false;
+  document.body.classList.remove("disputeFocus");
+  document.body.style.overflow="";
+  if(document.fullscreenElement&&document.exitFullscreen){document.exitFullscreen().catch(()=>{});}
+}
+function scoreKey(id,week,sch){return `${id}__${week}__${sch}`}
+function scoreCardHtml(s,i,week,sch,score){
+  const key=esc(scoreKey(s.id,week,sch));
+  const id=JSON.stringify(s.id), safeSch=JSON.stringify(sch);
+  const bonus=(field,label)=>`<button type="button" class="bonusChip ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${id},${week},${safeSch},${JSON.stringify(field)},this)'>${label}<strong data-bonus="${field}">${+score[field]||0}</strong></button>`;
+  return `<div class="scorePlayerCard" data-score-key="${key}">
+    <div class="scorePlayerTop"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<div><strong>${esc(s.name)}</strong><small>ID: ${esc(s.studentCode||s.id)}</small></div><div class="scoreTotalBadge"><span data-total>${scoreTotal(score)}</span><small>pts</small></div></div>
+    <div class="scoreBigControls">
+      <div class="scoreField"><label>P/D</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div>
+      <div class="scoreField"><label>P/E</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>
+    </div>
+    <div class="bonusChips">${bonus("uniforme","Uniforme")}${bonus("fruta","Fruta")}${bonus("comportamento","Comport.")}</div>
+  </div>`;
+}
+function updateScoreDisplays(id,week,sch){
+  const sc=getScore(id,week,sch), key=scoreKey(id,week,sch);
+  document.querySelectorAll(`[data-score-key="${CSS.escape(key)}"]`).forEach(el=>{
+    const total=el.querySelector("[data-total]"); if(total)total.textContent=scoreTotal(sc);
+    el.querySelectorAll(".quickScore").forEach(q=>{const f=q.dataset.field;if(f&&q.querySelector("input"))q.querySelector("input").value=sc[f]||0});
+    el.querySelectorAll(".bonusChip").forEach(btn=>{const f=btn.querySelector("strong")?.dataset.bonus;if(f){btn.classList.toggle("active",(+sc[f]||0)>0);btn.querySelector("strong").textContent=+sc[f]||0}});
+  });
+}
+function toggleBonus(id,week,sch,field,el){
+  const sc=getScore(id,week,sch);
+  sc[field]=(+sc[field]||0)>0?0:5;
+  updateScoreDisplays(id,week,sch);
+  scheduleSave();
+  renderRankings();
+}
+
 function renderSelectors(){
   const currentStudent=document.getElementById("studentPicker")?.value||"";
   const currentSchedule=document.getElementById("schedulePicker")?.value||"";
@@ -211,15 +257,19 @@ function scoreStepperHtml(id,week,sch,field,value){
 }
 function renderScore(){
   const sch=document.getElementById("scoreSchedule")?.value||(schedulesFor(activeCategory))[0]||"",week=+document.getElementById("scoreWeek")?.value||0;
-  document.getElementById("scoreTitle").textContent=`${activeCategory} • ${sch||"Selecione um horário"} • Semana ${week+1}`;
+  const title=document.getElementById("scoreTitle");
+  if(title)title.textContent=`${activeCategory} • ${sch||"Selecione um horário"} • Semana ${week+1}`;
   const finished=isTrainingFinished(activeCategory,week,sch);
   const finishBox=document.getElementById("finishStatus");
   if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Ao terminar, toque em <strong>Finalizar treino</strong> para gravar no banco online.`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
-  document.getElementById("scoreTable").innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);return`<tr><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
+  const table=document.getElementById("scoreTable");
+  const cards=document.getElementById("scoreCards");
+  if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
+  if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
-function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
-function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=(+sc[field]||0)+delta;const wrap=el.closest(".quickScore");const input=wrap?.querySelector("input");if(input)input.value=sc[field];const row=el.closest("tr");if(row)row.querySelector(".totalCell strong").textContent=scoreTotal(sc);scheduleSave();renderRankings()}
+function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave();renderRankings()}
+function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave();renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
 function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();saveCloud().then(()=>{renderScore();renderRankings();if(isParentMode())renderParentMode();alert("Treino finalizado e salvo no banco online!")});}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
