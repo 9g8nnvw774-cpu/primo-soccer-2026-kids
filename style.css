@@ -632,3 +632,130 @@ body.disputeFocus .scoreBigControls{grid-template-columns:1fr 1fr!important;gap:
   .scoreBigControls{grid-template-columns:1fr 1fr!important}
   .bonusChips{grid-template-columns:repeat(3,1fr)!important}
 }
+
+/* ===== V18 JOÃO - DISPUTA COM CABEÇALHO COMPACTO E PONTUAÇÃO VISÍVEL ===== */
+#page-disputa > .card:first-child{
+  padding:8px 10px!important;
+  margin:6px 0 8px!important;
+  border-radius:14px!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:30!important;
+  background:linear-gradient(180deg,rgba(3,10,43,.98),rgba(3,10,43,.92))!important;
+}
+#page-disputa > .card:first-child h2{
+  font-size:18px!important;
+  line-height:1.05!important;
+  margin:0 0 6px!important;
+  letter-spacing:.2px!important;
+}
+#page-disputa > .card:first-child .categoryTop{
+  grid-template-columns:1fr auto!important;
+  gap:6px!important;
+  margin:0!important;
+}
+#page-disputa > .card:first-child .categoryTop select,
+#page-disputa > .card:first-child .categoryTop button{
+  min-height:36px!important;
+  height:36px!important;
+  border-radius:10px!important;
+  padding:5px 9px!important;
+  font-size:13px!important;
+}
+#page-disputa > .card:first-child .categoryTop button{
+  width:auto!important;
+  min-width:122px!important;
+}
+#page-disputa .scoreControls{
+  display:grid!important;
+  grid-template-columns:1fr 1.25fr .8fr!important;
+  gap:6px!important;
+  margin:6px 0 0!important;
+  padding:6px!important;
+  border-radius:12px!important;
+  position:static!important;
+}
+#page-disputa .scoreControls select,
+#page-disputa .scoreControls button{
+  min-height:34px!important;
+  height:34px!important;
+  border-radius:10px!important;
+  padding:4px 8px!important;
+  font-size:12px!important;
+}
+#page-disputa .scoreControls button{
+  min-width:0!important;
+}
+#page-disputa .finishStatus{
+  margin:6px 0 0!important;
+  padding:6px 8px!important;
+  font-size:12px!important;
+  line-height:1.25!important;
+  border-radius:10px!important;
+}
+#page-disputa > .card:nth-of-type(2){
+  margin-top:8px!important;
+  padding:10px!important;
+}
+#page-disputa .scoreHeaderLine h2{
+  font-size:16px!important;
+  line-height:1.15!important;
+  margin:0!important;
+  text-transform:none!important;
+}
+#page-disputa .scoreHeaderLine + p{
+  display:none!important;
+}
+#page-disputa .scoreCards{
+  margin-top:8px!important;
+}
+#page-disputa .scorePlayerTop strong{
+  font-size:16px!important;
+  line-height:1.1!important;
+}
+#page-disputa .scorePlayerCard{
+  scroll-margin-top:160px!important;
+}
+@media(max-width:800px){
+  #page-disputa{padding:6px!important;}
+  #page-disputa > .card:first-child{padding:7px!important;margin:4px 0 6px!important;}
+  #page-disputa > .card:first-child h2{font-size:16px!important;}
+  #page-disputa > .card:first-child .categoryTop{grid-template-columns:1fr!important;}
+  #page-disputa > .card:first-child .categoryTop button{display:none!important;}
+  #page-disputa .scoreControls{grid-template-columns:1fr 1fr 1fr!important;gap:5px!important;padding:5px!important;}
+  #page-disputa .scoreControls button{font-size:11px!important;padding:4px!important;}
+  #page-disputa .scoreControls button.success:first-of-type{display:block!important;grid-column:1 / 2;}
+  #page-disputa .scoreControls button.success:nth-of-type(2){grid-column:2 / 3;}
+  #page-disputa .scoreControls button.danger{grid-column:3 / 4;}
+  #page-disputa .finishStatus{font-size:11px!important;max-height:42px!important;overflow:hidden!important;}
+  #page-disputa .scorePlayerTop{grid-template-columns:26px 38px 1fr 54px!important;gap:6px!important;}
+  #page-disputa .scorePlayerTop .avatar{width:38px!important;height:38px!important;}
+  #page-disputa .scorePos{width:26px!important;height:26px!important;font-size:13px!important;}
+  #page-disputa .scoreTotalBadge{padding:4px!important;border-radius:12px!important;}
+  #page-disputa .scoreTotalBadge span{font-size:20px!important;}
+}
+@media(max-width:800px) and (orientation:landscape){
+  body.disputeFocus #page-disputa,
+  #page-disputa{overflow:hidden!important;}
+  #page-disputa > .card:first-child{max-height:118px!important;overflow:hidden!important;}
+  #page-disputa > .card:first-child h2{display:none!important;}
+  #page-disputa .scoreControls{grid-template-columns:1fr 1.25fr .7fr auto auto auto!important;align-items:center!important;}
+  #page-disputa .scoreControls select,#page-disputa .scoreControls button{height:30px!important;min-height:30px!important;font-size:11px!important;}
+  #page-disputa .finishStatus{display:none!important;}
+  #page-disputa > .card:nth-of-type(2){height:calc(100vh - 132px)!important;overflow:auto!important;margin-top:6px!important;}
+  #page-disputa .scoreCards{grid-template-columns:repeat(2,minmax(260px,1fr))!important;gap:8px!important;}
+  #page-disputa .scorePlayerCard{padding:8px!important;}
+  #page-disputa .bonusChips{grid-template-columns:repeat(3,1fr)!important;}
+}
+body.disputeFocus #page-disputa > .card:first-child{
+  max-height:132px!important;
+  overflow:hidden!important;
+}
+body.disputeFocus #page-disputa .categoryTop button{display:none!important;}
+body.disputeFocus #page-disputa > .card:nth-of-type(2){
+  height:calc(100vh - 148px)!important;
+  overflow:auto!important;
+}
+body.disputeFocus #page-disputa .scoreControls{grid-template-columns:1fr 1.25fr .8fr auto!important;}
+body.disputeFocus #page-disputa .scoreControls button.success:first-of-type,
+body.disputeFocus #page-disputa .scoreControls button.danger{display:none!important;}
