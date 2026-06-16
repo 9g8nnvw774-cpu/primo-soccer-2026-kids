@@ -41,14 +41,61 @@ function avatarHtml(s){
     : `<span class="avatar">${initials(s.name)}</span>`;
 }
 function photoPickerHtml(s){
-  return `<label class="avatarInputLabel" title="Toque para alterar a foto">
-    ${s.photo?`<img src="${s.photo}">`:initials(s.name)}
-    <input class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
-  </label>`;
+  const inputId = `photo-${s.id}`;
+  return `<div class="avatarInputLabel" title="Toque para alterar a foto" onclick="document.getElementById('${inputId}').click()">
+    ${s.photo?`<img src="${s.photo}" alt="Foto do aluno">`:initials(s.name)}
+    <input id="${inputId}" class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
+  </div>`;
 }
-function loadPhoto(e,id){const file=e.target.files&&e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{let w=img.width,h=img.height,max=420;if(w>h&&w>max){h=Math.round(h*max/w);w=max}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);const s=studentById(id);if(s){s.photo=c.toDataURL("image/jpeg",.82);scheduleSave();renderAll()}};img.src=r.result};r.readAsDataURL(file)}
+function fileToCompressedPhoto(file,max=300,quality=.74){
+  return new Promise((resolve,reject)=>{
+    if(!file)return resolve("");
+    const r=new FileReader();
+    r.onerror=()=>reject(new Error("Não foi possível ler a foto."));
+    r.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("Foto inválida."));
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>h&&w>max){h=Math.round(h*max/w);w=max}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}
+        const c=document.createElement("canvas");
+        c.width=w;c.height=h;
+        const ctx=c.getContext("2d");
+        ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL("image/jpeg",quality));
+      };
+      img.src=r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+async function loadPhoto(e,id){
+  const input=e.target, file=input.files&&input.files[0];
+  if(!file)return;
+  try{
+    setSync("Salvando foto do aluno...","warn");
+    const photo=await fileToCompressedPhoto(file);
+    const st=studentById(id);
+    if(st){
+      st.photo=photo;
+      saveLocal();
+      renderAll();
+      await saveCloudNow();
+      setSync("Foto salva online.","ok");
+    }
+  }catch(err){console.error(err);alert("Não consegui salvar essa foto. Tente outra imagem.");setSync("Erro ao salvar foto.","error")}
+  finally{ if(input) input.value=""; }
+}
 function setSync(msg,type="warn"){const el=document.getElementById("syncStatus");el.textContent=msg;el.style.color=type==="ok"?"#8ff0b3":type==="error"?"#ff8b8b":"#ffe082"}
-function scheduleSave(){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloud,700)}
+function scheduleSave(delay=350){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
+async function saveCloudNow(){
+  try{
+    return await saveCloud();
+  }catch(e){
+    console.error(e);
+    return false;
+  }
+}
 function setCategory(cat){activeCategory=cat;renderAll()}
 function openCategory(cat){activeCategory=cat;showPage("disputa")}
 function showPage(page){
@@ -131,14 +178,16 @@ function updateScoreDisplays(id,week,sch){
   document.querySelectorAll(`[data-score-key="${CSS.escape(key)}"]`).forEach(el=>{
     const total=el.querySelector("[data-total]"); if(total)total.textContent=scoreTotal(sc);
     el.querySelectorAll(".quickScore").forEach(q=>{const f=q.dataset.field;if(f&&q.querySelector("input"))q.querySelector("input").value=sc[f]||0});
+    el.querySelectorAll(".bonusMini").forEach(btn=>{const f=btn.querySelector("small")?.dataset.bonus;if(f){btn.classList.toggle("active",(+sc[f]||0)>0);btn.querySelector("small").textContent=+sc[f]||0}});
     el.querySelectorAll(".bonusChip").forEach(btn=>{const f=btn.querySelector("strong")?.dataset.bonus;if(f){btn.classList.toggle("active",(+sc[f]||0)>0);btn.querySelector("strong").textContent=+sc[f]||0}});
   });
 }
 function toggleBonus(id,week,sch,field,el){
+  if(el&&el.blur)el.blur();
   const sc=getScore(id,week,sch);
   sc[field]=(+sc[field]||0)>0?0:5;
   updateScoreDisplays(id,week,sch);
-  scheduleSave();
+  scheduleSave(250);
   renderRankings();
 }
 
@@ -205,7 +254,18 @@ function removeCustomSchedule(cat,index){
   scheduleSave();renderAll();
 }
 
-function addStudent(){const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;if(!name)return alert("Digite o nome do aluno.");const id=uid();state.students.push({id,studentCode:id,name,birth,category,active:true,photo:"",createdAt:new Date().toISOString()});document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";scheduleSave();renderAll();alert("Aluno cadastrado!")}
+async function addStudent(){
+  const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;
+  if(!name)return alert("Digite o nome do aluno.");
+  const file=document.getElementById("studentPhoto")?.files?.[0];
+  const id=uid();
+  let photo="";
+  try{ if(file){ setSync("Preparando foto do aluno...","warn"); photo=await fileToCompressedPhoto(file); } }catch(e){ console.error(e); alert("Aluno cadastrado, mas essa foto não pôde ser usada. Tente alterar a foto depois tocando nela."); }
+  state.students.push({id,studentCode:id,name,birth,category,active:true,photo,createdAt:new Date().toISOString()});
+  document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";if(document.getElementById("studentPhoto"))document.getElementById("studentPhoto").value="";
+  saveLocal();renderAll();await saveCloudNow();
+  alert("Aluno cadastrado e salvo online!");
+}
 function renderStudents(){
   const body = document.getElementById("studentsTable");
   if(!body) return;
@@ -277,10 +337,10 @@ function renderScore(){
   if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
   if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
-function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave();renderRankings()}
-function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave();renderRankings()}
+function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
+function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
-function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();saveCloud().then(()=>{renderScore();renderRankings();if(isParentMode())renderParentMode();alert("Treino finalizado e salvo no banco online!")});}
+async function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();setSync("Finalizando e salvando treino online...","warn");const ok=await saveCloudNow();renderScore();renderRankings();if(isParentMode())renderParentMode();alert(ok?"Treino finalizado e salvo no banco online!":"Treino salvo neste celular, mas houve erro no banco online. Toque em Sincronizar agora quando a internet melhorar.");}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
 function renderRankings(){
   const categoryRanking=document.getElementById("categoryRanking");
@@ -295,7 +355,7 @@ function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mê
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
-async function saveCloud(){if(!sb){if(!window.supabase)return;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok")}catch(e){console.error(e);setSync("Erro ao salvar online.","error")}}
+async function saveCloud(){if(!sb){if(!window.supabase)return false;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok");return true}catch(e){console.error(e);setSync("Erro ao salvar online.","error");return false}}
 async function syncNow(){await saveCloud();alert("Sincronizado")}
 async function loadCloud(){await initCloud()}
 
@@ -453,4 +513,5 @@ preparePrint = function(type){
   document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
 };
 
-renderAll();showPage("dashboard");initCloud();setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); applyDashboardCover(); },700);setInterval(()=>{if(isParentMode())loadCloud();},15000);
+window.addEventListener("beforeunload",()=>{try{saveLocal()}catch(e){}});
+renderAll();showPage("dashboard");initCloud();setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); applyDashboardCover(); },700);setInterval(()=>{if(isParentMode())loadCloud();},10000);
