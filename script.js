@@ -107,7 +107,7 @@ async function loadPhoto(e,id){
   finally{ if(input) input.value=""; }
 }
 function setSync(msg,type="warn"){const el=document.getElementById("syncStatus");el.textContent=msg;el.style.color=type==="ok"?"#8ff0b3":type==="error"?"#ff8b8b":"#ffe082"}
-function scheduleSave(delay=220){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
+function scheduleSave(delay=50){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
 async function saveCloudNow(){
   try{
     return await saveCloud();
