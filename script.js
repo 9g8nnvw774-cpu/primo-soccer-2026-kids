@@ -44,50 +44,70 @@ function photoPickerHtml(s){
   const inputId = `photo-${s.id}`;
   return `<div class="avatarInputLabel" title="Toque para alterar a foto" onclick="document.getElementById('${inputId}').click()">
     ${s.photo?`<img src="${s.photo}" alt="Foto do aluno">`:initials(s.name)}
-    <input id="${inputId}" class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
+    <input id="${inputId}" class="photoInput" type="file" accept="image/*,.heic,.heif" onchange="loadPhoto(event,'${s.id}')">
   </div>`;
 }
-function fileToCompressedPhoto(file,max=300,quality=.74){
+function readFileDataUrl(file){
   return new Promise((resolve,reject)=>{
-    if(!file)return resolve("");
     const r=new FileReader();
     r.onerror=()=>reject(new Error("Não foi possível ler a foto."));
-    r.onload=()=>{
-      const img=new Image();
-      img.onerror=()=>reject(new Error("Foto inválida."));
-      img.onload=()=>{
-        let w=img.width,h=img.height;
+    r.onload=()=>resolve(r.result);
+    r.readAsDataURL(file);
+  });
+}
+async function fileToCompressedPhoto(file,max=420,quality=.70){
+  if(!file)return "";
+  const type=(file.type||"").toLowerCase();
+  const name=(file.name||"").toLowerCase();
+  const originalData=await readFileDataUrl(file);
+  // iPhone às vezes envia HEIC/HEIF. Quando o navegador não consegue converter, salva a foto original como fallback.
+  if(type.includes("heic")||type.includes("heif")||name.endsWith(".heic")||name.endsWith(".heif")){
+    return originalData;
+  }
+  return new Promise((resolve)=>{
+    const img=new Image();
+    const doneFallback=()=>resolve(originalData);
+    img.onerror=doneFallback;
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+        if(!w||!h)return doneFallback();
         if(w>h&&w>max){h=Math.round(h*max/w);w=max}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}
         const c=document.createElement("canvas");
         c.width=w;c.height=h;
-        const ctx=c.getContext("2d");
+        const ctx=c.getContext("2d",{alpha:false});
         ctx.drawImage(img,0,0,w,h);
-        resolve(c.toDataURL("image/jpeg",quality));
-      };
-      img.src=r.result;
+        const jpg=c.toDataURL("image/jpeg",quality);
+        resolve(jpg&&jpg.length>100?jpg:originalData);
+      }catch(e){
+        console.error(e);
+        doneFallback();
+      }
     };
-    r.readAsDataURL(file);
+    img.src=originalData;
   });
 }
 async function loadPhoto(e,id){
   const input=e.target, file=input.files&&input.files[0];
   if(!file)return;
   try{
-    setSync("Salvando foto do aluno...","warn");
+    setSync("Preparando e salvando foto do aluno...","warn");
     const photo=await fileToCompressedPhoto(file);
     const st=studentById(id);
     if(st){
       st.photo=photo;
+      st.photoUpdatedAt=new Date().toISOString();
       saveLocal();
       renderAll();
-      await saveCloudNow();
-      setSync("Foto salva online.","ok");
+      const ok=await saveCloudNow();
+      setSync(ok?"Foto salva online.":"Foto salva neste celular. Toque em Sincronizar agora para enviar ao banco.",ok?"ok":"error");
+      if(!ok) alert("A foto entrou no cadastro deste celular, mas não confirmou no banco online. Confira a internet e toque em Sincronizar agora.");
     }
-  }catch(err){console.error(err);alert("Não consegui salvar essa foto. Tente outra imagem.");setSync("Erro ao salvar foto.","error")}
+  }catch(err){console.error(err);alert("Não consegui salvar essa foto. Tente outra imagem JPG/PNG ou tire print da foto e envie novamente.");setSync("Erro ao salvar foto.","error")}
   finally{ if(input) input.value=""; }
 }
 function setSync(msg,type="warn"){const el=document.getElementById("syncStatus");el.textContent=msg;el.style.color=type==="ok"?"#8ff0b3":type==="error"?"#ff8b8b":"#ffe082"}
-function scheduleSave(delay=350){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
+function scheduleSave(delay=220){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
 async function saveCloudNow(){
   try{
     return await saveCloud();
@@ -263,8 +283,8 @@ async function addStudent(){
   try{ if(file){ setSync("Preparando foto do aluno...","warn"); photo=await fileToCompressedPhoto(file); } }catch(e){ console.error(e); alert("Aluno cadastrado, mas essa foto não pôde ser usada. Tente alterar a foto depois tocando nela."); }
   state.students.push({id,studentCode:id,name,birth,category,active:true,photo,createdAt:new Date().toISOString()});
   document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";if(document.getElementById("studentPhoto"))document.getElementById("studentPhoto").value="";
-  saveLocal();renderAll();await saveCloudNow();
-  alert("Aluno cadastrado e salvo online!");
+  saveLocal();renderAll();const ok=await saveCloudNow();
+  alert(ok?"Aluno cadastrado e salvo online!":"Aluno cadastrado neste celular, mas ainda não confirmou no banco online. Toque em Sincronizar agora.");
 }
 function renderStudents(){
   const body = document.getElementById("studentsTable");
@@ -306,13 +326,24 @@ function addToSchedule(){
   if(p.schedules.includes(sch))return alert("Esse aluno já está nesse horário.");
   if(p.schedules.length>=maxSchedules)return alert(canHaveTwoSchedules(student.category)?"Esse aluno já está em 2 horários nesta semana.":"Essa categoria permite apenas 1 horário por aluno.");
   const studentsInSlot=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));if(studentsInSlot.length>=6)return alert("Esse horário já está com 6 vagas preenchidas.");
-  p.schedules.push(sch);scheduleSave();renderAll();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
+  p.schedules.push(sch);saveLocal();renderAll();saveCloudNow();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
+}
+function goToDisputeForSchedule(cat,sch){
+  activeCategory=cat;
+  showPage("disputa");
+  setTimeout(()=>{
+    const d=scheduleDay(sch);
+    const day=document.getElementById("scoreDay"); if(day){day.value=d; renderSelectors();}
+    const ss=document.getElementById("scoreSchedule"); if(ss)ss.value=sch;
+    renderScore();
+    enterDisputeFocus();
+  },80);
 }
 function renderAgenda(){
   const schList=schedulesFor(activeCategory);
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
     const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
-    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/6</span></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
+    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/6</span></div><button class="success goDisputeSlot" onclick='goToDisputeForSchedule(${JSON.stringify(activeCategory)},${JSON.stringify(sch)})'>Ir para disputa desta turma</button>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
   }).join("");
 }
 function removeFromSchedule(id,sch){const p=participant(id,false);if(p){p.schedules=p.schedules.filter(x=>x!==sch);scheduleSave();renderAll()}}
@@ -337,8 +368,8 @@ function renderScore(){
   if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
   if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
-function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
-function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
+function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave(160);renderRankings()}
+function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave(160);renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
 async function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();setSync("Finalizando e salvando treino online...","warn");const ok=await saveCloudNow();renderScore();renderRankings();if(isParentMode())renderParentMode();alert(ok?"Treino finalizado e salvo no banco online!":"Treino salvo neste celular, mas houve erro no banco online. Toque em Sincronizar agora quando a internet melhorar.");}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
@@ -355,7 +386,7 @@ function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mê
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
-async function saveCloud(){if(!sb){if(!window.supabase)return false;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok");return true}catch(e){console.error(e);setSync("Erro ao salvar online.","error");return false}}
+async async function saveCloud(){if(!sb){if(!window.supabase)return false;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();state.lastSavedAt=new Date().toISOString();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok");return true}catch(e){console.error(e);setSync("Erro ao salvar online.","error");return false}}
 async function syncNow(){await saveCloud();alert("Sincronizado")}
 async function loadCloud(){await initCloud()}
 

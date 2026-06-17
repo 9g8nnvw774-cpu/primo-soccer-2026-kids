@@ -936,3 +936,22 @@ body.disputeFocus #page-disputa .scorePlayerCard{padding:5px 6px!important;borde
   #page-disputa .compactField .quickScoreInput{width:32px!important;height:32px!important;min-height:32px!important;}
   #page-disputa .bonusMini{height:32px!important;min-height:32px!important;}
 }
+
+/* ===== V22 - FOTO MAIS COMPATÍVEL + DISPUTA CHEIA POR TURMA ===== */
+.photoInput{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;}
+.avatarInputLabel{cursor:pointer!important;position:relative!important;}
+.avatarInputLabel::after{content:'trocar';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);background:#fde047;color:#020817;font-size:8px;font-weight:1000;border-radius:999px;padding:1px 5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.goDisputeSlot{width:100%!important;margin:8px 0!important;min-height:36px!important;border-radius:12px!important;font-size:13px!important;}
+body.disputeFocus{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;overflow:hidden!important;}
+body.disputeFocus #page-disputa{height:100dvh!important;max-height:100dvh!important;}
+body.disputeFocus #page-disputa > .card:nth-of-type(2){height:calc(100dvh - 106px)!important;overflow:auto!important;padding-bottom:18px!important;}
+body.disputeFocus .scoreHeaderLine + p{display:none!important;}
+body.disputeFocus .scoreHeaderLine h2{font-size:14px!important;max-width:calc(100vw - 135px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.disputeFocus .exitFocusBtn{display:inline-block!important;}
+body.disputeFocus .quickScore button,
+body.disputeFocus .bonusMini{touch-action:manipulation!important;}
+@media(max-width:900px) and (orientation:landscape){
+  body.disputeFocus #page-disputa > .card:first-child{max-height:92px!important;}
+  body.disputeFocus #page-disputa > .card:nth-of-type(2){height:calc(100dvh - 94px)!important;}
+  body.disputeFocus #page-disputa .compactMain{grid-template-columns:18px 28px minmax(62px,.48fr) minmax(300px,2.9fr) 110px 46px!important;}
+}
