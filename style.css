@@ -936,3 +936,5 @@ body.disputeFocus #page-disputa .scorePlayerCard{padding:5px 6px!important;borde
   #page-disputa .compactField .quickScoreInput{width:32px!important;height:32px!important;min-height:32px!important;}
   #page-disputa .bonusMini{height:32px!important;min-height:32px!important;}
 }
+
+.compactGo{width:100%;min-height:42px!important;margin:8px 0 10px!important;font-size:16px!important;border-radius:12px!important}

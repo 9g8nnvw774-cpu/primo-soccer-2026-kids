@@ -1,4 +1,1 @@
-{
-  "version": "13.0-ranking-anual-categoria",
-  "appId": "primo_soccer_2026_kids"
-}
+{"version":"v27-banco-correto","date":"2026-06-17","notes":"Supabase URL, publishable key e APP_ID corrigidos para o projeto correto."}
