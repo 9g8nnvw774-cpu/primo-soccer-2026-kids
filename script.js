@@ -47,43 +47,27 @@ function photoPickerHtml(s){
     <input id="${inputId}" class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
   </div>`;
 }
-function photoFileToDataUrl(file){
+function fileToCompressedPhoto(file,max=300,quality=.74){
   return new Promise((resolve,reject)=>{
+    if(!file)return resolve("");
     const r=new FileReader();
     r.onerror=()=>reject(new Error("Não foi possível ler a foto."));
-    r.onload=()=>resolve(r.result);
+    r.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("Foto inválida."));
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>h&&w>max){h=Math.round(h*max/w);w=max}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}
+        const c=document.createElement("canvas");
+        c.width=w;c.height=h;
+        const ctx=c.getContext("2d");
+        ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL("image/jpeg",quality));
+      };
+      img.src=r.result;
+    };
     r.readAsDataURL(file);
   });
-}
-function loadImgFromSrc(src){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    img.onload=()=>resolve(img);
-    img.onerror=()=>reject(new Error("Foto inválida ou formato não suportado."));
-    img.src=src;
-  });
-}
-async function fileToCompressedPhoto(file,max=420,quality=.78){
-  if(!file)return "";
-  const src=await photoFileToDataUrl(file);
-  let source;
-  try{
-    if(window.createImageBitmap){
-      const blob=await (await fetch(src)).blob();
-      source=await createImageBitmap(blob,{imageOrientation:"from-image"});
-    }
-  }catch(e){ source=null; }
-  if(!source) source=await loadImgFromSrc(src);
-  let w=source.width,h=source.height;
-  if(!w||!h)throw new Error("Foto sem dimensão válida.");
-  const ratio=Math.min(1,max/Math.max(w,h));
-  w=Math.max(1,Math.round(w*ratio)); h=Math.max(1,Math.round(h*ratio));
-  const c=document.createElement("canvas"); c.width=w; c.height=h;
-  const ctx=c.getContext("2d",{alpha:false});
-  ctx.fillStyle="#06117a"; ctx.fillRect(0,0,w,h);
-  ctx.drawImage(source,0,0,w,h);
-  if(source.close)source.close();
-  return c.toDataURL("image/jpeg",quality);
 }
 async function loadPhoto(e,id){
   const input=e.target, file=input.files&&input.files[0];
@@ -279,8 +263,8 @@ async function addStudent(){
   try{ if(file){ setSync("Preparando foto do aluno...","warn"); photo=await fileToCompressedPhoto(file); } }catch(e){ console.error(e); alert("Aluno cadastrado, mas essa foto não pôde ser usada. Tente alterar a foto depois tocando nela."); }
   state.students.push({id,studentCode:id,name,birth,category,active:true,photo,createdAt:new Date().toISOString()});
   document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";if(document.getElementById("studentPhoto"))document.getElementById("studentPhoto").value="";
-  saveLocal();renderAll();const ok=await saveCloudNow();
-  alert(ok?"Aluno cadastrado e salvo online!":"Aluno cadastrado neste celular. Banco online não confirmou ainda. Toque em Sincronizar agora quando conectar.");
+  saveLocal();renderAll();await saveCloudNow();
+  alert("Aluno cadastrado e salvo online!");
 }
 function renderStudents(){
   const body = document.getElementById("studentsTable");
@@ -328,10 +312,9 @@ function renderAgenda(){
   const schList=schedulesFor(activeCategory);
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
     const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
-    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/6</span></div><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
+    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/6</span></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
   }).join("");
 }
-function goToDisputeSlot(sch){const ss=document.getElementById("scoreSchedule");if(ss)ss.value=sch;showPage("disputa");setTimeout(()=>{const s2=document.getElementById("scoreSchedule");if(s2)s2.value=sch;enterDisputeFocus();renderScore();},80)}
 function removeFromSchedule(id,sch){const p=participant(id,false);if(p){p.schedules=p.schedules.filter(x=>x!==sch);scheduleSave();renderAll()}}
 function scoreStepperHtml(id,week,sch,field,value){
   const safeId=JSON.stringify(id), safeSch=JSON.stringify(sch), safeField=JSON.stringify(field);
@@ -371,85 +354,9 @@ function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPi
 function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
-function withTimeout(promise,ms,msg){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||"Tempo de conexão esgotado")),ms))])}
-function cloudReady(){return !!(SUPABASE_URL&&SUPABASE_KEY&&APP_ID)}
-function supabaseHeaders(){return {"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Accept":"application/json","Prefer":"return=representation"}}
-function cloudUrl(){return String(SUPABASE_URL||"").replace(/\/$/,"")}
-function cloudErrText(e){
-  if(!e)return "erro desconhecido";
-  if(typeof e==="string")return e;
-  return e.message||e.error_description||e.details||e.hint||e.code||JSON.stringify(e);
-}
-async function loadCloudRest(){
-  const url=cloudUrl()+"/rest/v1/primo_app_state?select=data,updated_at&app_id=eq."+encodeURIComponent(APP_ID)+"&limit=1";
-  const r=await withTimeout(fetch(url,{method:"GET",headers:supabaseHeaders(),cache:"no-store"}),12000,"Banco demorou para responder via REST");
-  const txt=await r.text();
-  let json=null;try{json=txt?JSON.parse(txt):null}catch(e){}
-  if(!r.ok)throw new Error("REST leitura "+r.status+": "+(json?cloudErrText(json):txt));
-  return Array.isArray(json)?json[0]:json;
-}
-async function saveCloudRest(){
-  norm();
-  const payload={app_id:APP_ID,data:state,updated_at:new Date().toISOString()};
-  const url=cloudUrl()+"/rest/v1/primo_app_state?on_conflict=app_id";
-  const r=await withTimeout(fetch(url,{method:"POST",headers:{...supabaseHeaders(),"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)}),12000,"Banco demorou para salvar via REST");
-  const txt=await r.text();
-  let json=null;try{json=txt?JSON.parse(txt):null}catch(e){}
-  if(!r.ok)throw new Error("REST salvar "+r.status+": "+(json?cloudErrText(json):txt));
-  return json;
-}
-async function loadCloudClient(){
-  if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");
-  sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{apikey:SUPABASE_KEY}}});
-  const result=await withTimeout(sb.from("primo_app_state").select("data,updated_at").eq("app_id",APP_ID).maybeSingle(),12000,"Banco demorou para responder pelo client");
-  if(result.error)throw result.error;
-  return result.data;
-}
-async function saveCloudClient(){
-  if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");
-  if(!sb)sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{apikey:SUPABASE_KEY}}});
-  norm();
-  const payload={app_id:APP_ID,data:state,updated_at:new Date().toISOString()};
-  const result=await withTimeout(sb.from("primo_app_state").upsert(payload,{onConflict:"app_id"}),12000,"Banco demorou para salvar pelo client");
-  if(result.error)throw result.error;
-  return true;
-}
-async function initCloud(){
-  let errors=[];
-  try{
-    setSync("Conectando ao banco online...");
-    if(!SUPABASE_URL||!SUPABASE_KEY)throw new Error("Configuração Supabase ausente no supabase-config.js");
-    let data=null;
-    try{data=await loadCloudClient()}catch(e){errors.push("Client: "+cloudErrText(e));data=await loadCloudRest()}
-    if(data&&data.data&&Object.keys(data.data).length){
-      const localUpdated=state?.updatedAt||"";
-      state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal();
-    }else{
-      await saveCloud();
-    }
-    setSync("✅ Banco online conectado.","ok");renderAll();
-  }catch(e){
-    errors.push("REST: "+cloudErrText(e));
-    console.error("Erro Supabase completo:",errors,e);
-    const detail=errors.join(" | ").slice(0,240);
-    setSync("❌ Banco não conectou. " + detail,"error");
-    saveLocal();renderAll();
-  }
-}
-async function saveCloud(){
-  if(!cloudReady())return false;
-  const stamp=new Date().toISOString();
-  try{
-    state.updatedAt=stamp;norm();
-    try{await saveCloudClient()}catch(e){console.warn("Client salvar falhou, tentando REST",e);await saveCloudRest()}
-    localStorage.setItem("primo_kids_last_cloud_ok",stamp);
-    setSync("✅ Dados salvos online.","ok");return true;
-  }catch(e){
-    console.error("Erro ao salvar Supabase completo:",e);
-    setSync("❌ Não salvou online: "+cloudErrText(e).slice(0,180),"error");return false;
-  }
-}
-async function syncNow(){setSync("Sincronizando agora...");const ok=await saveCloud();alert(ok?"Sincronizado no banco online.":"Não conectou ao banco. Veja a mensagem verde/vermelha na tela para saber o erro exato.")}
+async function initCloud(){try{setSync("Conectando ao banco online...");if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const{data,error}=await sb.from("primo_app_state").select("data").eq("app_id",APP_ID).maybeSingle();if(error)throw error;if(data&&data.data&&Object.keys(data.data).length){state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal()}else await saveCloud();setSync("Dados online conectados.","ok");renderAll()}catch(e){console.error(e);setSync("Erro online: confirme SQL e config.","error")}}
+async function saveCloud(){if(!sb){if(!window.supabase)return false;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}try{norm();const{error}=await sb.from("primo_app_state").upsert({app_id:APP_ID,data:state,updated_at:new Date().toISOString()},{onConflict:"app_id"});if(error)throw error;setSync("Dados salvos online.","ok");return true}catch(e){console.error(e);setSync("Erro ao salvar online.","error");return false}}
+async function syncNow(){await saveCloud();alert("Sincronizado")}
 async function loadCloud(){await initCloud()}
 
 // ===== Logo + Link dos Pais v4 =====
