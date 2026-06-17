@@ -372,42 +372,88 @@ function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mê
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 function withTimeout(promise,ms,msg){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||"Tempo de conexão esgotado")),ms))])}
-function cloudReady(){return !!(SUPABASE_URL&&SUPABASE_KEY&&APP_ID&&window.supabase)}
+function cloudReady(){return !!(SUPABASE_URL&&SUPABASE_KEY&&APP_ID)}
+const CLOUD_TIMEOUT=30000;
+function restHeaders(withAuth=true){
+  const h={"apikey":SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=representation"};
+  if(withAuth)h.Authorization="Bearer "+SUPABASE_KEY;
+  return h;
+}
+async function restFetch(url,options={}){
+  // Tenta primeiro com Authorization e, se o gateway recusar chave publishable, tenta só com apikey.
+  let res=await fetch(url,{...options,headers:{...restHeaders(true),...(options.headers||{})}});
+  if(res.status===401||res.status===403){
+    res=await fetch(url,{...options,headers:{...restHeaders(false),...(options.headers||{})}});
+  }
+  const text=await res.text();
+  let json=null; try{json=text?JSON.parse(text):null}catch(e){json=text}
+  if(!res.ok){throw new Error((json&&json.message)||text||("HTTP "+res.status))}
+  return json;
+}
+async function fetchCloudState(){
+  if(!cloudReady())throw new Error("Configuração Supabase ausente");
+  // 1) caminho mais estável: REST direto, sem depender do CDN do supabase-js.
+  try{
+    const url=`${SUPABASE_URL}/rest/v1/primo_app_state?select=data,updated_at&app_id=eq.${encodeURIComponent(APP_ID)}&limit=1`;
+    const rows=await withTimeout(restFetch(url,{method:"GET"}),CLOUD_TIMEOUT,"Banco demorou para responder");
+    return Array.isArray(rows)?(rows[0]||null):rows;
+  }catch(restErr){
+    console.warn("REST Supabase falhou, tentando supabase-js",restErr);
+    if(!window.supabase)throw restErr;
+    sb=sb||supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    const result=await withTimeout(sb.from("primo_app_state").select("data,updated_at").eq("app_id",APP_ID).maybeSingle(),CLOUD_TIMEOUT,"Banco demorou para responder");
+    if(result.error)throw result.error;
+    return result.data;
+  }
+}
+async function upsertCloudState(){
+  if(!cloudReady())return false;
+  norm();
+  const payload={app_id:APP_ID,data:state,updated_at:new Date().toISOString()};
+  // 1) REST direto para evitar falha do script externo.
+  try{
+    const url=`${SUPABASE_URL}/rest/v1/primo_app_state?on_conflict=app_id`;
+    await withTimeout(restFetch(url,{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)}),CLOUD_TIMEOUT,"Banco demorou para salvar");
+    return true;
+  }catch(restErr){
+    console.warn("REST save falhou, tentando supabase-js",restErr);
+    if(!window.supabase)throw restErr;
+    sb=sb||supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    const result=await withTimeout(sb.from("primo_app_state").upsert(payload,{onConflict:"app_id"}),CLOUD_TIMEOUT,"Banco demorou para salvar");
+    if(result.error)throw result.error;
+    return true;
+  }
+}
 async function initCloud(){
   try{
     setSync("Conectando ao banco online...");
-    if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");
-    if(!SUPABASE_URL||!SUPABASE_KEY)throw new Error("Configuração Supabase ausente");
-    sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-    const result=await withTimeout(sb.from("primo_app_state").select("data,updated_at").eq("app_id",APP_ID).maybeSingle(),9000,"Banco demorou para responder");
-    const {data,error}=result;
-    if(error)throw error;
+    const data=await fetchCloudState();
     if(data&&data.data&&Object.keys(data.data).length){
-      state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal();
+      state=data.data;
+      norm();
+      currentMonth=state.currentMonth||currentMonth;
+      saveLocal();
     }else{
-      await saveCloud();
+      await upsertCloudState();
     }
-    setSync("Dados online conectados.","ok");renderAll();
+    setSync("Dados online conectados.","ok");
+    renderAll();
   }catch(e){
     console.error("Erro Supabase:",e);
-    setSync("Não conectou ao banco. Usando dados deste celular.","error");
-    saveLocal();renderAll();
+    setSync("Não conectou ao banco. Toque em Recarregar online ou Sincronizar.","error");
+    saveLocal();
+    renderAll();
   }
 }
 async function saveCloud(){
-  if(!sb){
-    if(!cloudReady())return false;
-    sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-  }
   try{
-    norm();
-    const payload={app_id:APP_ID,data:state,updated_at:new Date().toISOString()};
-    const result=await withTimeout(sb.from("primo_app_state").upsert(payload,{onConflict:"app_id"}),9000,"Banco demorou para salvar");
-    if(result.error)throw result.error;
-    setSync("Dados salvos online.","ok");return true;
+    const ok=await upsertCloudState();
+    if(ok){setSync("Dados salvos online.","ok");return true}
+    throw new Error("Configuração ausente");
   }catch(e){
     console.error("Erro ao salvar Supabase:",e);
-    setSync("Salvo no celular. Banco online não confirmou.","error");return false;
+    setSync("Salvo no celular. Banco online não confirmou.","error");
+    return false;
   }
 }
 async function syncNow(){const ok=await saveCloud();alert(ok?"Sincronizado no banco online.":"Não conectou ao banco. Os dados continuam salvos neste celular.")}
