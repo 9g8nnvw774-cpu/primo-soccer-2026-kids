@@ -197,6 +197,17 @@
     <h2>Configurações</h2>
     <button onclick="syncNow()" class="success">Sincronizar agora</button>
     <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button>
+      
+      <hr class="softLine">
+      <h3>Banco de dados Supabase</h3>
+      <p class="smallText">Use o projeto correto do Supabase. Depois de salvar, feche e abra o app.</p>
+      <label class="smallText">Project URL</label>
+      <input id="dbUrl" type="text" placeholder="https://lcutzbvymikrunubofef.supabase.co">
+      <label class="smallText">Publishable Key</label>
+      <input id="dbKey" type="text" placeholder="sb_publishable_...">
+      <label class="smallText">App ID</label>
+      <input id="dbAppId" type="text" value="primo_soccer_kids_league_2026">
+      <button onclick="saveDbConfigFromScreen()" class="success">Salvar configuração do banco</button>
       <hr class="softLine">
       <h3>Regras do campeonato</h3>
       <textarea id="rulesEditor" rows="6" placeholder="Digite as regras do campeonato"></textarea>
@@ -206,14 +217,13 @@
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v24 • Banco preservado + fotos corrigidas</p>
-    <p><strong>App ID:</strong> primo_soccer_2026_kids</p>
+    <p><strong>Versão:</strong> Kids v28 • Banco correto + REST direto + fotos</p>
+    <p><strong>App ID:</strong> primo_soccer_kids_league_2026</p>
   </div>
 </section>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
-<script src="script.js"></script>
+<script src="supabase-config.js?v=28"></script>
+<script src="script.js?v=28"></script>
 </body>
 </html>

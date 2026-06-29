@@ -1,6 +1,8 @@
-const SUPABASE_URL=window.PRIMO_SUPABASE_CONFIG?.url;
-const SUPABASE_KEY=window.PRIMO_SUPABASE_CONFIG?.anonKey;
-const APP_ID=window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_2026_kids";
+const DB_OVERRIDE=(()=>{try{return JSON.parse(localStorage.getItem("primo_kids_db_config")||"{}")}catch(e){return {}}})();
+function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^https?:\/\//i.test(u))u="https://"+u; return u.replace(/\/+$/,"");}
+const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
+const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
+const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Meninas","meninas"],["Sub 11-12-13-14 anos","sub1114"]];
 const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Meninas":["Quarta 10:45 • Meninas"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
@@ -123,7 +125,7 @@ function showPage(page){
   });
   renderAll();
 }
-function renderAll(){
+function renderAll(){fillDbConfigScreen();
   norm();
   renderMonth();
   renderSelectors();
@@ -418,21 +420,20 @@ async function initCloud(){
   let errors=[];
   try{
     setSync("Conectando ao banco online...");
-    if(!SUPABASE_URL||!SUPABASE_KEY)throw new Error("Configuração Supabase ausente no supabase-config.js");
-    let data=null;
-    try{data=await loadCloudClient()}catch(e){errors.push("Client: "+cloudErrText(e));data=await loadCloudRest()}
+    if(!SUPABASE_URL||!SUPABASE_KEY)throw new Error("URL ou Publishable Key ausente no supabase-config.js");
+    // V28: usa REST direto. Evita travar por CDN/cache do Supabase Client no iPhone/PWA.
+    const data=await loadCloudRest();
     if(data&&data.data&&Object.keys(data.data).length){
-      const localUpdated=state?.updatedAt||"";
-      state=data.data;norm();currentMonth=state.currentMonth||currentMonth;saveLocal();
+      state=data.data; norm(); currentMonth=state.currentMonth||currentMonth; saveLocal();
     }else{
-      await saveCloud();
+      await saveCloudRest();
     }
     setSync("✅ Banco online conectado.","ok");renderAll();
   }catch(e){
-    errors.push("REST: "+cloudErrText(e));
-    console.error("Erro Supabase completo:",errors,e);
-    const detail=errors.join(" | ").slice(0,240);
-    setSync("❌ Banco não conectou. " + detail,"error");
+    errors.push(cloudErrText(e));
+    console.error("Erro Supabase REST:",errors,e,{SUPABASE_URL,APP_ID});
+    const detail=errors.join(" | ").slice(0,260);
+    setSync("❌ Banco não conectou. REST: " + detail,"error");
     saveLocal();renderAll();
   }
 }
@@ -441,13 +442,25 @@ async function saveCloud(){
   const stamp=new Date().toISOString();
   try{
     state.updatedAt=stamp;norm();
-    try{await saveCloudClient()}catch(e){console.warn("Client salvar falhou, tentando REST",e);await saveCloudRest()}
+    await saveCloudRest();
     localStorage.setItem("primo_kids_last_cloud_ok",stamp);
     setSync("✅ Dados salvos online.","ok");return true;
   }catch(e){
-    console.error("Erro ao salvar Supabase completo:",e);
-    setSync("❌ Não salvou online: "+cloudErrText(e).slice(0,180),"error");return false;
+    console.error("Erro ao salvar Supabase REST:",e,{SUPABASE_URL,APP_ID});
+    setSync("❌ Não salvou online: REST "+cloudErrText(e).slice(0,180),"error");return false;
   }
+}
+function saveDbConfigFromScreen(){
+  const url=document.getElementById("dbUrl")?.value?.trim();
+  const anonKey=document.getElementById("dbKey")?.value?.trim();
+  const appId=document.getElementById("dbAppId")?.value?.trim()||"primo_soccer_kids_league_2026";
+  if(!url||!anonKey)return alert("Cole a Project URL e a Publishable Key do Supabase.");
+  localStorage.setItem("primo_kids_db_config",JSON.stringify({url,anonKey,appId}));
+  alert("Configuração salva neste aparelho. Agora feche e abra o app novamente para carregar com o banco correto.");
+}
+function fillDbConfigScreen(){
+  const u=document.getElementById("dbUrl"), k=document.getElementById("dbKey"), a=document.getElementById("dbAppId");
+  if(u)u.value=SUPABASE_URL||""; if(k)k.value=SUPABASE_KEY||""; if(a)a.value=APP_ID||"primo_soccer_kids_league_2026";
 }
 async function syncNow(){setSync("Sincronizando agora...");const ok=await saveCloud();alert(ok?"Sincronizado no banco online.":"Não conectou ao banco. Veja a mensagem verde/vermelha na tela para saber o erro exato.")}
 async function loadCloud(){await initCloud()}
