@@ -970,3 +970,56 @@ body.disputeFocus #page-disputa .scorePlayerCard{padding:5px 6px!important;borde
 .parentMode #parentMonthSelect{
   font-size:17px;
 }
+
+
+/* V30 - seletor de mês no topo do Link dos Pais, abaixo do título MÊS */
+.parentHeroMonthBox{
+  display:none;
+}
+.parentMode .parentHeroMonthBox{
+  display:block!important;
+  width:min(520px,82vw);
+  margin-top:92px;
+  position:relative;
+  z-index:6;
+}
+.parentMode #parentHeroMonthSelect{
+  width:100%!important;
+  min-height:60px!important;
+  border-radius:18px!important;
+  border:3px solid rgba(126,234,255,.85)!important;
+  background:rgba(5,18,42,.96)!important;
+  color:#fff!important;
+  font-family:"Arial Black",Arial,sans-serif!important;
+  font-size:24px!important;
+  font-weight:900!important;
+  text-align:center!important;
+  text-align-last:center!important;
+  padding:10px 16px!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.68), inset 0 0 18px rgba(126,234,255,.14)!important;
+}
+.parentMode .parentHeader .parentMonthBox{
+  display:none!important;
+}
+.parentMode .officialHero{
+  min-height:650px!important;
+}
+.parentMode .officialHeroContent{
+  min-height:620px!important;
+}
+@media(max-width:800px){
+  .parentMode .officialHero{
+    min-height:690px!important;
+  }
+  .parentMode .officialHeroContent{
+    min-height:650px!important;
+  }
+  .parentMode .parentHeroMonthBox{
+    width:calc(100% - 92px);
+    margin-top:96px;
+  }
+  .parentMode #parentHeroMonthSelect{
+    min-height:56px!important;
+    font-size:21px!important;
+  }
+}

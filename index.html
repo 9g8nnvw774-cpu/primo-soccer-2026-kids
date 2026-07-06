@@ -15,6 +15,9 @@
     <img src="primo-logo.png" class="officialLogo" alt="Primo Soccer">
     <div class="officialTitle" data-app-title><span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span></div>
     <div class="officialMonth">MÊS: <span id="heroMonth">MAIO</span></div>
+    <div class="parentHeroMonthBox" aria-label="Selecionar mês da disputa no link dos pais">
+      <select id="parentHeroMonthSelect" onchange="setParentMonth(this.value)"></select>
+    </div>
   </div>
   <select id="monthSelect" class="officialMonthSelect"></select>
 </header>

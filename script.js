@@ -483,7 +483,7 @@ function isParentMode(){
 }
 
 function copyParentLink(){
-  const url = location.origin + location.pathname + "?pais=1&t=" + Date.now();
+  const url = location.origin + location.pathname + "?pais=1&mes=" + encodeURIComponent(parentSelectedMonth || currentMonth) + "&t=" + Date.now();
   const el = document.getElementById("parentLinkText");
   if(el) el.textContent = url;
   if(navigator.clipboard){
@@ -506,15 +506,18 @@ function setParentMonth(m){
 }
 
 function renderParentMonthSelect(){
-  const sel=document.getElementById("parentMonthSelect");
-  if(!sel)return;
-  sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");
-  sel.value=parentSelectedMonth;
+  ["parentMonthSelect","parentHeroMonthSelect"].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");
+    sel.value=parentSelectedMonth;
+  });
 }
 
 function renderParentMode(){
   if(!MONTHS.includes(parentSelectedMonth)) parentSelectedMonth=currentMonth;
   const m=document.getElementById("parentMonth");if(m)m.textContent=parentSelectedMonth;
+  const hm=document.getElementById("heroMonth");if(hm)hm.textContent=parentSelectedMonth;
   renderParentMonthSelect();
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
   const area=document.getElementById("parentRankingArea");if(area){const monthList=rankedByMonth(parentCategory,parentSelectedMonth),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${parentSelectedMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
