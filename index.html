@@ -187,6 +187,10 @@
     <img src="primo-logo.png" class="parentLogo" alt="Primo Soccer">
     <h2 data-app-title><span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span></h2>
     <p>Resultados por categoria — MÊS: <strong id="parentMonth">MAIO</strong></p>
+    <div class="parentMonthBox">
+      <label for="parentMonthSelect">Selecionar mês da disputa</label>
+      <select id="parentMonthSelect" onchange="setParentMonth(this.value)"></select>
+    </div>
     <div id="parentCategoryTabs" class="parentTabs"></div>
   </div>
   <div id="parentRankingArea"></div>

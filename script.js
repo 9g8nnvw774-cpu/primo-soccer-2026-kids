@@ -37,6 +37,7 @@ function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if
 function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthObj(m).participants||{}).filter(([id,p])=>p.schedules&&p.schedules.length).map(([id])=>id));return state.students.filter(s=>s.active!==false&&ids.has(s.id))}
 function activeByCategory(cat=activeCategory){return activeStudents().filter(s=>s.category===cat)}
 function ranked(cat=null){return activeStudents().filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
+function rankedByMonth(cat=null,m=currentMonth){return activeStudents(m).filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id,m)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 function avatarHtml(s){
   return s.photo
     ? `<span class="avatar"><img src="${s.photo}" onclick="openPhoto('${s.photo}')"></span>`
@@ -465,8 +466,16 @@ function fillDbConfigScreen(){
 async function syncNow(){setSync("Sincronizando agora...");const ok=await saveCloud();alert(ok?"Sincronizado no banco online.":"Não conectou ao banco. Veja a mensagem verde/vermelha na tela para saber o erro exato.")}
 async function loadCloud(){await initCloud()}
 
-// ===== Logo + Link dos Pais v4 =====
+// ===== Logo + Link dos Pais v5 - seletor de todos os meses =====
 let parentCategory = CATEGORIES[0][0];
+let parentSelectedMonth = (()=>{
+  try{
+    const p = new URLSearchParams(location.search);
+    const fromUrl = (p.get("mes") || p.get("month") || "").toUpperCase();
+    const saved = localStorage.getItem("primo_kids_parent_month") || "";
+    return MONTHS.includes(fromUrl) ? fromUrl : (MONTHS.includes(saved) ? saved : currentMonth);
+  }catch(e){ return currentMonth; }
+})();
 
 function isParentMode(){
   const p = new URLSearchParams(location.search);
@@ -478,7 +487,7 @@ function copyParentLink(){
   const el = document.getElementById("parentLinkText");
   if(el) el.textContent = url;
   if(navigator.clipboard){
-    navigator.clipboard.writeText(url).then(()=>alert("Link dos pais copiado!")).catch(()=>alert(url));
+    navigator.clipboard.writeText(url).then(()=>alert("Link dos pais copiado!"));
   } else {
     alert(url);
   }
@@ -489,10 +498,26 @@ function setParentCategory(cat){
   renderParentMode();
 }
 
+function setParentMonth(m){
+  if(!MONTHS.includes(m)) return;
+  parentSelectedMonth = m;
+  localStorage.setItem("primo_kids_parent_month", m);
+  renderParentMode();
+}
+
+function renderParentMonthSelect(){
+  const sel=document.getElementById("parentMonthSelect");
+  if(!sel)return;
+  sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");
+  sel.value=parentSelectedMonth;
+}
+
 function renderParentMode(){
-  const m=document.getElementById("parentMonth");if(m)m.textContent=currentMonth;
+  if(!MONTHS.includes(parentSelectedMonth)) parentSelectedMonth=currentMonth;
+  const m=document.getElementById("parentMonth");if(m)m.textContent=parentSelectedMonth;
+  renderParentMonthSelect();
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
-  const area=document.getElementById("parentRankingArea");if(area){const monthList=ranked(parentCategory),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
+  const area=document.getElementById("parentRankingArea");if(area){const monthList=rankedByMonth(parentCategory,parentSelectedMonth),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${parentSelectedMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
 }
 const renderRankingsBase = renderRankings;
 renderRankings = function(){
@@ -500,11 +525,10 @@ renderRankings = function(){
   if(isParentMode()) renderParentMode();
 };
 
-
-
 function initParentModeIfNeeded(){
   if(!isParentMode()) return;
   document.body.classList.add("parentMode");
+  if(!localStorage.getItem("primo_kids_parent_month")) parentSelectedMonth=currentMonth;
   showPage("pais");
   renderParentMode();
 }

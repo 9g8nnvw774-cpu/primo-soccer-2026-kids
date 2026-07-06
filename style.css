@@ -938,3 +938,35 @@ body.disputeFocus #page-disputa .scorePlayerCard{padding:5px 6px!important;borde
 }
 
 .compactGo{width:100%;min-height:42px!important;margin:8px 0 10px!important;font-size:16px!important;border-radius:12px!important}
+
+
+/* V29 - seletor de mês no link dos pais */
+.parentMonthBox{
+  margin:10px auto 12px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  max-width:360px;
+}
+.parentMonthBox label{
+  color:#ffd84a;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  font-size:12px;
+}
+#parentMonthSelect{
+  width:100%;
+  min-height:44px;
+  border-radius:14px;
+  border:1px solid rgba(255,216,74,.55);
+  background:#06122e;
+  color:#fff;
+  font-size:16px;
+  font-weight:900;
+  text-align:center;
+  padding:8px 12px;
+}
+.parentMode #parentMonthSelect{
+  font-size:17px;
+}
