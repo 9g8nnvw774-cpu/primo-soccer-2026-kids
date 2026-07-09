@@ -8,6 +8,19 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="adminLoginOverlay" class="adminLoginOverlay hidden">
+  <div class="adminLoginCard">
+    <img src="primo-logo.png" alt="Primo Soccer" class="loginLogo">
+    <h1>PRIMO SOCCER</h1>
+    <h2>Área Administrativa</h2>
+    <p>Entre para cadastrar alunos, lançar pontos, alterar agenda e configurações.</p>
+    <input id="adminUser" autocomplete="username" placeholder="Admin">
+    <input id="adminPass" type="password" autocomplete="current-password" placeholder="Senha">
+    <button onclick="adminLogin()" class="success">Entrar</button>
+    <small id="adminLoginError"></small>
+    <a id="parentAccessLink" href="?pais=1">Abrir link dos pais</a>
+  </div>
+</div>
 <main class="app">
 <header class="hero officialHero" id="appHero">
   <div class="officialHeroShade"></div>
@@ -29,8 +42,8 @@
   <button id="tab-disputa" onclick="showPage('disputa')">Disputa</button>
   <button id="tab-ranking" onclick="showPage('ranking')">Ranking</button>
   <button id="tab-imprimir" onclick="showPage('imprimir')">Imprimir</button>
-  <button id="tab-relatorios" onclick="showPage('relatorios')">Relatórios</button>
   <button id="tab-config" onclick="showPage('config')">Config</button>
+<button id="adminLogoutBtn" class="adminLogoutBtn hidden" onclick="adminLogout()">Sair Admin</button>
 </nav>
 
 <div id="syncStatus" class="sync">Conectando ao banco online...</div>
@@ -121,7 +134,6 @@
       <select id="scoreSchedule" onchange="renderScore()"></select>
       <select id="scoreWeek" onchange="renderScore()"></select>
       <button onclick="enterDisputeFocus()" class="success">Iniciar disputa</button>
-      <button onclick="markAttendanceForSlot()" class="secondary">Marcar presença</button>
       <button onclick="finishTraining()" class="success">Finalizar treino</button>
       <button onclick="clearTrainingScore()" class="danger">Limpar treino</button>
     </div>
@@ -142,6 +154,7 @@
             <th>Uniforme</th>
             <th>Fruta</th>
             <th>Comport.</th>
+            <th>Presença</th>
             <th>Total</th>
           </tr>
         </thead>
@@ -157,29 +170,26 @@
 
 <section id="page-ranking" class="page hidden">
   <div class="card">
-    <h2>Rankings por categoria</h2>
-    <div class="form filterBar">
-      <select id="rankMonthFilter" onchange="renderRankings()"></select>
-      <select id="rankCategoryFilter" onchange="renderRankings()"></select>
-      <select id="rankWeekFilter" onchange="renderRankings()"></select>
+    <h2>Filtros do ranking</h2>
+    <div class="form proFilterForm">
+      <select id="rankingMonthFilter" onchange="renderRankings()"></select>
+      <select id="rankingCategoryFilter" onchange="renderRankings()"></select>
+      <select id="rankingWeekFilter" onchange="renderRankings()">
+        <option value="all">Todas as semanas</option>
+        <option value="0">Semana 1</option>
+        <option value="1">Semana 2</option>
+        <option value="2">Semana 3</option>
+        <option value="3">Semana 4</option>
+        <option value="4">Semana 5</option>
+      </select>
+      <select id="rankingScheduleFilter" onchange="renderRankings()"></select>
     </div>
+  </div>
+  <div class="card">
+    <h2>Rankings por categoria</h2>
     <div id="rankingGeneral" class="rankList"></div>
   </div>
   <div id="allCategoryRankings" class="gridCards"></div>
-</section>
-
-<section id="page-relatorios" class="page hidden">
-  <div class="card">
-    <h2>Relatórios e evolução</h2>
-    <p>Escolha um aluno para gerar um resumo simples para enviar aos pais.</p>
-    <div class="form filterBar">
-      <select id="reportStudent"></select>
-      <select id="reportMonth"></select>
-      <button onclick="renderStudentReport()" class="success">Gerar relatório</button>
-      <button onclick="copyReportText()" class="secondary">Copiar texto</button>
-    </div>
-  </div>
-  <div id="studentReportArea"></div>
 </section>
 
 <section id="page-imprimir" class="page hidden">
@@ -198,9 +208,14 @@
       <option value="branco">Tabela Branco e Azul</option>
       <option value="grafite">Tabela Grafite Profissional</option>
     </select>
-    <select id="printLimit"><option value="all">Todos os alunos</option><option value="10">Top 10</option><option value="5">Top 5</option></select>
+    <select id="printLimit">
+      <option value="5">Top 5</option>
+      <option value="10" selected>Top 10</option>
+      <option value="all">Todos</option>
+    </select>
     <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
     <button onclick="preparePrint('annual')" class="secondary">Gerar ranking anual da categoria</button>
+    <button onclick="preparePrint('general')" class="secondary">Gerar ranking geral</button>
     <button onclick="window.print()" class="success">Imprimir / Salvar imagem</button>
   </div>
   <div id="printArea" class="printArea"></div>
@@ -224,11 +239,13 @@
 <section id="page-config" class="page hidden">
   <div class="card">
     <h2>Configurações</h2>
-    <div id="adminBox" class="adminBox"></div>
     <button onclick="syncNow()" class="success">Sincronizar agora</button>
+    <button onclick="exportBackup()" class="secondary">Exportar backup</button>
+    <input id="backupFile" type="file" accept="application/json" onchange="importBackup(event)">
+    <button onclick="prepareGeneralReport()" class="secondary">Relatório geral</button>
+    <button onclick="prepareStudentReport()" class="secondary">Relatório individual</button>
+    <select id="reportStudentSelect"></select>
     <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button>
-      <button onclick="exportBackup()" class="secondary">Exportar backup</button>
-      <label class="fileButton">Restaurar backup<input type="file" accept="application/json" onchange="importBackup(event)"></label>
       
       <hr class="softLine">
       <h3>Banco de dados Supabase</h3>
@@ -249,13 +266,13 @@
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v32 • Segurança visual + backup + presença + relatórios + filtros</p>
+    <p><strong>Versão:</strong> Kids v32 Pro • Admin + backup + relatórios + presença + filtros</p>
     <p><strong>App ID:</strong> primo_soccer_kids_league_2026</p>
   </div>
 </section>
 </main>
 
-<script src="supabase-config.js?v=32"></script>
-<script src="script.js?v=32"></script>
+<script src="supabase-config.js?v=32pro"></script>
+<script src="script.js?v=32pro"></script>
 </body>
 </html>

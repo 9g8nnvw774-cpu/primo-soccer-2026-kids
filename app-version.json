@@ -1,6 +1,1 @@
-{
-  "version": "v32",
-  "date": "2026-06-17",
-  "notes": "Segurança visual, backup, presença, relatórios, filtros e impressão melhorada",
-  "name": "Primo Soccer Kids 2026"
-}
+{"version":"32-pro","name":"Primo Soccer Kids 2026","features":["admin-login","backup-restore","student-reports","attendance","ranking-filters","print-limits"]}
