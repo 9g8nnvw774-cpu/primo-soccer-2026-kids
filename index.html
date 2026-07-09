@@ -29,6 +29,7 @@
   <button id="tab-disputa" onclick="showPage('disputa')">Disputa</button>
   <button id="tab-ranking" onclick="showPage('ranking')">Ranking</button>
   <button id="tab-imprimir" onclick="showPage('imprimir')">Imprimir</button>
+  <button id="tab-relatorios" onclick="showPage('relatorios')">Relatórios</button>
   <button id="tab-config" onclick="showPage('config')">Config</button>
 </nav>
 
@@ -120,6 +121,7 @@
       <select id="scoreSchedule" onchange="renderScore()"></select>
       <select id="scoreWeek" onchange="renderScore()"></select>
       <button onclick="enterDisputeFocus()" class="success">Iniciar disputa</button>
+      <button onclick="markAttendanceForSlot()" class="secondary">Marcar presença</button>
       <button onclick="finishTraining()" class="success">Finalizar treino</button>
       <button onclick="clearTrainingScore()" class="danger">Limpar treino</button>
     </div>
@@ -156,9 +158,28 @@
 <section id="page-ranking" class="page hidden">
   <div class="card">
     <h2>Rankings por categoria</h2>
+    <div class="form filterBar">
+      <select id="rankMonthFilter" onchange="renderRankings()"></select>
+      <select id="rankCategoryFilter" onchange="renderRankings()"></select>
+      <select id="rankWeekFilter" onchange="renderRankings()"></select>
+    </div>
     <div id="rankingGeneral" class="rankList"></div>
   </div>
   <div id="allCategoryRankings" class="gridCards"></div>
+</section>
+
+<section id="page-relatorios" class="page hidden">
+  <div class="card">
+    <h2>Relatórios e evolução</h2>
+    <p>Escolha um aluno para gerar um resumo simples para enviar aos pais.</p>
+    <div class="form filterBar">
+      <select id="reportStudent"></select>
+      <select id="reportMonth"></select>
+      <button onclick="renderStudentReport()" class="success">Gerar relatório</button>
+      <button onclick="copyReportText()" class="secondary">Copiar texto</button>
+    </div>
+  </div>
+  <div id="studentReportArea"></div>
 </section>
 
 <section id="page-imprimir" class="page hidden">
@@ -177,6 +198,7 @@
       <option value="branco">Tabela Branco e Azul</option>
       <option value="grafite">Tabela Grafite Profissional</option>
     </select>
+    <select id="printLimit"><option value="all">Todos os alunos</option><option value="10">Top 10</option><option value="5">Top 5</option></select>
     <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
     <button onclick="preparePrint('annual')" class="secondary">Gerar ranking anual da categoria</button>
     <button onclick="window.print()" class="success">Imprimir / Salvar imagem</button>
@@ -202,8 +224,11 @@
 <section id="page-config" class="page hidden">
   <div class="card">
     <h2>Configurações</h2>
+    <div id="adminBox" class="adminBox"></div>
     <button onclick="syncNow()" class="success">Sincronizar agora</button>
     <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button>
+      <button onclick="exportBackup()" class="secondary">Exportar backup</button>
+      <label class="fileButton">Restaurar backup<input type="file" accept="application/json" onchange="importBackup(event)"></label>
       
       <hr class="softLine">
       <h3>Banco de dados Supabase</h3>
@@ -224,13 +249,13 @@
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v28 • Banco correto + REST direto + fotos</p>
+    <p><strong>Versão:</strong> Kids v32 • Segurança visual + backup + presença + relatórios + filtros</p>
     <p><strong>App ID:</strong> primo_soccer_kids_league_2026</p>
   </div>
 </section>
 </main>
 
-<script src="supabase-config.js?v=28"></script>
-<script src="script.js?v=28"></script>
+<script src="supabase-config.js?v=32"></script>
+<script src="script.js?v=32"></script>
 </body>
 </html>

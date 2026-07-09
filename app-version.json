@@ -1,1 +1,6 @@
-{"version":"v27-banco-correto","date":"2026-06-17","notes":"Supabase URL, publishable key e APP_ID corrigidos para o projeto correto."}
+{
+  "version": "v32",
+  "date": "2026-06-17",
+  "notes": "Segurança visual, backup, presença, relatórios, filtros e impressão melhorada",
+  "name": "Primo Soccer Kids 2026"
+}
