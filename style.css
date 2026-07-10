@@ -1069,3 +1069,51 @@ body.parentMode .officialHeroContent,
 /* ===== V32 PRO - ADMIN, BACKUP, RELATÓRIOS, FILTROS E PRESENÇA ===== */
 .adminLoginOverlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at top,#1328d6 0,#020617 54%,#000 100%);padding:24px}
 .adminLoginOverlay.hidden{display:none!important}.adminLoginCard{width:min(430px,94vw);background:rgba(2,8,23,.94);border:1px solid rgba(125,180,255,.35);box-shadow:0 30px 100px rgba(0,0,0,.55);border-radius:28px;padding:28px;text-align:center;color:white}.adminLoginCard .loginLogo{width:112px;height:112px;object-fit:contain;margin:auto;display:block}.adminLoginCard h1{margin:10px 0 0;font-size:30px;letter-spacing:.06em}.adminLoginCard h2{margin:4px 0 12px;color:#93c5fd}.adminLoginCard p{color:#dbeafe}.adminLoginCard input{width:100%;margin:8px 0;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:#0f172a;color:#fff;font-size:16px}.adminLoginCard small{display:block;color:#ffb4b4;min-height:22px;margin-top:8px}.adminLoginCard a{display:inline-block;margin-top:10px;color:#bfdbfe}.adminLogoutBtn{margin-left:auto;border-radius:999px;padding:10px 16px;background:#7f1d1d;color:white;border:1px solid #fecaca}.adminLogoutBtn.hidden{display:none!important}.proFilterForm{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.attendanceChip{border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:8px 10px;background:#1e293b;color:white;cursor:pointer}.attendanceChip.active{background:#16a34a}.reportCard{background:#fff;color:#07101f;border-radius:26px;padding:30px;width:min(1080px,100%);margin:auto}.reportCard h1,.reportCard h2{color:#07101f}.reportGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.reportMetric{border:1px solid #dbeafe;border-radius:18px;padding:14px;background:#eff6ff}.reportTable{width:100%;border-collapse:collapse;margin-top:18px}.reportTable th,.reportTable td{border-bottom:1px solid #e2e8f0;padding:10px;text-align:left}.parentMode #adminLoginOverlay{display:none!important}.parentMode .tabs,.parentMode #syncStatus,.parentMode #adminLogoutBtn{display:none!important}@media print{.adminLoginOverlay,.tabs,#syncStatus,.noPrint,#adminLogoutBtn{display:none!important}.reportCard{box-shadow:none;border-radius:0;width:100%}}
+
+/* ===== V33 PRO — LINK DOS PAIS NO MODELO OFICIAL + PATROCINADORES ===== */
+.parentSponsors{display:none}
+body.parentMode{background:#020817}
+body.parentMode .tabs,body.parentMode #syncStatus{display:none!important}
+body.parentMode .officialHero{
+  min-height:auto!important;
+  height:auto!important;
+  padding:28px 18px 34px!important;
+  background-position:center top!important;
+  background-size:cover!important;
+  border-radius:0 0 28px 28px;
+}
+body.parentMode .officialHeroShade{background:linear-gradient(180deg,rgba(1,7,20,.12),rgba(1,7,20,.38) 38%,rgba(1,7,20,.96) 100%)!important}
+body.parentMode .officialHeroContent{position:relative!important;inset:auto!important;display:flex!important;flex-direction:column!important;align-items:center!important;width:100%!important;max-width:900px!important;margin:0 auto!important;padding:0!important;z-index:2}
+body.parentMode .officialLogo{width:min(260px,56vw)!important;max-height:none!important;margin:-24px auto 20px!important;filter:drop-shadow(0 8px 16px rgba(0,0,0,.55))}
+body.parentMode .officialTitle{font-size:clamp(23px,6vw,48px)!important;line-height:1.08!important;text-align:center!important;letter-spacing:.03em!important;margin:0 0 34px!important;text-shadow:0 4px 10px #000}
+body.parentMode .officialTitle span:nth-child(2){font-size:.72em!important;color:#5ee9ff!important;white-space:nowrap}
+body.parentMode .officialMonth{position:static!important;font-size:clamp(35px,9vw,68px)!important;line-height:1!important;margin:0 0 22px!important;color:#59e7ff!important;text-shadow:0 5px 12px #000;font-weight:1000!important}
+body.parentMode .parentHeroMonthBox{display:block!important;position:static!important;width:min(510px,84vw)!important;margin:0 auto 35px!important}
+body.parentMode #parentHeroMonthSelect{display:block!important;width:100%!important;min-height:68px!important;padding:8px 70px 8px 24px!important;border:7px solid #65eaff!important;border-radius:38px!important;background:#07132c!important;color:#fff!important;font-size:clamp(24px,6vw,38px)!important;font-weight:1000!important;text-align:center!important;text-align-last:center!important;box-shadow:0 9px 20px rgba(0,0,0,.35)!important;appearance:auto!important}
+body.parentMode .parentSponsors{display:block;width:100%;margin-top:4px;padding:0 0 12px}
+body.parentMode .parentSponsors h2{font-size:clamp(28px,7vw,46px);margin:0 0 22px;color:#fff;text-shadow:0 4px 10px #000;letter-spacing:.025em}
+body.parentMode .parentSponsorGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;align-items:center;width:100%;max-width:850px;margin:0 auto}
+body.parentMode .sponsorCard{grid-column:span 2;margin:0;background:rgba(255,255,255,.97);border:5px solid rgba(255,255,255,.9);border-radius:10px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.45);aspect-ratio:1/1;position:relative}
+body.parentMode .sponsorCard img{width:100%;height:100%;object-fit:cover;display:block}
+body.parentMode .sponsorCard figcaption{display:none}
+body.parentMode .sponsorTopLeft{grid-column:1/span 2}
+body.parentMode .sponsorTopRight{grid-column:5/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(3){grid-column:1/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(4){grid-column:3/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(5){grid-column:5/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(6){grid-column:1/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(7){grid-column:3/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(8){grid-column:5/span 2}
+body.parentMode .parentSponsorGrid .sponsorCard:nth-of-type(9){grid-column:3/span 2}
+body.parentMode #page-pais{padding-top:16px!important}
+body.parentMode #page-pais .parentHeader{display:none!important}
+body.parentMode #parentRankingArea{max-width:950px;margin:0 auto;padding:0 12px 32px}
+body.parentMode #parentRankingArea .card{border:1px solid rgba(92,229,255,.25);box-shadow:0 10px 30px rgba(0,0,0,.32)}
+@media(max-width:620px){
+ body.parentMode .officialHero{padding-left:12px!important;padding-right:12px!important}
+ body.parentMode .officialLogo{margin-top:-16px!important}
+ body.parentMode .officialTitle{margin-bottom:28px!important}
+ body.parentMode .parentSponsors h2{margin-bottom:16px}
+ body.parentMode .parentSponsorGrid{gap:9px}
+ body.parentMode .sponsorCard{border-width:3px;border-radius:7px}
+}
