@@ -246,6 +246,10 @@
     <button onclick="prepareStudentReport()" class="secondary">Relatório individual</button>
     <select id="reportStudentSelect"></select>
     <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button>
+      <hr class="softLine">
+      <h3>Fotos no Storage</h3>
+      <p class="smallText">Move as fotos antigas (que ficam dentro do banco) para o Storage do Supabase, deixando o app mais leve e rápido. Faça isso uma vez, logado como admin.</p>
+      <button onclick="migratePhotosToStorage()" class="success">Migrar fotos para o Storage</button>
       
       <hr class="softLine">
       <h3>Banco de dados Supabase</h3>
@@ -272,7 +276,7 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=33seg"></script>
-<script src="script.js?v=33seg"></script>
+<script src="supabase-config.js?v=34stor"></script>
+<script src="script.js?v=34stor"></script>
 </body>
 </html>

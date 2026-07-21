@@ -38,15 +38,18 @@ function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthOb
 function activeByCategory(cat=activeCategory){return activeStudents().filter(s=>s.category===cat)}
 function ranked(cat=null){return activeStudents().filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 function rankedByMonth(cat=null,m=currentMonth){return activeStudents(m).filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id,m)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
+const photoUrlCache={}; // id do aluno -> URL assinada temporária (não é salva no banco)
+function photoSrc(s){ return (s&&(photoUrlCache[s.id]||s.photo))||""; }
 function avatarHtml(s){
-  return s.photo
-    ? `<span class="avatar"><img src="${s.photo}" onclick="openPhoto('${s.photo}')"></span>`
+  const src=photoSrc(s);
+  return src
+    ? `<span class="avatar"><img src="${src}" onclick="openPhoto('${src}')"></span>`
     : `<span class="avatar">${initials(s.name)}</span>`;
 }
 function photoPickerHtml(s){
   const inputId = `photo-${s.id}`;
   return `<div class="avatarInputLabel" title="Toque para alterar a foto" onclick="document.getElementById('${inputId}').click()">
-    ${s.photo?`<img src="${s.photo}" alt="Foto do aluno">`:initials(s.name)}
+    ${photoSrc(s)?`<img src="${photoSrc(s)}" alt="Foto do aluno">`:initials(s.name)}
     <input id="${inputId}" class="photoInput" type="file" accept="image/*" onchange="loadPhoto(event,'${s.id}')">
   </div>`;
 }
@@ -93,17 +96,94 @@ async function loadPhoto(e,id){
   if(!file)return;
   try{
     setSync("Salvando foto do aluno...","warn");
-    const photo=await fileToCompressedPhoto(file);
+    const dataUrl=await fileToCompressedPhoto(file);
     const st=studentById(id);
     if(st){
-      st.photo=photo;
+      photoUrlCache[st.id]=dataUrl; // mostra na hora
+      try{
+        const path=await uploadPhotoToStorage(st.id,dataUrl);
+        st.photoPath=path; delete st.photo; // não guarda mais a imagem no JSON
+        setSync("Foto salva no Storage.","ok");
+      }catch(upErr){
+        console.error("Storage indisponível, guardando foto no modo antigo:",upErr);
+        st.photo=dataUrl; // fallback: mantém funcionando mesmo sem Storage
+        setSync("Foto salva (modo antigo).","warn");
+      }
       saveLocal();
       renderAll();
       await saveCloudNow();
-      setSync("Foto salva online.","ok");
     }
   }catch(err){console.error(err);alert("Não consegui salvar essa foto. Tente outra imagem.");setSync("Erro ao salvar foto.","error")}
   finally{ if(input) input.value=""; }
+}
+
+/* ===== V34 - FOTOS NO SUPABASE STORAGE (bucket privado) ===== */
+const PHOTO_BUCKET="fotos-alunos";
+function dataUrlToBlob(dataUrl){
+  const parts=String(dataUrl||"").split(",");
+  const meta=parts[0]||"", b64=parts[1]||"";
+  const mime=(meta.match(/data:(.*?);/)||[])[1]||"image/jpeg";
+  const bin=atob(b64), arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+async function uploadPhotoToStorage(studentId,dataUrl){
+  if(!isAdminAuthenticated())throw new Error("Sem login de administrador.");
+  const blob=dataUrlToBlob(dataUrl);
+  const path=APP_ID+"/"+studentId+".jpg";
+  const url=cloudUrl()+"/storage/v1/object/"+PHOTO_BUCKET+"/"+path;
+  const token=getAdminToken();
+  const r=await withTimeout(fetch(url,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token,"Content-Type":"image/jpeg","x-upsert":"true"},body:blob}),20000,"Envio da foto demorou");
+  if(!r.ok){const t=await r.text();throw new Error("Storage upload "+r.status+": "+t);}
+  return path;
+}
+async function refreshPhotoUrls(){
+  try{
+    const paths=(state.students||[]).filter(s=>s.photoPath).map(s=>s.photoPath);
+    if(!paths.length)return;
+    const url=cloudUrl()+"/storage/v1/object/sign/"+PHOTO_BUCKET;
+    const token=getAdminToken()||SUPABASE_KEY;
+    const r=await withTimeout(fetch(url,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({expiresIn:3600,paths})}),15000,"Assinatura das fotos demorou");
+    if(!r.ok)return;
+    const arr=await r.json().catch(()=>[]);
+    (arr||[]).forEach(o=>{ if(o&&o.signedURL){ const st=(state.students||[]).find(s=>s.photoPath===o.path); if(st)photoUrlCache[st.id]=cloudUrl()+"/storage/v1"+o.signedURL; } });
+  }catch(e){ console.warn("Não consegui atualizar URLs das fotos:",e); }
+}
+async function migratePhotosToStorage(){
+  if(!requireAdmin())return;
+  const pending=(state.students||[]).filter(s=>s.photo&&!s.photoPath);
+  if(!pending.length){alert("Nenhuma foto para migrar. Tudo já está no Storage.");return;}
+  if(!confirm(pending.length+" foto(s) serão movidas para o Storage. Continuar?"))return;
+  let ok=0,fail=0;
+  for(const s of pending){
+    try{ setSync("Migrando fotos... "+(ok+fail+1)+"/"+pending.length,"warn"); const path=await uploadPhotoToStorage(s.id,s.photo); s.photoPath=path; photoUrlCache[s.id]=s.photo; delete s.photo; ok++; }
+    catch(e){ console.error("Migração falhou para",s.id,e); fail++; }
+  }
+  saveLocal(); await saveCloudNow(); await refreshPhotoUrls(); renderAll();
+  setSync("Migração concluída.","ok");
+  alert("Migração concluída.\nEnviadas: "+ok+"\nCom erro: "+fail+(fail?"\n\nAs que deram erro continuam funcionando no modo antigo. Tente de novo mais tarde.":""));
+}
+
+/* ===== V34 - UMA LINHA POR ALUNO (tabela primo_students, sincronizada) ===== */
+async function syncStudentsTable(){
+  try{
+    if(!isAdminAuthenticated())return;
+    const rows=(state.students||[]).map(s=>({
+      student_id:s.id, app_id:APP_ID, name:s.name||"", birth:s.birth||null,
+      category:s.category||"", photo_path:s.photoPath||null, active:s.active!==false,
+      month_points:totalStudent(s.id), annual_points:(typeof annualTotalStudent==="function"?annualTotalStudent(s.id):0),
+      updated_at:new Date().toISOString()
+    }));
+    if(!rows.length)return;
+    const url=cloudUrl()+"/rest/v1/primo_students?on_conflict=student_id";
+    await authedFetch(url,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
+    // remove do banco alunos que foram apagados no app (best-effort)
+    const ids=rows.map(r=>'"'+r.student_id+'"').join(",");
+    if(ids && ids.length<1500){
+      const del=cloudUrl()+"/rest/v1/primo_students?app_id=eq."+encodeURIComponent(APP_ID)+"&student_id=not.in.("+ids+")";
+      await authedFetch(del,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
+    }
+  }catch(e){ console.warn("Sync da tabela de alunos falhou (não afeta o app):",e); }
 }
 function setSync(msg,type="warn"){const el=document.getElementById("syncStatus");el.textContent=msg;el.style.color=type==="ok"?"#8ff0b3":type==="error"?"#ff8b8b":"#ffe082"}
 function scheduleSave(delay=350){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
@@ -278,9 +358,16 @@ async function addStudent(){
   if(!name)return alert("Digite o nome do aluno.");
   const file=document.getElementById("studentPhoto")?.files?.[0];
   const id=uid();
-  let photo="";
-  try{ if(file){ setSync("Preparando foto do aluno...","warn"); photo=await fileToCompressedPhoto(file); } }catch(e){ console.error(e); alert("Aluno cadastrado, mas essa foto não pôde ser usada. Tente alterar a foto depois tocando nela."); }
-  state.students.push({id,studentCode:id,name,birth,category,active:true,photo,createdAt:new Date().toISOString()});
+  let photo="", photoPath="", dataUrl="";
+  try{ if(file){ setSync("Preparando foto do aluno...","warn"); dataUrl=await fileToCompressedPhoto(file); } }catch(e){ console.error(e); alert("Aluno cadastrado, mas essa foto não pôde ser usada. Tente alterar a foto depois tocando nela."); }
+  if(dataUrl){
+    photoUrlCache[id]=dataUrl; // mostra na hora
+    try{ photoPath=await uploadPhotoToStorage(id,dataUrl); }
+    catch(upErr){ console.error("Storage indisponível no cadastro:",upErr); photo=dataUrl; } // fallback modo antigo
+  }
+  const student={id,studentCode:id,name,birth,category,active:true,createdAt:new Date().toISOString()};
+  if(photoPath)student.photoPath=photoPath; if(photo)student.photo=photo;
+  state.students.push(student);
   document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";if(document.getElementById("studentPhoto"))document.getElementById("studentPhoto").value="";
   saveLocal();renderAll();const ok=await saveCloudNow();
   alert(ok?"Aluno cadastrado e salvo online!":"Aluno cadastrado neste celular. Banco online não confirmou ainda. Toque em Sincronizar agora quando conectar.");
@@ -373,7 +460,7 @@ function renderCopyMonthPicker(){const picker=document.getElementById("copyMonth
 function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
 function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
-function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
+function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 function withTimeout(promise,ms,msg){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||"Tempo de conexão esgotado")),ms))])}
 function cloudReady(){return !!(SUPABASE_URL&&SUPABASE_KEY&&APP_ID)}
 function supabaseHeaders(){const token=(typeof getAdminToken==="function"&&getAdminToken())||SUPABASE_KEY;return {"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json","Prefer":"return=representation"}}
@@ -496,6 +583,8 @@ async function initCloud(){
     }
     // Atualiza o espelho público (ranking) para o link dos pais.
     try{await savePublicStateRest();}catch(e){console.warn("Espelho público não atualizou agora:",e);}
+    await refreshPhotoUrls();       // gera as URLs temporárias das fotos do Storage
+    syncStudentsTable();            // mantém a tabela "um aluno por linha" atualizada
     setSync("✅ Banco online conectado.","ok");renderAll();
   }catch(e){
     errors.push(cloudErrText(e));
@@ -513,6 +602,7 @@ async function saveCloud(){
     state.updatedAt=stamp;norm();
     await saveCloudRest();
     await savePublicStateRest();
+    syncStudentsTable(); // atualiza a tabela "um aluno por linha" (não trava se falhar)
     localStorage.setItem("primo_kids_last_cloud_ok",stamp);
     setSync("✅ Dados salvos online.","ok");return true;
   }catch(e){
@@ -728,7 +818,7 @@ function preparePrint(type){
           <div class="printRow">
             <span>${i+1}º</span>
             <span class="printPhoto">
-              ${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}
+              ${photoSrc(s)?`<img src="${photoSrc(s)}" onclick="openPhoto('${photoSrc(s)}')">`:initials(s.name)}
             </span>
             <span>${esc(s.name)}</span>
             <strong>${s.total} pts</strong>
@@ -746,7 +836,7 @@ preparePrint = function(type){
   const color=document.getElementById("printColor")?.value||"azul";
   const list=type==="annual"?rankedAnnual(cat):ranked(cat);
   const title=type==="annual"?`RANKING ANUAL • ${cat}`:`${cat} • ${currentMonth}`;
-  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
+  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}" onclick="openPhoto('${photoSrc(s)}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
 };
 
 window.addEventListener("beforeunload",()=>{try{saveLocal()}catch(e){}});
@@ -863,7 +953,7 @@ function reportHtml(title,rows){const totalPts=rows.reduce((a,r)=>a+r.total,0),p
 function prepareGeneralReport(){if(!requireAdmin())return;document.getElementById("printArea").innerHTML=reportHtml("Relatório geral do mês",reportRows());showPage("imprimir")}
 function prepareStudentReport(){if(!requireAdmin())return;const id=document.getElementById("reportStudentSelect")?.value;const s=studentById(id)||state.students.find(x=>x.active!==false);if(!s)return alert("Cadastre pelo menos um aluno.");const rows=[{s,total:totalStudent(s.id),annual:annualTotalStudent(s.id),presence:presenceCount(s.id),possible:trainingCountPossible(s.id)}];document.getElementById("printArea").innerHTML=reportHtml(`Relatório individual • ${esc(s.name)}`,rows);showPage("imprimir")}
 
-preparePrint = function(type){const cat=document.getElementById("printCategory")?.value||activeCategory;const color=document.getElementById("printColor")?.value||"azul";const limit=document.getElementById("printLimit")?.value||"10";let list=type==="annual"?rankedAnnual(cat):(type==="general"?ranked():ranked(cat));if(limit!=="all")list=list.slice(0,+limit);const title=type==="annual"?`RANKING ANUAL • ${cat}`:type==="general"?`RANKING GERAL • ${currentMonth}`:`${cat} • ${currentMonth}`;document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}" onclick="openPhoto('${s.photo}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`};
+preparePrint = function(type){const cat=document.getElementById("printCategory")?.value||activeCategory;const color=document.getElementById("printColor")?.value||"azul";const limit=document.getElementById("printLimit")?.value||"10";let list=type==="annual"?rankedAnnual(cat):(type==="general"?ranked():ranked(cat));if(limit!=="all")list=list.slice(0,+limit);const title=type==="annual"?`RANKING ANUAL • ${cat}`:type==="general"?`RANKING GERAL • ${currentMonth}`:`${cat} • ${currentMonth}`;document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}" onclick="openPhoto('${photoSrc(s)}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`};
 
 const renderAllV32Base = renderAll;
 renderAll = function(){renderAllV32Base();fillRankingFilters();renderReportStudentSelect();initAdminGate();};
