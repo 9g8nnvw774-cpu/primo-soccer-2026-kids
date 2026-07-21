@@ -71,7 +71,8 @@
     <div class="form">
       <input id="studentName" placeholder="Nome do aluno">
       <input id="studentBirth" type="date">
-      <input id="studentPhoto" type="file" accept="image/*,.heic,.heif" title="Foto do aluno">
+      <input id="studentPhoto" type="file" accept="image/*,.heic,.heif" title="Foto do aluno" onchange="onPickStudentPhoto(event)">
+      <div id="studentPhotoPreview" class="studentPhotoPreview"></div>
       <select id="studentCategory"></select>
       <button onclick="addStudent()" class="success">Cadastrar</button>
     </div>
@@ -154,7 +155,6 @@
             <th>Uniforme</th>
             <th>Fruta</th>
             <th>Comport.</th>
-            <th>Presença</th>
             <th>Total</th>
           </tr>
         </thead>
@@ -276,7 +276,37 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=34stor"></script>
-<script src="script.js?v=34stor"></script>
+<script src="supabase-config.js?v=35foto"></script>
+<script src="script.js?v=35foto"></script>
+<div id="cropOverlay" class="cropOverlay hidden">
+  <div class="cropCard">
+    <h3>Ajustar foto</h3>
+    <p>Arraste para mover e use a barra para aproximar. Deixe o rosto dentro do círculo.</p>
+    <div class="cropStage">
+      <canvas id="cropCanvas"></canvas>
+      <div class="cropRing"></div>
+    </div>
+    <input id="cropZoom" type="range" min="1" max="4" step="0.01" value="1" oninput="setCropZoom(this.value)">
+    <div class="cropBtns">
+      <button type="button" onclick="cancelCrop()" class="secondary">Cancelar</button>
+      <button type="button" onclick="confirmCrop()" class="success">Usar foto</button>
+    </div>
+  </div>
+</div>
+<style>
+.cropOverlay{position:fixed;inset:0;background:rgba(2,8,23,.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px}
+.cropOverlay.hidden{display:none}
+.cropCard{background:#0b1533;border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:16px;max-width:360px;width:100%;text-align:center;color:#eaf1ff;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.cropCard h3{margin:0 0 4px;font-size:19px}
+.cropCard p{font-size:13px;opacity:.85;margin:0 0 12px;line-height:1.3}
+.cropStage{position:relative;width:288px;height:288px;max-width:78vw;max-height:78vw;margin:0 auto;border-radius:12px;overflow:hidden;touch-action:none;background:#06117a}
+.cropStage canvas{width:100%;height:100%;display:block;cursor:grab}
+.cropRing{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 9999px rgba(3,10,43,.55);pointer-events:none;border:2px solid rgba(255,255,255,.9)}
+#cropZoom{width:100%;margin:16px 0 4px;accent-color:#37d67a}
+.cropBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.cropBtns button{min-height:46px;border-radius:12px;font-weight:800;font-size:15px}
+.studentPhotoPreview{display:flex;justify-content:center;margin:2px 0}
+.studentPhotoPreview img{width:84px;height:84px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5)}
+</style>
 </body>
 </html>

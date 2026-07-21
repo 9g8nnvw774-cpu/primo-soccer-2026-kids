@@ -38,8 +38,9 @@ function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthOb
 function activeByCategory(cat=activeCategory){return activeStudents().filter(s=>s.category===cat)}
 function ranked(cat=null){return activeStudents().filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 function rankedByMonth(cat=null,m=currentMonth){return activeStudents(m).filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id,m)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
-const photoUrlCache={}; // id do aluno -> URL assinada temporária (não é salva no banco)
-function photoSrc(s){ return (s&&(photoUrlCache[s.id]||s.photo))||""; }
+const photoUrlCache={}; // id do aluno -> URL para mostrar na hora (não é salva no banco)
+function photoPublicUrl(path){ return path ? (cloudUrl()+"/storage/v1/object/public/fotos-alunos/"+path) : ""; }
+function photoSrc(s){ if(!s)return ""; if(photoUrlCache[s.id])return photoUrlCache[s.id]; if(s.photoPath)return photoPublicUrl(s.photoPath); return s.photo||""; }
 function avatarHtml(s){
   const src=photoSrc(s);
   return src
@@ -69,7 +70,7 @@ function loadImgFromSrc(src){
     img.src=src;
   });
 }
-async function fileToCompressedPhoto(file,max=420,quality=.78){
+async function fileToCompressedPhoto(file,max=640,quality=.9){
   if(!file)return "";
   const src=await photoFileToDataUrl(file);
   let source;
@@ -93,10 +94,12 @@ async function fileToCompressedPhoto(file,max=420,quality=.78){
 }
 async function loadPhoto(e,id){
   const input=e.target, file=input.files&&input.files[0];
+  input.value="";
   if(!file)return;
+  const dataUrl=await openCropper(file);
+  if(!dataUrl)return;
   try{
     setSync("Salvando foto do aluno...","warn");
-    const dataUrl=await fileToCompressedPhoto(file);
     const st=studentById(id);
     if(st){
       photoUrlCache[st.id]=dataUrl; // mostra na hora
@@ -114,7 +117,6 @@ async function loadPhoto(e,id){
       await saveCloudNow();
     }
   }catch(err){console.error(err);alert("Não consegui salvar essa foto. Tente outra imagem.");setSync("Erro ao salvar foto.","error")}
-  finally{ if(input) input.value=""; }
 }
 
 /* ===== V34 - FOTOS NO SUPABASE STORAGE (bucket privado) ===== */
@@ -138,16 +140,9 @@ async function uploadPhotoToStorage(studentId,dataUrl){
   return path;
 }
 async function refreshPhotoUrls(){
-  try{
-    const paths=(state.students||[]).filter(s=>s.photoPath).map(s=>s.photoPath);
-    if(!paths.length)return;
-    const url=cloudUrl()+"/storage/v1/object/sign/"+PHOTO_BUCKET;
-    const token=getAdminToken()||SUPABASE_KEY;
-    const r=await withTimeout(fetch(url,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({expiresIn:3600,paths})}),15000,"Assinatura das fotos demorou");
-    if(!r.ok)return;
-    const arr=await r.json().catch(()=>[]);
-    (arr||[]).forEach(o=>{ if(o&&o.signedURL){ const st=(state.students||[]).find(s=>s.photoPath===o.path); if(st)photoUrlCache[st.id]=cloudUrl()+"/storage/v1"+o.signedURL; } });
-  }catch(e){ console.warn("Não consegui atualizar URLs das fotos:",e); }
+  // Bucket público: a foto é mostrada direto pela URL pública (photoSrc).
+  // Limpa previews temporários para usar sempre a versão salva no Storage.
+  try{ (state.students||[]).forEach(s=>{ if(s.photoPath) delete photoUrlCache[s.id]; }); }catch(e){}
 }
 async function migratePhotosToStorage(){
   if(!requireAdmin())return;
@@ -184,6 +179,93 @@ async function syncStudentsTable(){
       await authedFetch(del,{method:"DELETE",headers:{"Prefer":"return=minimal"}});
     }
   }catch(e){ console.warn("Sync da tabela de alunos falhou (não afeta o app):",e); }
+}
+
+/* ===== V35 - RECORTE CIRCULAR DA FOTO (arrastar + aproximar) + qualidade melhor ===== */
+let _crop=null;
+let pendingStudentPhoto=""; // foto já recortada, esperando o cadastro
+const CROP_STAGE=288, CROP_OUT=512;
+function openCropper(file){
+  return new Promise((resolve)=>{
+    const ov=document.getElementById("cropOverlay");
+    const canvas=document.getElementById("cropCanvas");
+    const zoom=document.getElementById("cropZoom");
+    if(!ov||!canvas){ photoFileToDataUrl(file).then(resolve).catch(()=>resolve(null)); return; }
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const dpr=Math.min(2,window.devicePixelRatio||1);
+        canvas.width=CROP_STAGE*dpr; canvas.height=CROP_STAGE*dpr;
+        const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+        const base=Math.max(CROP_STAGE/img.width, CROP_STAGE/img.height);
+        const st={img,base,scale:1,ox:0,oy:0,ctx};
+        _crop={st,resolve};
+        if(zoom)zoom.value="1";
+        clampAndDraw(st);
+        ov.classList.remove("hidden");
+      };
+      img.onerror=()=>resolve(null);
+      img.src=reader.result;
+    };
+    reader.onerror=()=>resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+function clampAndDraw(st){
+  const eff=st.base*st.scale, w=st.img.width*eff, h=st.img.height*eff;
+  const maxX=Math.max(0,(w-CROP_STAGE)/2), maxY=Math.max(0,(h-CROP_STAGE)/2);
+  st.ox=Math.max(-maxX,Math.min(maxX,st.ox));
+  st.oy=Math.max(-maxY,Math.min(maxY,st.oy));
+  const ctx=st.ctx;
+  ctx.clearRect(0,0,CROP_STAGE,CROP_STAGE);
+  ctx.fillStyle="#06117a"; ctx.fillRect(0,0,CROP_STAGE,CROP_STAGE);
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+  ctx.drawImage(st.img,(CROP_STAGE-w)/2+st.ox,(CROP_STAGE-h)/2+st.oy,w,h);
+}
+function setCropZoom(v){ if(!_crop)return; _crop.st.scale=Math.max(1,Math.min(4,+v||1)); clampAndDraw(_crop.st); }
+function cancelCrop(){ const ov=document.getElementById("cropOverlay"); if(ov)ov.classList.add("hidden"); if(_crop){const r=_crop.resolve; _crop=null; r(null);} }
+function confirmCrop(){
+  if(!_crop)return;
+  const st=_crop.st, o=document.createElement("canvas"); o.width=CROP_OUT; o.height=CROP_OUT;
+  const octx=o.getContext("2d",{alpha:false});
+  const k=CROP_OUT/CROP_STAGE, eff=st.base*st.scale*k, w=st.img.width*eff, h=st.img.height*eff;
+  octx.fillStyle="#06117a"; octx.fillRect(0,0,CROP_OUT,CROP_OUT);
+  octx.imageSmoothingEnabled=true; octx.imageSmoothingQuality="high";
+  octx.drawImage(st.img,(CROP_OUT-w)/2+st.ox*k,(CROP_OUT-h)/2+st.oy*k,w,h);
+  const dataUrl=o.toDataURL("image/jpeg",0.92);
+  const ov=document.getElementById("cropOverlay"); if(ov)ov.classList.add("hidden");
+  const r=_crop.resolve; _crop=null; r(dataUrl);
+}
+function initCropGestures(){
+  const canvas=document.getElementById("cropCanvas");
+  if(!canvas||canvas.dataset.ready)return; canvas.dataset.ready="1";
+  let dragging=false,lastX=0,lastY=0,pinch=0,startScale=1;
+  const factor=()=>CROP_STAGE/(canvas.clientWidth||CROP_STAGE);
+  const dist=e=>{const a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);};
+  canvas.addEventListener("touchstart",e=>{ if(!_crop)return;
+    if(e.touches.length===2){pinch=dist(e);startScale=_crop.st.scale;}
+    else{dragging=true;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;}
+  },{passive:false});
+  canvas.addEventListener("touchmove",e=>{ if(!_crop)return; e.preventDefault();
+    if(e.touches.length===2&&pinch){ setCropZoom(startScale*(dist(e)/pinch)); const z=document.getElementById("cropZoom"); if(z)z.value=_crop.st.scale; }
+    else if(dragging){ const f=factor(); _crop.st.ox+=(e.touches[0].clientX-lastX)*f; _crop.st.oy+=(e.touches[0].clientY-lastY)*f; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; clampAndDraw(_crop.st); }
+  },{passive:false});
+  canvas.addEventListener("touchend",()=>{dragging=false;pinch=0;});
+  canvas.addEventListener("mousedown",e=>{ if(!_crop)return; dragging=true; lastX=e.clientX; lastY=e.clientY; });
+  window.addEventListener("mousemove",e=>{ if(!_crop||!dragging)return; const f=factor(); _crop.st.ox+=(e.clientX-lastX)*f; _crop.st.oy+=(e.clientY-lastY)*f; lastX=e.clientX; lastY=e.clientY; clampAndDraw(_crop.st); });
+  window.addEventListener("mouseup",()=>{dragging=false;});
+}
+function showStudentPhotoPreview(dataUrl){
+  const el=document.getElementById("studentPhotoPreview");
+  if(el)el.innerHTML=dataUrl?`<img src="${dataUrl}" alt="Prévia da foto">`:"";
+}
+async function onPickStudentPhoto(e){
+  const file=e.target.files&&e.target.files[0];
+  e.target.value="";
+  if(!file){return;}
+  const dataUrl=await openCropper(file);
+  if(dataUrl){ pendingStudentPhoto=dataUrl; showStudentPhotoPreview(dataUrl); }
 }
 function setSync(msg,type="warn"){const el=document.getElementById("syncStatus");el.textContent=msg;el.style.color=type==="ok"?"#8ff0b3":type==="error"?"#ff8b8b":"#ffe082"}
 function scheduleSave(delay=350){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(saveCloudNow,delay)}
@@ -356,10 +438,8 @@ function removeCustomSchedule(cat,index){
 async function addStudent(){
   const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;
   if(!name)return alert("Digite o nome do aluno.");
-  const file=document.getElementById("studentPhoto")?.files?.[0];
   const id=uid();
-  let photo="", photoPath="", dataUrl="";
-  try{ if(file){ setSync("Preparando foto do aluno...","warn"); dataUrl=await fileToCompressedPhoto(file); } }catch(e){ console.error(e); alert("Aluno cadastrado, mas essa foto não pôde ser usada. Tente alterar a foto depois tocando nela."); }
+  let photo="", photoPath="", dataUrl=pendingStudentPhoto||"";
   if(dataUrl){
     photoUrlCache[id]=dataUrl; // mostra na hora
     try{ photoPath=await uploadPhotoToStorage(id,dataUrl); }
@@ -368,6 +448,7 @@ async function addStudent(){
   const student={id,studentCode:id,name,birth,category,active:true,createdAt:new Date().toISOString()};
   if(photoPath)student.photoPath=photoPath; if(photo)student.photo=photo;
   state.students.push(student);
+  pendingStudentPhoto=""; showStudentPhotoPreview("");
   document.getElementById("studentName").value="";document.getElementById("studentBirth").value="";if(document.getElementById("studentPhoto"))document.getElementById("studentPhoto").value="";
   saveLocal();renderAll();const ok=await saveCloudNow();
   alert(ok?"Aluno cadastrado e salvo online!":"Aluno cadastrado neste celular. Banco online não confirmou ainda. Toque em Sincronizar agora quando conectar.");
@@ -503,18 +584,19 @@ async function saveCloudRest(){
    Contém apenas nome do aluno + pontos, por mês e por categoria.
    NÃO contém data de nascimento nem foto. É a única coisa que o link
    dos pais consegue ler. Os dados sensíveis ficam só na tabela protegida. */
+function publicPhotoFor(s){ return s.photoPath ? photoPublicUrl(s.photoPath) : (s.photo||null); }
 function buildPublicState(){
   const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,months:{},annual:{},generatedAt:new Date().toISOString()};
   MONTHS.forEach(mo=>{
     const bucket={};
     CATEGORIES.forEach(c=>{
-      const list=rankedByMonth(c[0],mo).map(s=>({name:s.name,total:s.total}));
+      const list=rankedByMonth(c[0],mo).map(s=>({name:s.name,total:s.total,photo:publicPhotoFor(s)}));
       if(list.length)bucket[c[0]]=list;
     });
     if(Object.keys(bucket).length)pub.months[mo]=bucket;
   });
   CATEGORIES.forEach(c=>{
-    const list=rankedAnnual(c[0]).map(s=>({name:s.name,total:s.total}));
+    const list=rankedAnnual(c[0]).map(s=>({name:s.name,total:s.total,photo:publicPhotoFor(s)}));
     if(list.length)pub.annual[c[0]]=list;
   });
   return pub;
@@ -714,7 +796,7 @@ function renderParentMode(){
     area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${parentSelectedMonth}</h3><div class="rankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(parentRankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`;
   }
 }
-function parentRankRow(o,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span><span class="avatar">${initials(o.name)}</span><span>${i+1}º - ${esc(o.name)}</span></div><strong>${o.total} pts</strong></div>`}
+function parentRankRow(o,i){const av=o.photo?`<span class="avatar"><img src="${o.photo}" onclick="openPhoto('${o.photo}')"></span>`:`<span class="avatar">${initials(o.name)}</span>`;return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${av}<span>${i+1}º - ${esc(o.name)}</span></div><strong>${o.total} pts</strong></div>`}
 const renderRankingsBase = renderRankings;
 renderRankings = function(){
   renderRankingsBase();
@@ -850,7 +932,7 @@ if(typeof isParentMode==="function" && isParentMode()){
   showPage("dashboard");
 }
 initCloud();
-setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); if(typeof renderParentMode==="function" && isParentMode()) renderParentMode(); applyDashboardCover(); },300);
+setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); if(typeof renderParentMode==="function" && isParentMode()) renderParentMode(); applyDashboardCover(); if(typeof initCropGestures==="function") initCropGestures(); },300);
 setInterval(()=>{if(isParentMode())loadCloud();},10000);
 
 /* ===== V33 SEGURANÇA - LOGIN REAL (SUPABASE AUTH via REST) ===== */
@@ -916,8 +998,7 @@ scoreCardHtml = function(s,i,week,sch,score){
   const key=esc(scoreKey(s.id,week,sch));
   const id=JSON.stringify(s.id), safeSch=JSON.stringify(sch);
   const bonus=(field,label,icon)=>`<button type="button" class="bonusMini ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${id},${week},${safeSch},${JSON.stringify(field)},this)' title="${label}"><span>${icon}</span><small data-bonus="${field}">${+score[field]||0}</small></button>`;
-  const present=getPresence(s.id,week,sch);
-  return `<div class="scorePlayerCard scorePlayerCompact" data-score-key="${key}"><div class="compactMain"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<div class="compactName"><strong>${esc(s.name)}</strong><small>ID: ${esc(s.studentCode||s.id)}</small></div><div class="compactControls"><div class="compactField"><label>PD</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div><div class="compactField"><label>PE</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div></div><div class="compactBonus">${bonus("comportamento","Comportamento","🙂")}${bonus("fruta","Fruta","🍎")}${bonus("uniforme","Uniforme","👕")}<button type="button" class="attendanceChip ${present?"active":""}" onclick='togglePresence(${id},${week},${safeSch})'>${present?"✅ Presente":"☐ Presença"}</button></div><div class="scoreTotalBadge"><span data-total>${scoreTotal(score)}</span><small>pts</small></div></div></div>`;
+  return `<div class="scorePlayerCard scorePlayerCompact noPresence" data-score-key="${key}"><div class="compactMain"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<div class="compactName"><strong>${esc(s.name)}</strong></div><div class="compactControls"><div class="compactField"><label>PD</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div><div class="compactField"><label>PE</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div></div><div class="compactBonus">${bonus("comportamento","Comportamento","🙂")}${bonus("fruta","Fruta","🍎")}${bonus("uniforme","Uniforme","👕")}</div><div class="scoreTotalBadge"><span data-total>${scoreTotal(score)}</span><small>pts</small></div></div></div>`;
 };
 
 renderScore = function(){
@@ -927,7 +1008,7 @@ renderScore = function(){
   if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Marque presença e, ao terminar, toque em <strong>Finalizar treino</strong>.`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
   const cards=document.getElementById("scoreCards"); if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
-  const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));const present=getPresence(s.id,week,sch);return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td><button type="button" class="attendanceChip ${present?"active":""}" onclick='togglePresence(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)})'>${present?"✅":"☐"}</button></td><td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="9">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
+  const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
 };
 
 const finishTrainingV32Base = finishTraining;
