@@ -276,8 +276,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=35foto"></script>
-<script src="script.js?v=35foto"></script>
+<script src="supabase-config.js?v=37linha"></script>
+<script src="script.js?v=37linha"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -307,6 +307,28 @@
 .cropBtns button{min-height:46px;border-radius:12px;font-weight:800;font-size:15px}
 .studentPhotoPreview{display:flex;justify-content:center;margin:2px 0}
 .studentPhotoPreview img{width:84px;height:84px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5)}
+
+/* ===== V37 - PONTUAÇÃO EM UMA LINHA (estilo app adulto, deslizante) ===== */
+#page-disputa .scoreCards{grid-template-columns:1fr!important;gap:6px!important}
+#page-disputa .scorePlayerCard.scoreRowV37{padding:0!important;margin:0!important;border-radius:12px!important;overflow:hidden!important}
+#page-disputa .scoreRowV37 .srScroll{display:flex!important;align-items:center!important;gap:8px!important;overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;touch-action:pan-x!important;padding:6px 6px!important;scrollbar-width:none!important}
+#page-disputa .scoreRowV37 .srScroll::-webkit-scrollbar{display:none!important}
+#page-disputa .scoreRowV37 .srAthlete{position:sticky!important;left:0!important;z-index:3!important;display:flex!important;align-items:center!important;gap:6px!important;flex:0 0 auto!important;min-width:132px!important;max-width:150px!important;background:linear-gradient(90deg,#0a1330 78%,rgba(10,19,48,0))!important;padding-right:8px!important}
+#page-disputa .scoreRowV37 .scorePos{width:20px!important;height:20px!important;flex:0 0 20px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:12px!important;font-weight:800!important;color:#7eeaff!important}
+#page-disputa .scoreRowV37 .srAthlete .avatar{width:34px!important;height:34px!important;flex:0 0 34px!important}
+#page-disputa .scoreRowV37 .srName{font-size:13px!important;line-height:1.05!important;font-weight:800!important;white-space:normal!important;overflow:hidden!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important}
+#page-disputa .scoreRowV37 .srCtrls{display:flex!important;align-items:flex-end!important;gap:10px!important;flex:0 0 auto!important}
+#page-disputa .scoreRowV37 .srItem{display:flex!important;flex-direction:column!important;align-items:center!important;gap:2px!important;flex:0 0 auto!important}
+#page-disputa .scoreRowV37 .srItem>label{font-size:10px!important;font-weight:800!important;letter-spacing:.3px!important;color:#7eeaff!important;text-transform:uppercase!important}
+#page-disputa .scoreRowV37 .srStep .quickScore{display:grid!important;grid-template-columns:36px 46px 36px!important;gap:5px!important;min-width:0!important}
+#page-disputa .scoreRowV37 .srStep .quickScore button{width:36px!important;height:36px!important;min-height:36px!important;font-size:22px!important;border-radius:9px!important}
+#page-disputa .scoreRowV37 .srStep .quickScoreInput{width:46px!important;min-width:46px!important;height:36px!important;font-size:16px!important;border-radius:9px!important;padding:0!important;text-align:center!important}
+#page-disputa .scoreRowV37 .srBonus{height:36px!important;min-height:36px!important;min-width:50px!important;border-radius:9px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:16px!important;font-weight:900!important}
+#page-disputa .scoreRowV37 .srBonus small{font-size:16px!important;font-weight:900!important}
+#page-disputa .scoreRowV37 .srTotal{position:sticky!important;right:0!important;z-index:3!important;flex:0 0 auto!important;margin-left:auto!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-width:46px!important;height:44px!important;border-radius:10px!important;background:#f4d03f!important;color:#1a1a1a!important;padding:0 8px!important;box-shadow:-8px 0 10px rgba(10,19,48,.9)!important}
+#page-disputa .scoreRowV37 .srTotal b{font-size:18px!important;line-height:1!important}
+#page-disputa .scoreRowV37 .srTotal small{font-size:9px!important;font-weight:800!important}
+
 </style>
 </body>
 </html>
