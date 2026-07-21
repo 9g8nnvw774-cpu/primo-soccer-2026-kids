@@ -1005,11 +1005,23 @@ renderScore = function(){
   const sch=document.getElementById("scoreSchedule")?.value||(schedulesFor(activeCategory))[0]||"",week=+document.getElementById("scoreWeek")?.value||0;
   const title=document.getElementById("scoreTitle"); if(title)title.textContent=`${activeCategory} • ${sch||"Selecione um horário"} • Semana ${week+1}`;
   const finished=isTrainingFinished(activeCategory,week,sch); const finishBox=document.getElementById("finishStatus");
-  if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Marque presença e, ao terminar, toque em <strong>Finalizar treino</strong>.`;
+  if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Ao terminar, toque em <strong>Finalizar treino</strong>.`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
   const cards=document.getElementById("scoreCards"); if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
   const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
+  syncScoreScroll();
 };
+/* V38 - rolar a linha de um aluno move a de todos (P/D, P/E... alinhados) */
+function syncScoreScroll(){
+  const rows=document.querySelectorAll("#scoreCards .srScroll");
+  if(!rows.length)return;
+  let lock=false;
+  const apply=x=>{ rows.forEach(o=>{ if(Math.abs(o.scrollLeft-x)>1) o.scrollLeft=x; }); };
+  rows.forEach(row=>{
+    if(row.dataset.syncReady)return; row.dataset.syncReady="1";
+    row.addEventListener("scroll",()=>{ if(lock)return; lock=true; const x=row.scrollLeft; apply(x); requestAnimationFrame(()=>{lock=false;}); },{passive:true});
+  });
+}
 
 const finishTrainingV32Base = finishTraining;
 finishTraining = async function(){if(!requireAdmin())return;const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(sch){activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch)).forEach(s=>{if(!getPresence(s.id,week,sch))setPresence(s.id,week,sch,true)});}return finishTrainingV32Base();};

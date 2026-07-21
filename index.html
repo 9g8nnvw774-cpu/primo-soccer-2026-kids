@@ -276,8 +276,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=37linha"></script>
-<script src="script.js?v=37linha"></script>
+<script src="supabase-config.js?v=39paisagem"></script>
+<script src="script.js?v=39paisagem"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -328,6 +328,31 @@
 #page-disputa .scoreRowV37 .srTotal{position:sticky!important;right:0!important;z-index:3!important;flex:0 0 auto!important;margin-left:auto!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-width:46px!important;height:44px!important;border-radius:10px!important;background:#f4d03f!important;color:#1a1a1a!important;padding:0 8px!important;box-shadow:-8px 0 10px rgba(10,19,48,.9)!important}
 #page-disputa .scoreRowV37 .srTotal b{font-size:18px!important;line-height:1!important}
 #page-disputa .scoreRowV37 .srTotal small{font-size:9px!important;font-weight:800!important}
+
+/* ===== V39 - CELULAR DEITADO (paisagem): caber 6 atletas ===== */
+@media (orientation:landscape) and (max-height:560px){
+  #page-disputa .scoreCards{gap:4px!important}
+  #page-disputa .scoreRowV37 .srScroll{padding:3px 6px!important;gap:6px!important}
+  #page-disputa .scoreRowV37 .srAthlete{min-width:120px!important;max-width:140px!important}
+  #page-disputa .scoreRowV37 .srAthlete .avatar{width:26px!important;height:26px!important;flex:0 0 26px!important}
+  #page-disputa .scoreRowV37 .scorePos{width:15px!important;flex:0 0 15px!important;font-size:11px!important}
+  #page-disputa .scoreRowV37 .srName{font-size:11px!important}
+  #page-disputa .scoreRowV37 .srCtrls{gap:8px!important}
+  #page-disputa .scoreRowV37 .srItem>label{font-size:8px!important}
+  #page-disputa .scoreRowV37 .srStep .quickScore{grid-template-columns:28px 38px 28px!important;gap:4px!important}
+  #page-disputa .scoreRowV37 .srStep .quickScore button{width:28px!important;height:28px!important;min-height:28px!important;font-size:18px!important}
+  #page-disputa .scoreRowV37 .srStep .quickScoreInput{width:38px!important;height:28px!important;font-size:16px!important}
+  #page-disputa .scoreRowV37 .srBonus{height:28px!important;min-width:42px!important;font-size:14px!important}
+  #page-disputa .scoreRowV37 .srTotal{height:34px!important;min-width:42px!important}
+  #page-disputa .scoreRowV37 .srTotal b{font-size:15px!important}
+  /* Modo "Iniciar disputa" deitado: topo menor e lista maior p/ mostrar 6 */
+  body.disputeFocus #page-disputa{padding:5px!important}
+  body.disputeFocus #page-disputa .card:first-child{padding:6px 8px!important;margin:0 0 4px!important}
+  body.disputeFocus #page-disputa .card:first-child h2{font-size:14px!important;margin-bottom:2px!important}
+  body.disputeFocus #page-disputa .finishStatus{display:none!important}
+  body.disputeFocus #page-disputa > .card:nth-of-type(2){height:calc(100vh - 96px)!important;margin:0!important;padding:6px!important}
+}
+
 
 </style>
 </body>
