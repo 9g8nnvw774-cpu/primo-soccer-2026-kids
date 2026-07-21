@@ -376,8 +376,19 @@ function renderPrintSelect(){const el=document.getElementById("printCategory");i
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${s.photo?`<img src="${s.photo}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 function withTimeout(promise,ms,msg){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||"Tempo de conexão esgotado")),ms))])}
 function cloudReady(){return !!(SUPABASE_URL&&SUPABASE_KEY&&APP_ID)}
-function supabaseHeaders(){return {"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Accept":"application/json","Prefer":"return=representation"}}
+function supabaseHeaders(){const token=(typeof getAdminToken==="function"&&getAdminToken())||SUPABASE_KEY;return {"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token,"Content-Type":"application/json","Accept":"application/json","Prefer":"return=representation"}}
 function cloudUrl(){return String(SUPABASE_URL||"").replace(/\/$/,"")}
+/* Faz a requisição autenticada com o token do admin. Se o token expirar (401),
+   tenta renovar automaticamente uma vez e refaz a requisição. */
+async function authedFetch(url,opts={},allowRefresh=true){
+  const headers=Object.assign({},supabaseHeaders(),opts.headers||{});
+  const r=await withTimeout(fetch(url,Object.assign({},opts,{headers,cache:"no-store"})),12000,"Banco demorou para responder");
+  if((r.status===401||r.status===403)&&allowRefresh&&typeof getAdminToken==="function"&&getAdminToken()){
+    const ok=await refreshAdminToken();
+    if(ok)return authedFetch(url,opts,false);
+  }
+  return r;
+}
 function cloudErrText(e){
   if(!e)return "erro desconhecido";
   if(typeof e==="string")return e;
@@ -385,7 +396,7 @@ function cloudErrText(e){
 }
 async function loadCloudRest(){
   const url=cloudUrl()+"/rest/v1/primo_app_state?select=data,updated_at&app_id=eq."+encodeURIComponent(APP_ID)+"&limit=1";
-  const r=await withTimeout(fetch(url,{method:"GET",headers:supabaseHeaders(),cache:"no-store"}),12000,"Banco demorou para responder via REST");
+  const r=await authedFetch(url,{method:"GET",headers:{"Accept":"application/json"}});
   const txt=await r.text();
   let json=null;try{json=txt?JSON.parse(txt):null}catch(e){}
   if(!r.ok)throw new Error("REST leitura "+r.status+": "+(json?cloudErrText(json):txt));
@@ -395,11 +406,47 @@ async function saveCloudRest(){
   norm();
   const payload={app_id:APP_ID,data:state,updated_at:new Date().toISOString()};
   const url=cloudUrl()+"/rest/v1/primo_app_state?on_conflict=app_id";
-  const r=await withTimeout(fetch(url,{method:"POST",headers:{...supabaseHeaders(),"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)}),12000,"Banco demorou para salvar via REST");
+  const r=await authedFetch(url,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)});
   const txt=await r.text();
   let json=null;try{json=txt?JSON.parse(txt):null}catch(e){}
   if(!r.ok)throw new Error("REST salvar "+r.status+": "+(json?cloudErrText(json):txt));
   return json;
+}
+/* ===== TABELA PÚBLICA (só ranking) para o link dos pais =====
+   Contém apenas nome do aluno + pontos, por mês e por categoria.
+   NÃO contém data de nascimento nem foto. É a única coisa que o link
+   dos pais consegue ler. Os dados sensíveis ficam só na tabela protegida. */
+function buildPublicState(){
+  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,months:{},annual:{},generatedAt:new Date().toISOString()};
+  MONTHS.forEach(mo=>{
+    const bucket={};
+    CATEGORIES.forEach(c=>{
+      const list=rankedByMonth(c[0],mo).map(s=>({name:s.name,total:s.total}));
+      if(list.length)bucket[c[0]]=list;
+    });
+    if(Object.keys(bucket).length)pub.months[mo]=bucket;
+  });
+  CATEGORIES.forEach(c=>{
+    const list=rankedAnnual(c[0]).map(s=>({name:s.name,total:s.total}));
+    if(list.length)pub.annual[c[0]]=list;
+  });
+  return pub;
+}
+async function savePublicStateRest(){
+  const payload={app_id:APP_ID,data:buildPublicState(),updated_at:new Date().toISOString()};
+  const url=cloudUrl()+"/rest/v1/primo_public_state?on_conflict=app_id";
+  const r=await authedFetch(url,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(payload)});
+  if(!r.ok){const t=await r.text();throw new Error("REST público salvar "+r.status+": "+t);}
+  return true;
+}
+async function loadPublicStateRest(){
+  const url=cloudUrl()+"/rest/v1/primo_public_state?select=data,updated_at&app_id=eq."+encodeURIComponent(APP_ID)+"&limit=1";
+  const r=await withTimeout(fetch(url,{method:"GET",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Accept":"application/json"},cache:"no-store"}),12000,"Banco demorou para responder");
+  const txt=await r.text();
+  let json=null;try{json=txt?JSON.parse(txt):null}catch(e){}
+  if(!r.ok)throw new Error("REST público leitura "+r.status+": "+txt);
+  const row=Array.isArray(json)?json[0]:json;
+  return (row&&row.data)||null;
 }
 async function loadCloudClient(){
   if(!window.supabase)throw new Error("Biblioteca Supabase não carregou");
@@ -418,6 +465,24 @@ async function saveCloudClient(){
   return true;
 }
 async function initCloud(){
+  // MODO PAIS: lê SOMENTE a tabela pública (ranking, sem dados sensíveis).
+  if(isParentMode()){
+    try{
+      setSync("Carregando resultados...");
+      parentData=await loadPublicStateRest();
+      setSync("✅ Resultados carregados.","ok");
+    }catch(e){
+      console.error("Erro ao carregar tabela pública:",e);
+      setSync("❌ Não carregou os resultados. Verifique a internet.","error");
+    }
+    if(typeof renderParentMode==="function")renderParentMode();
+    return;
+  }
+  // MODO ADMIN: precisa estar logado para ler a tabela protegida.
+  if(!isAdminAuthenticated()){
+    setSync("🔒 Faça login de administrador para carregar os dados.","warn");
+    saveLocal();renderAll();return;
+  }
   let errors=[];
   try{
     setSync("Conectando ao banco online...");
@@ -429,6 +494,8 @@ async function initCloud(){
     }else{
       await saveCloudRest();
     }
+    // Atualiza o espelho público (ranking) para o link dos pais.
+    try{await savePublicStateRest();}catch(e){console.warn("Espelho público não atualizou agora:",e);}
     setSync("✅ Banco online conectado.","ok");renderAll();
   }catch(e){
     errors.push(cloudErrText(e));
@@ -440,10 +507,12 @@ async function initCloud(){
 }
 async function saveCloud(){
   if(!cloudReady())return false;
+  if(!isAdminAuthenticated())return false; // só o admin logado grava no banco
   const stamp=new Date().toISOString();
   try{
     state.updatedAt=stamp;norm();
     await saveCloudRest();
+    await savePublicStateRest();
     localStorage.setItem("primo_kids_last_cloud_ok",stamp);
     setSync("✅ Dados salvos online.","ok");return true;
   }catch(e){
@@ -468,6 +537,7 @@ async function loadCloud(){await initCloud()}
 
 // ===== Logo + Link dos Pais v5 - seletor de todos os meses =====
 let parentCategory = CATEGORIES[0][0];
+let parentData = null; // ranking sanitizado carregado da tabela pública
 let parentSelectedMonth = (()=>{
   try{
     const p = new URLSearchParams(location.search);
@@ -547,8 +617,14 @@ function renderParentMode(){
   ensureParentHeroMonthSelect();
   renderParentMonthSelect();
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
-  const area=document.getElementById("parentRankingArea");if(area){const monthList=rankedByMonth(parentCategory,parentSelectedMonth),yearList=rankedAnnual(parentCategory);area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rulesHtml()}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${parentSelectedMonth}</h3><div class="rankList">${monthList.map(rankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`}
+  const area=document.getElementById("parentRankingArea");if(area){
+    const monthList=(parentData&&parentData.months&&parentData.months[parentSelectedMonth]&&parentData.months[parentSelectedMonth][parentCategory])||[];
+    const yearList=(parentData&&parentData.annual&&parentData.annual[parentCategory])||[];
+    const rules=esc((parentData&&parentData.rules)||DEFAULT_RULES).replace(/\n/g,"<br>");
+    area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${parentSelectedMonth}</h3><div class="rankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(parentRankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`;
+  }
 }
+function parentRankRow(o,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span><span class="avatar">${initials(o.name)}</span><span>${i+1}º - ${esc(o.name)}</span></div><strong>${o.total} pts</strong></div>`}
 const renderRankingsBase = renderRankings;
 renderRankings = function(){
   renderRankingsBase();
@@ -687,14 +763,53 @@ initCloud();
 setTimeout(()=>{ if(typeof initParentModeIfNeeded==="function") initParentModeIfNeeded(); if(typeof renderParentMode==="function" && isParentMode()) renderParentMode(); applyDashboardCover(); },300);
 setInterval(()=>{if(isParentMode())loadCloud();},10000);
 
-/* ===== V32 PRO - ADMIN, BACKUP, RELATÓRIOS, PRESENÇA E FILTROS ===== */
-const ADMIN_LOGIN = "TioJoão";
-const ADMIN_PASSWORD = "Primo2026!";
-const ADMIN_SESSION_KEY = "primo_kids_admin_session_v32";
-function isAdminAuthenticated(){try{return sessionStorage.getItem(ADMIN_SESSION_KEY)==="ok"}catch(e){return false}}
+/* ===== V33 SEGURANÇA - LOGIN REAL (SUPABASE AUTH via REST) ===== */
+/* A senha NÃO fica mais no código. O login é feito no Supabase Auth.
+   O admin recebe um token (JWT) temporário que autoriza gravar no banco.
+   Sem esse token, ninguém consegue gravar (o RLS do banco bloqueia). */
+const ADMIN_TOKEN_KEY = "primo_kids_admin_token_v33";
+const ADMIN_REFRESH_KEY = "primo_kids_admin_refresh_v33";
+function getAdminToken(){try{return sessionStorage.getItem(ADMIN_TOKEN_KEY)||""}catch(e){return ""}}
+function isAdminAuthenticated(){return !!getAdminToken()}
 function showAdminOverlay(show=true){const ov=document.getElementById("adminLoginOverlay");if(ov)ov.classList.toggle("hidden",!show);document.body.classList.toggle("adminLocked",show)}
-function adminLogin(){const u=document.getElementById("adminUser")?.value?.trim();const p=document.getElementById("adminPass")?.value||"";const err=document.getElementById("adminLoginError");if(u===ADMIN_LOGIN&&p===ADMIN_PASSWORD){sessionStorage.setItem(ADMIN_SESSION_KEY,"ok");showAdminOverlay(false);const b=document.getElementById("adminLogoutBtn");if(b)b.classList.remove("hidden");showPage("dashboard");renderAll();}else{if(err)err.textContent="Admin ou senha incorretos."}}
-function adminLogout(){sessionStorage.removeItem(ADMIN_SESSION_KEY);const b=document.getElementById("adminLogoutBtn");if(b)b.classList.add("hidden");showAdminOverlay(true)}
+async function refreshAdminToken(){
+  let rt="";try{rt=sessionStorage.getItem(ADMIN_REFRESH_KEY)||""}catch(e){}
+  if(!rt)return false;
+  try{
+    const r=await fetch(cloudUrl()+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});
+    const j=await r.json().catch(()=>null);
+    if(r.ok&&j&&j.access_token){sessionStorage.setItem(ADMIN_TOKEN_KEY,j.access_token);if(j.refresh_token)sessionStorage.setItem(ADMIN_REFRESH_KEY,j.refresh_token);return true;}
+  }catch(e){}
+  return false;
+}
+async function adminLogin(){
+  const email=document.getElementById("adminUser")?.value?.trim();
+  const pass=document.getElementById("adminPass")?.value||"";
+  const err=document.getElementById("adminLoginError");
+  if(err)err.textContent="";
+  if(!email||!pass){if(err)err.textContent="Digite o e-mail e a senha do administrador.";return;}
+  try{
+    if(err)err.textContent="Entrando...";
+    const r=await fetch(cloudUrl()+"/auth/v1/token?grant_type=password",{method:"POST",headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({email,password:pass})});
+    const j=await r.json().catch(()=>null);
+    if(!r.ok||!j||!j.access_token){if(err)err.textContent="E-mail ou senha incorretos.";return;}
+    sessionStorage.setItem(ADMIN_TOKEN_KEY,j.access_token);
+    if(j.refresh_token)sessionStorage.setItem(ADMIN_REFRESH_KEY,j.refresh_token);
+    if(err)err.textContent="";
+    showAdminOverlay(false);
+    const b=document.getElementById("adminLogoutBtn");if(b)b.classList.remove("hidden");
+    setSync("Admin conectado. Carregando dados...","ok");
+    await initCloud();
+    showPage("dashboard");renderAll();
+  }catch(e){if(err)err.textContent="Falha ao conectar. Verifique a internet e tente de novo.";}
+}
+async function adminLogout(){
+  const token=getAdminToken();
+  try{if(token)await fetch(cloudUrl()+"/auth/v1/logout",{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token}});}catch(e){}
+  try{sessionStorage.removeItem(ADMIN_TOKEN_KEY);sessionStorage.removeItem(ADMIN_REFRESH_KEY);}catch(e){}
+  const b=document.getElementById("adminLogoutBtn");if(b)b.classList.add("hidden");
+  showAdminOverlay(true);
+}
 function requireAdmin(){if(isParentMode())return false;if(isAdminAuthenticated())return true;showAdminOverlay(true);return false}
 function initAdminGate(){if(isParentMode()){showAdminOverlay(false);return;}const ok=isAdminAuthenticated();showAdminOverlay(!ok);const b=document.getElementById("adminLogoutBtn");if(b)b.classList.toggle("hidden",!ok)}
 ["addStudent","editStudent","deleteStudent","addToSchedule","removeFromSchedule","setScore","adjustScore","toggleBonus","clearTrainingScore","finishTraining","copyAgendaFromMonth","clearCategoryAgenda","addCustomSchedule","removeCustomSchedule","saveRules","saveDbConfigFromScreen","uploadCover","clearCover","syncNow"].forEach(name=>{const fn=window[name];if(typeof fn==="function"){window[name]=function(...args){if(!requireAdmin())return;return fn.apply(this,args)}}});
