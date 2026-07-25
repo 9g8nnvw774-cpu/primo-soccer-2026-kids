@@ -586,7 +586,7 @@ async function saveCloudRest(){
    dos pais consegue ler. Os dados sensíveis ficam só na tabela protegida. */
 function publicPhotoFor(s){ return s.photoPath ? photoPublicUrl(s.photoPath) : (s.photo||null); }
 function buildPublicState(){
-  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,months:{},annual:{},generatedAt:new Date().toISOString()};
+  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,months:{},generatedAt:new Date().toISOString()};
   MONTHS.forEach(mo=>{
     const bucket={};
     CATEGORIES.forEach(c=>{
@@ -594,10 +594,6 @@ function buildPublicState(){
       if(list.length)bucket[c[0]]=list;
     });
     if(Object.keys(bucket).length)pub.months[mo]=bucket;
-  });
-  CATEGORIES.forEach(c=>{
-    const list=rankedAnnual(c[0]).map(s=>({name:s.name,total:s.total,photo:publicPhotoFor(s)}));
-    if(list.length)pub.annual[c[0]]=list;
   });
   return pub;
 }
@@ -791,12 +787,11 @@ function renderParentMode(){
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
   const area=document.getElementById("parentRankingArea");if(area){
     const monthList=(parentData&&parentData.months&&parentData.months[parentSelectedMonth]&&parentData.months[parentSelectedMonth][parentCategory])||[];
-    const yearList=(parentData&&parentData.annual&&parentData.annual[parentCategory])||[];
     const rules=esc((parentData&&parentData.rules)||DEFAULT_RULES).replace(/\n/g,"<br>");
-    area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div><div class="card"><h2 class="rankTitle"><img src="primo-logo.png" class="rankLogo"> ${parentCategory}</h2><h3>🏆 Pontuação mensal • ${parentSelectedMonth}</h3><div class="rankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div><h3 class="annualTitle">📅 Pontuação geral do ano</h3><div class="rankList">${yearList.map(parentRankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}</div></div>`;
+    area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div><div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>`;
   }
 }
-function parentRankRow(o,i){const av=o.photo?`<span class="avatar"><img src="${o.photo}" onclick="openPhoto('${o.photo}')"></span>`:`<span class="avatar">${initials(o.name)}</span>`;return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${av}<span>${i+1}º - ${esc(o.name)}</span></div><strong>${o.total} pts</strong></div>`}
+function parentRankRow(o,i){const pos=i+1;const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${pos}º`;const top=i<3?`neonTop neonTop${pos}`:"";const av=o.photo?`<span class="avatar"><img src="${o.photo}" onclick="openPhoto('${o.photo}')"></span>`:`<span class="avatar">${initials(o.name)}</span>`;return`<div class="rankRow neonRow ${top}"><div class="rankLeft"><span class="neonPos">${medal}</span>${av}<span class="neonName">${esc(o.name)}</span></div><strong class="neonPts">${o.total} pts</strong></div>`}
 const renderRankingsBase = renderRankings;
 renderRankings = function(){
   renderRankingsBase();
@@ -1032,9 +1027,9 @@ function fillRankingFilters(){const m=document.getElementById("rankingMonthFilte
 renderRankings = function(){
   fillRankingFilters();
   const month=document.getElementById("rankingMonthFilter")?.value||currentMonth,catFilter=document.getElementById("rankingCategoryFilter")?.value||"all",week=document.getElementById("rankingWeekFilter")?.value||"all",sch=document.getElementById("rankingScheduleFilter")?.value||"all";
-  const categoryRanking=document.getElementById("categoryRanking"); if(categoryRanking){const monthList=ranked(activeCategory),yearList=rankedAnnual(activeCategory);categoryRanking.innerHTML=`<h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthList.map(rankRow).join("")||"<p>Nenhum aluno ativo nesta categoria.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}`}
+  const categoryRanking=document.getElementById("categoryRanking"); if(categoryRanking){const monthList=ranked(activeCategory);categoryRanking.innerHTML=`<h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthList.map(rankRow).join("")||"<p>Nenhum aluno ativo nesta categoria.</p>"}`}
   const rg=document.getElementById("rankingGeneral");if(rg){const list=rankedFiltered(catFilter,month,week,sch);rg.innerHTML=`<h3>Filtro selecionado • ${month}</h3>${list.map((s,i)=>rankRow({...s,total:s.total},i)).join("")||"<p>Nenhum resultado com esse filtro.</p>"}`;}
-  const all=document.getElementById("allCategoryRankings"); if(all){const cats=catFilter==="all"?CATEGORIES:CATEGORIES.filter(x=>x[0]===catFilter);all.innerHTML=cats.map(c=>{const monthly=rankedFiltered(c[0],month,week,sch),annual=rankedAnnual(c[0]);return`<div class="catCard cat-${c[1]}"><h2>${c[0]}</h2><h3>🏆 Pontuação filtrada • ${month}</h3>${monthly.map(rankRow).join("")||"<p>Nenhum aluno ativo no filtro.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${annual.map(rankRow).join("")||"<p>Nenhuma pontuação anual.</p>"}</div>`}).join("")}
+  const all=document.getElementById("allCategoryRankings"); if(all){const cats=catFilter==="all"?CATEGORIES:CATEGORIES.filter(x=>x[0]===catFilter);all.innerHTML=cats.map(c=>{const monthly=rankedFiltered(c[0],month,week,sch);return`<div class="catCard cat-${c[1]}"><h2>${c[0]}</h2><h3>🏆 Pontuação filtrada • ${month}</h3>${monthly.map(rankRow).join("")||"<p>Nenhum aluno ativo no filtro.</p>"}</div>`}).join("")}
   if(typeof renderReportStudentSelect==="function")renderReportStudentSelect();
 };
 

@@ -214,7 +214,6 @@
       <option value="all">Todos</option>
     </select>
     <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
-    <button onclick="preparePrint('annual')" class="secondary">Gerar ranking anual da categoria</button>
     <button onclick="preparePrint('general')" class="secondary">Gerar ranking geral</button>
     <button onclick="window.print()" class="success">Imprimir / Salvar imagem</button>
   </div>
@@ -224,8 +223,6 @@
 
 <section id="page-pais" class="page hidden parentOnlyPage">
   <div class="card parentHeader">
-    <img src="primo-logo.png" class="parentLogo" alt="Primo Soccer">
-    <h2 data-app-title><span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span></h2>
     <p>Resultados por categoria — MÊS: <strong id="parentMonth">MAIO</strong></p>
     <div class="parentMonthBox">
       <label for="parentMonthSelect">Selecionar mês da disputa</label>
@@ -276,8 +273,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=39paisagem"></script>
-<script src="script.js?v=39paisagem"></script>
+<script src="supabase-config.js?v=40neon"></script>
+<script src="script.js?v=40neon"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -354,6 +351,27 @@
 }
 
 
+/* ===== V40 - LINK DOS PAIS: NEON + TOP 3 DESTACADOS ===== */
+.parentOnlyPage .neonRankCard{background:linear-gradient(180deg,#050a1f,#020714)!important;border:1px solid rgba(56,189,248,.35)!important;box-shadow:0 0 22px rgba(56,189,248,.18)!important;border-radius:18px!important}
+.parentOnlyPage .neonCatTitle{text-align:center;font-weight:900;font-size:26px;letter-spacing:1px;color:#eaf6ff;text-transform:uppercase;margin:2px 0;text-shadow:0 0 10px rgba(56,189,248,.9),0 0 22px rgba(56,189,248,.55)}
+.parentOnlyPage .neonSub{text-align:center;font-weight:800;font-size:14px;color:#7dd3fc;letter-spacing:.5px;margin:0 0 12px;text-shadow:0 0 8px rgba(56,189,248,.5)}
+.parentOnlyPage .neonRankList .neonRow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:7px 0;padding:8px 12px;border-radius:14px;background:linear-gradient(180deg,rgba(13,25,60,.9),rgba(6,13,34,.9));border:1px solid rgba(56,189,248,.28);box-shadow:0 0 10px rgba(56,189,248,.12)}
+.parentOnlyPage .neonRankList .rankLeft{display:flex;align-items:center;gap:10px;min-width:0}
+.parentOnlyPage .neonRankList .neonPos{font-weight:900;font-size:16px;min-width:34px;text-align:center;color:#7dd3fc}
+.parentOnlyPage .neonRankList .avatar{width:42px;height:42px;border-radius:50%;overflow:hidden;flex:0 0 42px;border:2px solid rgba(56,189,248,.7);box-shadow:0 0 10px rgba(56,189,248,.5)}
+.parentOnlyPage .neonRankList .avatar img{width:100%;height:100%;object-fit:cover}
+.parentOnlyPage .neonRankList .neonName{font-weight:800;font-size:15px;color:#eaf6ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.parentOnlyPage .neonRankList .neonPts{font-weight:900;font-size:16px;color:#eaf6ff;white-space:nowrap}
+.parentOnlyPage .neonRankList .neonTop{border-width:2px}
+.parentOnlyPage .neonRankList .neonTop1{border-color:#ffd54a;box-shadow:0 0 18px rgba(255,213,74,.55);background:linear-gradient(180deg,rgba(60,48,10,.95),rgba(20,16,4,.95))}
+.parentOnlyPage .neonRankList .neonTop1 .neonPos,.parentOnlyPage .neonRankList .neonTop1 .neonPts{color:#ffd54a}
+.parentOnlyPage .neonRankList .neonTop1 .avatar{border-color:#ffd54a;box-shadow:0 0 14px rgba(255,213,74,.7)}
+.parentOnlyPage .neonRankList .neonTop2{border-color:#e6eefc;box-shadow:0 0 16px rgba(230,238,252,.4);background:linear-gradient(180deg,rgba(40,48,66,.95),rgba(14,18,28,.95))}
+.parentOnlyPage .neonRankList .neonTop2 .neonPos,.parentOnlyPage .neonRankList .neonTop2 .neonPts{color:#eef4ff}
+.parentOnlyPage .neonRankList .neonTop2 .avatar{border-color:#e6eefc;box-shadow:0 0 12px rgba(230,238,252,.6)}
+.parentOnlyPage .neonRankList .neonTop3{border-color:#ff9d5c;box-shadow:0 0 16px rgba(255,157,92,.45);background:linear-gradient(180deg,rgba(60,32,14,.95),rgba(22,12,6,.95))}
+.parentOnlyPage .neonRankList .neonTop3 .neonPos,.parentOnlyPage .neonRankList .neonTop3 .neonPts{color:#ff9d5c}
+.parentOnlyPage .neonRankList .neonTop3 .avatar{border-color:#ff9d5c;box-shadow:0 0 12px rgba(255,157,92,.7)}
 </style>
 </body>
 </html>
