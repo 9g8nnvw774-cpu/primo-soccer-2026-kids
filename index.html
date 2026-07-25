@@ -194,29 +194,18 @@
 
 <section id="page-imprimir" class="page hidden">
   <div class="card noPrint">
-    <h2>Impressão Instagram 1080x1920</h2>
+    <h2>Baixar classificação — Story Instagram (HD)</h2>
     <select id="printCategory"></select>
-    <select id="printColor">
-      <option value="azul">Tabela Azul Oficial</option>
-      <option value="preto">Tabela Preta Premium</option>
-      <option value="verde">Tabela Verde Campo</option>
-      <option value="roxo">Tabela Roxa</option>
-      <option value="rosa">Tabela Rosa Meninas</option>
-      <option value="dourado">Tabela Dourada Campeões</option>
-      <option value="neon">Tabela Azul Neon</option>
-      <option value="vermelho">Tabela Vermelha Premium</option>
-      <option value="branco">Tabela Branco e Azul</option>
-      <option value="grafite">Tabela Grafite Profissional</option>
-    </select>
     <select id="printLimit">
+      <option value="all" selected>Todos</option>
+      <option value="10">Top 10</option>
       <option value="5">Top 5</option>
-      <option value="10" selected>Top 10</option>
-      <option value="all">Todos</option>
     </select>
-    <button onclick="preparePrint('category')" class="success">Gerar ranking da categoria</button>
-    <button onclick="preparePrint('general')" class="secondary">Gerar ranking geral</button>
-    <button onclick="window.print()" class="success">Imprimir / Salvar imagem</button>
+    <button onclick="downloadStoryImage('category')" class="success">Baixar classificação da categoria</button>
+    <button onclick="downloadStoryImage('general')" class="secondary">Baixar classificação geral</button>
+    <p class="smallText">Gera a imagem em alta definição (1080×1920). No iPhone, toque em "Salvar imagem" ou compartilhe direto no Instagram.</p>
   </div>
+  <canvas id="storyCanvas" width="1080" height="1920" style="display:none"></canvas>
   <div id="printArea" class="printArea"></div>
 </section>
 
@@ -273,8 +262,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=42patroc"></script>
-<script src="script.js?v=42patroc"></script>
+<script src="supabase-config.js?v=43story"></script>
+<script src="script.js?v=43story"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>

@@ -1067,6 +1067,117 @@ preparePrint = function(type){
   </div>`;
 };
 
-const renderAllV32Base = renderAll;
+/* ===== V43 - BAIXAR CLASSIFICAÇÃO EM ALTA (Story 1080x1920, canvas) ===== */
+function _loadImg(src){return new Promise(res=>{if(!src)return res(null);const im=new Image();im.crossOrigin="anonymous";im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
+function _rr(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function _fit(ctx,t,maxW){if(ctx.measureText(t).width<=maxW)return t;while(t.length>1&&ctx.measureText(t+"…").width>maxW)t=t.slice(0,-1);return t+"…";}
+function _cover(ctx,img,x,y,w,h){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;const s=Math.max(w/iw,h/ih),dw=iw*s,dh=ih*s;ctx.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh);}
+async function downloadStoryImage(type){
+  if(!requireAdmin())return;
+  try{
+    setSync("Gerando imagem em alta definição...","warn");
+    const cat=type==="general"?null:(document.getElementById("printCategory")?.value||activeCategory);
+    const catName=(type==="general"?"CLASSIFICAÇÃO GERAL":cat)||"CLASSIFICAÇÃO";
+    const limit=document.getElementById("printLimit")?.value||"all";
+    let list=type==="general"?ranked():ranked(cat);
+    if(limit!=="all")list=list.slice(0,+limit);
+    if(!list.length){setSync("Nenhum aluno para gerar a imagem.","warn");alert("Não há alunos com pontos nessa classificação ainda.");return;}
+    const logo=await _loadImg("primo-logo.png");
+    const spons=await Promise.all(PRIMO_SPONSORS.map(_loadImg));
+    const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
+    const W=1080,H=1920,M=40;
+    const cv=document.getElementById("storyCanvas")||document.createElement("canvas");
+    cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
+    const spacer=(ctx.letterSpacing!==undefined);
+    // fundo
+    let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#0b2350");g.addColorStop(.5,"#061334");g.addColorStop(1,"#020714");
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    // logos
+    if(logo){ctx.drawImage(logo,M,44,150,150);ctx.drawImage(logo,W-M-150,44,150,150);}
+    // título PRIMO SOCCER
+    ctx.textAlign="center";ctx.textBaseline="alphabetic";
+    let sg=ctx.createLinearGradient(0,60,0,150);sg.addColorStop(0,"#ffffff");sg.addColorStop(.55,"#a9b6cc");sg.addColorStop(.6,"#8b98af");sg.addColorStop(1,"#eef3fb");
+    ctx.fillStyle=sg;ctx.font='900 74px "Arial Black",Arial,sans-serif';ctx.fillText("PRIMO SOCCER",W/2,128);
+    if(spacer)ctx.letterSpacing="10px";
+    ctx.fillStyle="#7dd3fc";ctx.font='800 30px Arial';ctx.fillText("LEAGUE 2026",W/2,172);
+    if(spacer)ctx.letterSpacing="0px";
+    // MÊS pill
+    ctx.font='900 40px Arial';const mtxt="MÊS: "+String(currentMonth||"").toUpperCase();const mw=ctx.measureText(mtxt).width+70;
+    _rr(ctx,(W-mw)/2,200,mw,66,33);ctx.fillStyle="rgba(6,20,52,.85)";ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.7)";ctx.stroke();
+    ctx.fillStyle="#fff";ctx.textBaseline="middle";ctx.fillText(mtxt,W/2,235);ctx.textBaseline="alphabetic";
+    // painel da classificação
+    const pT=300,pB=H-300;_rr(ctx,M,pT,W-2*M,pB-pT,26);ctx.fillStyle="rgba(4,12,34,.55)";ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.45)";ctx.stroke();
+    // título categoria
+    let ts=64;ctx.font=`italic 900 ${ts}px "Arial Black",Arial,sans-serif`;
+    const bigMax=W-2*M-60;while(ctx.measureText(catName.toUpperCase()).width>bigMax&&ts>34){ts-=2;ctx.font=`italic 900 ${ts}px "Arial Black",Arial,sans-serif`;}
+    let tg=ctx.createLinearGradient(0,pT+30,0,pT+30+ts);tg.addColorStop(0,"#ffffff");tg.addColorStop(.55,"#aab7cd");tg.addColorStop(.6,"#8f9cb3");tg.addColorStop(1,"#eef3fb");
+    ctx.fillStyle=tg;ctx.fillText(catName.toUpperCase(),W/2,pT+58);
+    if(spacer)ctx.letterSpacing="8px";
+    ctx.fillStyle="#7dd3fc";ctx.font='800 26px Arial';ctx.fillText("MAIOR PONTUADOR",W/2,pT+96);
+    if(spacer)ctx.letterSpacing="0px";
+    // linhas
+    const rowsTop=pT+130,rowsBot=pB-20,gap=8,n=list.length;
+    let rowH=Math.max(30,Math.min(88,(rowsBot-rowsTop-gap*(n-1))/n));
+    const rowX=M+20,rowW=W-2*rowX;
+    const gold="#ffd54a",silver="#eef4ff",bronze="#ff9d5c",blue="#bcd3ff";
+    for(let i=0;i<n;i++){
+      const s=list[i],y=rowsTop+i*(rowH+gap),pos=i+1;
+      const isTop=pos<=3,accent=pos===1?gold:pos===2?silver:pos===3?bronze:blue;
+      _rr(ctx,rowX,y,rowW,rowH,rowH/2);
+      if(pos===1){let f=ctx.createLinearGradient(rowX,0,rowX+rowW,0);f.addColorStop(0,"rgba(70,56,12,.95)");f.addColorStop(1,"rgba(24,18,4,.9)");ctx.fillStyle=f;}
+      else if(pos===2){ctx.fillStyle="rgba(40,48,66,.9)";}
+      else if(pos===3){let f=ctx.createLinearGradient(rowX,0,rowX+rowW,0);f.addColorStop(0,"rgba(70,38,16,.95)");f.addColorStop(1,"rgba(24,14,6,.9)");ctx.fillStyle=f;}
+      else{ctx.fillStyle="rgba(9,20,52,.9)";}
+      ctx.fill();
+      ctx.lineWidth=isTop?3:1.5;ctx.strokeStyle=isTop?accent:"rgba(90,140,220,.5)";
+      if(isTop){ctx.save();ctx.shadowColor=accent;ctx.shadowBlur=18;ctx.stroke();ctx.restore();}else{ctx.stroke();}
+      const cy=y+rowH/2,fs=Math.min(34,rowH*0.42);
+      ctx.textBaseline="middle";
+      ctx.textAlign="left";ctx.font=`900 ${fs}px Arial`;ctx.fillStyle=isTop?accent:"#cfe3ff";ctx.fillText(pos+"º",rowX+30,cy);
+      // foto
+      const r=rowH*0.40,pcx=rowX+140,ph=photos[i];
+      ctx.save();ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.closePath();ctx.clip();
+      if(ph){_cover(ctx,ph,pcx-r,cy-r,2*r,2*r);}else{ctx.fillStyle="#0b1c44";ctx.fillRect(pcx-r,cy-r,2*r,2*r);ctx.fillStyle="#7dd3fc";ctx.font=`900 ${r*0.8}px Arial`;ctx.textAlign="center";ctx.fillText(initials(s.name),pcx,cy);}
+      ctx.restore();
+      ctx.lineWidth=2.5;ctx.strokeStyle=accent;ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.stroke();
+      // nome
+      ctx.textAlign="left";ctx.font=`800 ${fs}px Arial`;ctx.fillStyle="#fff";
+      const nameX=pcx+r+24,ptsMax=160;
+      ctx.fillText(_fit(ctx,String(s.name).toUpperCase(),rowW-(nameX-rowX)-ptsMax),nameX,cy);
+      // pontos
+      ctx.textAlign="right";ctx.font=`900 ${fs}px Arial`;ctx.fillStyle=isTop?accent:"#cfe3ff";ctx.fillText(s.total+" pts",rowX+rowW-30,cy);
+    }
+    ctx.textBaseline="alphabetic";
+    // AGRADECIMENTO
+    ctx.textAlign="center";if(spacer)ctx.letterSpacing="12px";
+    ctx.fillStyle="#7dd3fc";ctx.font='900 30px Arial';ctx.fillText("AGRADECIMENTO",W/2,pB+56);
+    if(spacer)ctx.letterSpacing="0px";
+    // faixa patrocinadores
+    const spY=pB+80,spH=150,spX=M,spW=W-2*M;
+    _rr(ctx,spX,spY,spW,spH,20);let sgr=ctx.createLinearGradient(0,spY,0,spY+spH);sgr.addColorStop(0,"#050c22");sgr.addColorStop(1,"#010512");ctx.fillStyle=sgr;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.5)";ctx.save();ctx.shadowColor="rgba(56,189,248,.5)";ctx.shadowBlur=16;ctx.stroke();ctx.restore();
+    const pad=16,tgap=12,tileW=(spW-2*pad-8*tgap)/9,tileH=spH-2*pad;
+    for(let i=0;i<9;i++){
+      const tx=spX+pad+i*(tileW+tgap),ty=spY+pad,im=spons[i];
+      _rr(ctx,tx,ty,tileW,tileH,10);ctx.fillStyle="#0a1836";ctx.fill();
+      if(im){ctx.save();_rr(ctx,tx,ty,tileW,tileH,10);ctx.clip();_cover(ctx,im,tx,ty,tileW,tileH);ctx.restore();}
+      ctx.lineWidth=2.5;ctx.strokeStyle="rgba(180,205,240,.7)";_rr(ctx,tx,ty,tileW,tileH,10);ctx.stroke();
+    }
+    // exportar
+    const fname=`primo-${(catName).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}-${String(currentMonth||"").toLowerCase()}.png`;
+    cv.toBlob(async(blob)=>{
+      if(!blob){setSync("Não consegui gerar a imagem.","error");return;}
+      const file=new File([blob],fname,{type:"image/png"});
+      try{
+        if(navigator.canShare&&navigator.canShare({files:[file]})){
+          await navigator.share({files:[file],title:"Classificação Primo Soccer"});
+          setSync("✅ Imagem pronta. Toque em Salvar imagem ou envie ao Instagram.","ok");return;
+        }
+      }catch(err){ if(err&&err.name==="AbortError"){setSync("Ok.","ok");return;} }
+      const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),3000);
+      setSync("✅ Imagem baixada em alta definição.","ok");
+    },"image/png");
+  }catch(e){console.error(e);setSync("Erro ao gerar a imagem: "+(e.message||e),"error");alert("Não consegui gerar a imagem. Tente de novo.");}
+}
 renderAll = function(){renderAllV32Base();fillRankingFilters();renderReportStudentSelect();initAdminGate();};
 initAdminGate();renderAll();
