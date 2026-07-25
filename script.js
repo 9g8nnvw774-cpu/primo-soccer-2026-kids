@@ -788,7 +788,7 @@ function renderParentMode(){
   const area=document.getElementById("parentRankingArea");if(area){
     const monthList=(parentData&&parentData.months&&parentData.months[parentSelectedMonth]&&parentData.months[parentSelectedMonth][parentCategory])||[];
     const rules=esc((parentData&&parentData.rules)||DEFAULT_RULES).replace(/\n/g,"<br>");
-    area.innerHTML=`<div class="card rulesCard parentRulesOnly"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div><div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>`;
+    area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div><div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>`;
   }
 }
 function parentRankRow(o,i){const pos=i+1;const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${pos}º`;const top=i<3?`neonTop neonTop${pos}`:"";const av=o.photo?`<span class="avatar"><img src="${o.photo}" onclick="openPhoto('${o.photo}')"></span>`:`<span class="avatar">${initials(o.name)}</span>`;return`<div class="rankRow neonRow ${top}"><div class="rankLeft"><span class="neonPos">${medal}</span>${av}<span class="neonName">${esc(o.name)}</span></div><strong class="neonPts">${o.total} pts</strong></div>`}
@@ -1083,7 +1083,7 @@ async function downloadStoryImage(type){
     if(limit!=="all")list=list.slice(0,+limit);
     if(!list.length){setSync("Nenhum aluno para gerar a imagem.","warn");alert("Não há alunos com pontos nessa classificação ainda.");return;}
     const logo=await _loadImg("primo-logo.png");
-    const spons=await Promise.all(PRIMO_SPONSORS.map(_loadImg));
+    const spImg=await _loadImg("patrocinadores.png");
     const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
     const W=1080,H=1920,M=40;
     const TH={
@@ -1171,16 +1171,11 @@ async function downloadStoryImage(type){
     ctx.textAlign="center";if(spacer)ctx.letterSpacing="12px";
     ctx.fillStyle=softC;ctx.font='900 30px Arial';ctx.fillText("AGRADECIMENTO",W/2,pB+56);
     if(spacer)ctx.letterSpacing="0px";
-    // faixa patrocinadores
+    // faixa patrocinadores (imagem única)
     const spY=pB+80,spH=150,spX=M,spW=W-2*M;
-    _rr(ctx,spX,spY,spW,spH,20);let sgr=ctx.createLinearGradient(0,spY,0,spY+spH);sgr.addColorStop(0,"#050c22");sgr.addColorStop(1,"#010512");ctx.fillStyle=sgr;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=AC(.5);ctx.save();ctx.shadowColor=AC(.5);ctx.shadowBlur=16;ctx.stroke();ctx.restore();
-    const pad=16,tgap=12,tileW=(spW-2*pad-8*tgap)/9,tileH=spH-2*pad;
-    for(let i=0;i<9;i++){
-      const tx=spX+pad+i*(tileW+tgap),ty=spY+pad,im=spons[i];
-      _rr(ctx,tx,ty,tileW,tileH,10);ctx.fillStyle="#0a1836";ctx.fill();
-      if(im){ctx.save();_rr(ctx,tx,ty,tileW,tileH,10);ctx.clip();_cover(ctx,im,tx,ty,tileW,tileH);ctx.restore();}
-      ctx.lineWidth=2.5;ctx.strokeStyle="rgba(180,205,240,.7)";_rr(ctx,tx,ty,tileW,tileH,10);ctx.stroke();
-    }
+    if(spImg){ctx.save();_rr(ctx,spX,spY,spW,spH,20);ctx.clip();_cover(ctx,spImg,spX,spY,spW,spH);ctx.restore();}
+    else{_rr(ctx,spX,spY,spW,spH,20);let sgr=ctx.createLinearGradient(0,spY,0,spY+spH);sgr.addColorStop(0,"#050c22");sgr.addColorStop(1,"#010512");ctx.fillStyle=sgr;ctx.fill();ctx.fillStyle=softC;ctx.font='700 22px Arial';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("(envie o arquivo patrocinadores.png)",W/2,spY+spH/2);ctx.textBaseline="alphabetic";}
+    ctx.lineWidth=2;ctx.strokeStyle=AC(.5);ctx.save();ctx.shadowColor=AC(.5);ctx.shadowBlur=14;_rr(ctx,spX,spY,spW,spH,20);ctx.stroke();ctx.restore();
     // exportar
     const fname=`primo-${(catName).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}-${String(currentMonth||"").toLowerCase()}.png`;
     cv.toBlob(async(blob)=>{
