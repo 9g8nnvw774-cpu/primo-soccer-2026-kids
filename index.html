@@ -273,8 +273,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=40neon"></script>
-<script src="script.js?v=40neon"></script>
+<script src="supabase-config.js?v=42patroc"></script>
+<script src="script.js?v=42patroc"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -372,6 +372,46 @@
 .parentOnlyPage .neonRankList .neonTop3{border-color:#ff9d5c;box-shadow:0 0 16px rgba(255,157,92,.45);background:linear-gradient(180deg,rgba(60,32,14,.95),rgba(22,12,6,.95))}
 .parentOnlyPage .neonRankList .neonTop3 .neonPos,.parentOnlyPage .neonRankList .neonTop3 .neonPts{color:#ff9d5c}
 .parentOnlyPage .neonRankList .neonTop3 .avatar{border-color:#ff9d5c;box-shadow:0 0 12px rgba(255,157,92,.7)}
+/* ===== V41 - ARTE STORY 1080x1920: categoria em destaque + top3 + patrocinadores ===== */
+.printStory .printHead{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 6px}
+.printStory .printHead .printLogo{width:60px!important;height:60px!important;margin:0!important}
+.printStory .printLeague{display:flex;flex-direction:column;line-height:1;text-align:left}
+.printStory .printLeague span{font-family:"Arial Black",Impact,sans-serif;font-weight:900;font-size:22px;color:#fff;letter-spacing:1px;text-shadow:0 0 10px rgba(56,189,248,.7)}
+.printStory .printLeague small{font-size:11px;color:#7dd3fc;letter-spacing:3px;font-weight:800}
+.printStory .printMonth{text-align:center;font-weight:900;font-size:14px;color:#fff;border:1px solid rgba(56,189,248,.6);border-radius:999px;padding:4px 12px;width:fit-content;margin:0 auto 8px;box-shadow:0 0 12px rgba(56,189,248,.35)}
+.printStory .printCatBanner{text-align:center;font-family:"Arial Black",Impact,sans-serif;font-weight:900;font-size:26px;line-height:1.02;letter-spacing:.5px;text-transform:uppercase;color:#fff;margin:2px 0;padding:8px 6px;border-radius:12px;background:linear-gradient(180deg,rgba(18,84,255,.35),rgba(2,8,23,.12));text-shadow:0 0 14px rgba(56,189,248,.95),0 0 26px rgba(56,189,248,.55);border:1px solid rgba(56,189,248,.5)}
+.printStory .printClassif{text-align:center;font-weight:800;font-size:12px;letter-spacing:2px;color:#7dd3fc;margin:6px 0 10px;text-shadow:0 0 8px rgba(56,189,248,.6)}
+.printStory .printRow{grid-template-columns:46px 40px 1fr auto!important;gap:8px!important;box-shadow:0 0 12px rgba(56,189,248,.18)!important}
+.printStory .printPos{font-weight:900;text-align:center;color:#7dd3fc}
+.printStory .printName{text-align:left;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.printStory .printPts{font-weight:900;color:#fff;white-space:nowrap}
+.printStory .printTop1{border-color:#ffd54a!important;box-shadow:0 0 20px rgba(255,213,74,.6)!important;background:linear-gradient(180deg,rgba(70,56,12,.92),rgba(24,18,4,.92))!important}
+.printStory .printTop1 .printPos,.printStory .printTop1 .printPts{color:#ffd54a}
+.printStory .printTop1 .printPhoto{border-color:#ffd54a!important;box-shadow:0 0 12px rgba(255,213,74,.8)}
+.printStory .printTop2{border-color:#e6eefc!important;box-shadow:0 0 18px rgba(230,238,252,.45)!important;background:linear-gradient(180deg,rgba(44,52,72,.92),rgba(16,20,30,.92))!important}
+.printStory .printTop2 .printPos,.printStory .printTop2 .printPts{color:#eef4ff}
+.printStory .printTop2 .printPhoto{border-color:#e6eefc!important}
+.printStory .printTop3{border-color:#ff9d5c!important;box-shadow:0 0 18px rgba(255,157,92,.5)!important;background:linear-gradient(180deg,rgba(70,38,16,.92),rgba(24,14,6,.92))!important}
+.printStory .printTop3 .printPos,.printStory .printTop3 .printPts{color:#ff9d5c}
+.printStory .printTop3 .printPhoto{border-color:#ff9d5c!important}
+.printStory .printThanks{text-align:center;font-weight:900;letter-spacing:5px;font-size:13px;color:#7dd3fc;margin:12px 0 8px;text-shadow:0 0 10px rgba(56,189,248,.6)}
+.printStory .printSponsors{position:relative;display:grid;grid-template-columns:repeat(9,1fr);gap:6px;align-items:center;background:linear-gradient(180deg,#050c22,#010512);border:1px solid rgba(56,189,248,.5);border-radius:14px;padding:10px;box-shadow:0 0 20px rgba(56,189,248,.3)}
+.printStory .printSponsors::after{content:"";position:absolute;left:8%;right:8%;bottom:-6px;height:8px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(56,189,248,.7),transparent 70%);filter:blur(2px)}
+.printStory .printSponsor{height:36px;border-radius:8px;overflow:hidden;border:2px solid rgba(170,196,232,.6);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),0 0 8px rgba(56,189,248,.35);background:#0a1836;display:block;padding:0}
+.printStory .printSponsor img{width:100%;height:100%;object-fit:cover;display:block}
+@media print{
+  .printStory .printHead .printLogo{width:150px!important;height:150px!important}
+  .printStory .printLeague span{font-size:58px!important}
+  .printStory .printLeague small{font-size:26px!important;letter-spacing:8px!important}
+  .printStory .printMonth{font-size:34px!important;padding:10px 30px!important;margin-bottom:18px!important}
+  .printStory .printCatBanner{font-size:70px!important;padding:18px 14px!important;margin:8px 0!important}
+  .printStory .printClassif{font-size:28px!important;letter-spacing:5px!important;margin:14px 0 22px!important}
+  .printStory .printRow{grid-template-columns:110px 96px 1fr auto!important;font-size:38px!important;padding:16px 18px!important;margin:10px 0!important}
+  .printStory .printPhoto{width:80px!important;height:80px!important}
+  .printStory .printThanks{font-size:34px!important;letter-spacing:12px!important;margin:28px 0 16px!important}
+  .printStory .printSponsors{gap:12px!important;padding:16px!important;border-radius:18px!important}
+  .printStory .printSponsor{height:104px!important;border-radius:12px!important;border-width:3px!important}
+}
 </style>
 </body>
 </html>

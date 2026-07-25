@@ -1041,7 +1041,31 @@ function reportHtml(title,rows){const totalPts=rows.reduce((a,r)=>a+r.total,0),p
 function prepareGeneralReport(){if(!requireAdmin())return;document.getElementById("printArea").innerHTML=reportHtml("Relatório geral do mês",reportRows());showPage("imprimir")}
 function prepareStudentReport(){if(!requireAdmin())return;const id=document.getElementById("reportStudentSelect")?.value;const s=studentById(id)||state.students.find(x=>x.active!==false);if(!s)return alert("Cadastre pelo menos um aluno.");const rows=[{s,total:totalStudent(s.id),annual:annualTotalStudent(s.id),presence:presenceCount(s.id),possible:trainingCountPossible(s.id)}];document.getElementById("printArea").innerHTML=reportHtml(`Relatório individual • ${esc(s.name)}`,rows);showPage("imprimir")}
 
-preparePrint = function(type){const cat=document.getElementById("printCategory")?.value||activeCategory;const color=document.getElementById("printColor")?.value||"azul";const limit=document.getElementById("printLimit")?.value||"10";let list=type==="annual"?rankedAnnual(cat):(type==="general"?ranked():ranked(cat));if(limit!=="all")list=list.slice(0,+limit);const title=type==="annual"?`RANKING ANUAL • ${cat}`:type==="general"?`RANKING GERAL • ${currentMonth}`:`${cat} • ${currentMonth}`;document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}" onclick="openPhoto('${photoSrc(s)}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`};
+const PRIMO_SPONSORS=["iocontabil.jpg","somafra.jpg","saosilvestre.jpg","octo.jpg","saofrancisco.jpg","ademicon.jpg","dulopes.jpg","dosanjos.jpg","neimotos.jpg"];
+preparePrint = function(type){
+  const cat=document.getElementById("printCategory")?.value||activeCategory;
+  const color=document.getElementById("printColor")?.value||"neon";
+  const limit=document.getElementById("printLimit")?.value||"10";
+  let list=(type==="general"?ranked():ranked(cat));
+  if(limit!=="all")list=list.slice(0,+limit);
+  const catName=type==="general"?"CLASSIFICAÇÃO GERAL":cat;
+  const rows=list.map((s,i)=>{
+    const pos=i+1, medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":`${pos}º`;
+    const top=pos<=3?`printTop printTop${pos}`:"";
+    const ph=photoSrc(s)?`<img src="${photoSrc(s)}">`:initials(s.name);
+    return `<div class="printRow ${top}"><span class="printPos">${medal}</span><span class="printPhoto">${ph}</span><span class="printName">${esc(s.name)}</span><strong class="printPts">${s.total} pts</strong></div>`;
+  }).join("")||"<p>Nenhum aluno nesta categoria.</p>";
+  const sponsors=PRIMO_SPONSORS.map(src=>`<span class="printSponsor"><img src="${src}" alt=""></span>`).join("");
+  document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard printStory print-${color}">
+    <div class="printHead"><img src="primo-logo.png" class="printLogo"><div class="printLeague"><span>PRIMO SOCCER</span><small>LEAGUE 2026</small></div></div>
+    <div class="printMonth">MÊS: ${esc(currentMonth)}</div>
+    <div class="printCatBanner">${esc(catName)}</div>
+    <div class="printClassif">CLASSIFICAÇÃO • MAIOR PONTUADOR</div>
+    <div class="printTableOnly">${rows}</div>
+    <div class="printThanks">AGRADECIMENTO</div>
+    <div class="printSponsors">${sponsors}</div>
+  </div>`;
+};
 
 const renderAllV32Base = renderAll;
 renderAll = function(){renderAllV32Base();fillRankingFilters();renderReportStudentSelect();initAdminGate();};
