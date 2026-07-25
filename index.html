@@ -149,7 +149,7 @@
         <thead>
           <tr>
             <th>#</th>
-            <th class="sticky">Aluno</th>
+            <th class="sticky">ATLETA</th>
             <th>P/D</th>
             <th>P/E</th>
             <th>Uniforme</th>
@@ -272,8 +272,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=49faixa"></script>
-<script src="script.js?v=49faixa"></script>
+<script src="supabase-config.js?v=50tabela"></script>
+<script src="script.js?v=50tabela"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -425,6 +425,21 @@ body.parentMode .parentHeroMonthBox{margin-top:14px!important}
 .parentOnlyPage .neonRulesCard{border-color:rgba(56,189,248,.5)!important;background:linear-gradient(180deg,rgba(6,16,42,.85),rgba(2,8,23,.92))!important;margin-top:14px!important}
 .parentOnlyPage .neonRulesCard h2{color:#7dd3fc!important;text-shadow:0 0 10px rgba(56,189,248,.5)}
 .parentOnlyPage .neonRulesCard p{color:#eaf6ff!important}
+/* ===== V50 - DISPUTA IGUAL AO ADULTO: tabela no celular ===== */
+@media(max-width:800px){
+  #page-disputa .scoreTableWrap{display:block!important}
+  #page-disputa .scoreCards{display:none!important}
+}
+body.disputeFocus .scoreTableWrap{display:block!important}
+body.disputeFocus .scoreCards{display:none!important}
+#page-disputa .scoreTableWrap{overscroll-behavior:contain;touch-action:pan-x pan-y}
+#page-disputa .scoreTable td{padding:10px 10px!important}
+#page-disputa .scoreTable .sticky{min-width:186px!important}
+#page-disputa .scoreTable .playerCell strong{font-size:15px!important;line-height:1.05}
+#page-disputa .scoreTable .quickScore{display:grid!important;grid-template-columns:46px 60px 46px!important;gap:6px!important;min-width:0!important;margin:0 auto}
+#page-disputa .scoreTable .quickScore button{width:46px!important;height:46px!important;min-height:46px!important;font-size:24px!important;border-radius:12px!important}
+#page-disputa .scoreTable .quickScoreInput{width:60px!important;min-width:60px!important;height:46px!important;font-size:18px!important;border-radius:12px!important;text-align:center!important;padding:0!important}
+#page-disputa .scoreTable .tableBonus{height:46px!important;min-width:56px!important;border-radius:12px!important;display:inline-flex!important;align-items:center;justify-content:center;font-size:18px!important;font-weight:900!important;margin:0 auto}
 </style>
 </body>
 </html>

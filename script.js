@@ -366,7 +366,7 @@ function updateScoreDisplays(id,week,sch){
 function toggleBonus(id,week,sch,field,el){
   if(el&&el.blur)el.blur();
   const sc=getScore(id,week,sch);
-  sc[field]=(+sc[field]||0)>0?0:5;
+  sc[field]=(+sc[field]||0)>0?0:2;
   updateScoreDisplays(id,week,sch);
   scheduleSave(250);
   renderRankings();
@@ -523,7 +523,7 @@ function renderScore(){
   const table=document.getElementById("scoreTable");
   const cards=document.getElementById("scoreCards");
   if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
-  if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div><small class="studentMiniId">ID: ${esc(s.studentCode||s.id)}</small></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
+  if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><button type="button" class="bonusMini tableBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this)'><small data-bonus="${field}">${+score[field]||0}</small></button></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
 function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
 function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
