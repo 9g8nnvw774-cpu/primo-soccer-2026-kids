@@ -1083,7 +1083,7 @@ async function downloadStoryImage(type){
     if(limit!=="all")list=list.slice(0,+limit);
     if(!list.length){setSync("Nenhum aluno para gerar a imagem.","warn");alert("Não há alunos com pontos nessa classificação ainda.");return;}
     const logo=await _loadImg("primo-logo.png");
-    const spImg=await _loadImg("patrocinadores.png?v=2");
+    const spImg=await _loadImg("patrocinadores.png?v=3");
     const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
     const W=1080,H=1920,M=40;
     const TH={
