@@ -1198,5 +1198,8 @@ async function downloadStoryImage(type){
     },"image/png");
   }catch(e){console.error(e);setSync("Erro ao gerar a imagem: "+(e.message||e),"error");alert("Não consegui gerar a imagem. Tente de novo.");}
 }
-renderAll = function(){renderAllV32Base();fillRankingFilters();renderReportStudentSelect();initAdminGate();};
+(function(){
+  var _renderAllBase = renderAll;
+  renderAll = function(){ _renderAllBase(); fillRankingFilters(); renderReportStudentSelect(); initAdminGate(); };
+})();
 initAdminGate();renderAll();
