@@ -982,7 +982,7 @@ function initAdminGate(){if(isParentMode()){showAdminOverlay(false);return;}cons
 ["addStudent","editStudent","deleteStudent","addToSchedule","removeFromSchedule","setScore","adjustScore","toggleBonus","clearTrainingScore","finishTraining","copyAgendaFromMonth","clearCategoryAgenda","addCustomSchedule","removeCustomSchedule","saveRules","saveDbConfigFromScreen","uploadCover","clearCover","syncNow"].forEach(name=>{const fn=window[name];if(typeof fn==="function"){window[name]=function(...args){if(!requireAdmin())return;return fn.apply(this,args)}}});
 
 const normBaseV32 = norm;
-norm = function(){normBaseV32();Object.values(state.months||{}).forEach(m=>{Object.values(m.participants||{}).forEach(p=>{if(!p.presence)p.presence=Array.from({length:5},()=>({}));if(!Array.isArray(p.presence))p.presence=Array.from({length:5},(_,i)=>p.presence?.[i]||{});});});state.schemaVersion=32;};
+norm = function(){normBaseV32();Object.values(state.months||{}).forEach(m=>{Object.values(m.participants||{}).forEach(p=>{if(!p.presence)p.presence=Array.from({length:5},()=>({}));if(!Array.isArray(p.presence))p.presence=Array.from({length:5},(_,i)=>p.presence?.[i]||{});(p.weeks||[]).forEach(wk=>{Object.values(wk||{}).forEach(sc=>{if(sc){["uniforme","fruta","comportamento"].forEach(f=>{if(+sc[f]===5)sc[f]=2;});}});});});});state.schemaVersion=32;};
 function getPresence(id,w,sch){const p=participant(id);if(!p.presence)p.presence=Array.from({length:5},()=>({}));if(!p.presence[w])p.presence[w]={};return !!p.presence[w][sch]}
 function setPresence(id,w,sch,val){const p=participant(id);if(!p.presence)p.presence=Array.from({length:5},()=>({}));if(!p.presence[w])p.presence[w]={};p.presence[w][sch]=!!val;scheduleSave(250);renderScore();}
 function togglePresence(id,w,sch){if(!requireAdmin())return;setPresence(id,w,sch,!getPresence(id,w,sch))}
@@ -1003,7 +1003,7 @@ renderScore = function(){
   if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Ao terminar, toque em <strong>Finalizar treino</strong>.`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
   const cards=document.getElementById("scoreCards"); if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
-  const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><select class="bonusSelect" onchange='setScore(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this.value,this)'><option value="0" ${score[field]==0?"selected":""}>0</option><option value="5" ${score[field]==5?"selected":""}>5</option></select></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
+  const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><button type="button" class="bonusMini tableBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this)'><small data-bonus="${field}">${+score[field]||0}</small></button></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
   syncScoreScroll();
 };
 /* V38 - rolar a linha de um aluno move a de todos (P/D, P/E... alinhados) */
@@ -1176,22 +1176,32 @@ async function downloadStoryImage(type){
     if(spImg){ctx.save();_rr(ctx,spX,spY,spW,spH,20);ctx.clip();_cover(ctx,spImg,spX,spY,spW,spH);ctx.restore();}
     else{_rr(ctx,spX,spY,spW,spH,20);let sgr=ctx.createLinearGradient(0,spY,0,spY+spH);sgr.addColorStop(0,"#050c22");sgr.addColorStop(1,"#010512");ctx.fillStyle=sgr;ctx.fill();ctx.fillStyle=softC;ctx.font='700 22px Arial';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("(envie o arquivo patrocinadores.png)",W/2,spY+spH/2);ctx.textBaseline="alphabetic";}
     ctx.lineWidth=2;ctx.strokeStyle=AC(.5);ctx.save();ctx.shadowColor=AC(.5);ctx.shadowBlur=14;_rr(ctx,spX,spY,spW,spH,20);ctx.stroke();ctx.restore();
-    // exportar
+    // gerar prévia (mostrar antes de baixar)
     const fname=`primo-${(catName).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}-${String(currentMonth||"").toLowerCase()}.png`;
-    cv.toBlob(async(blob)=>{
+    cv.toBlob((blob)=>{
       if(!blob){setSync("Não consegui gerar a imagem.","error");return;}
-      const file=new File([blob],fname,{type:"image/png"});
-      try{
-        if(navigator.canShare&&navigator.canShare({files:[file]})){
-          await navigator.share({files:[file],title:"Classificação Primo Soccer"});
-          setSync("✅ Imagem pronta. Toque em Salvar imagem ou envie ao Instagram.","ok");return;
-        }
-      }catch(err){ if(err&&err.name==="AbortError"){setSync("Ok.","ok");return;} }
-      const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),3000);
-      setSync("✅ Imagem baixada em alta definição.","ok");
+      _storyBlob=blob;_storyName=fname;
+      const img=document.getElementById("storyPreviewImg");
+      if(img){ if(img.dataset.url)URL.revokeObjectURL(img.dataset.url); const u=URL.createObjectURL(blob); img.dataset.url=u; img.src=u; }
+      document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");
+      setSync("✅ Prévia gerada. Confira e toque em Baixar.","ok");
     },"image/png");
   }catch(e){console.error(e);setSync("Erro ao gerar a imagem: "+(e.message||e),"error");alert("Não consegui gerar a imagem. Tente de novo.");}
+}
+let _storyBlob=null,_storyName="classificacao.png";
+function closeStoryPreview(){document.getElementById("storyPreviewOverlay")?.classList.add("hidden");}
+async function saveStoryImage(){
+  if(!_storyBlob){alert("Gere a prévia primeiro.");return;}
+  const file=new File([_storyBlob],_storyName,{type:"image/png"});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:"Classificação Primo Soccer"});
+      setSync("✅ Imagem enviada/salva.","ok");return;
+    }
+  }catch(err){ if(err&&err.name==="AbortError")return; }
+  const url=URL.createObjectURL(_storyBlob);const a=document.createElement("a");a.href=url;a.download=_storyName;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  setSync("✅ Imagem baixada em alta definição.","ok");
 }
 (function(){
   var _renderAllBase = renderAll;

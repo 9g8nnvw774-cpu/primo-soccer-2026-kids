@@ -211,9 +211,9 @@
       <option value="10">Top 10</option>
       <option value="5">Top 5</option>
     </select>
-    <button onclick="downloadStoryImage('category')" class="success">Baixar classificação da categoria</button>
-    <button onclick="downloadStoryImage('general')" class="secondary">Baixar classificação geral</button>
-    <p class="smallText">Gera a imagem em alta definição (1080×1920). No iPhone, toque em "Salvar imagem" ou compartilhe direto no Instagram.</p>
+    <button onclick="downloadStoryImage('category')" class="success">Gerar imagem da categoria</button>
+    <button onclick="downloadStoryImage('general')" class="secondary">Gerar imagem geral</button>
+    <p class="smallText">Gera a prévia em alta definição (1080×1920). Confira e toque em Baixar/Salvar. No iPhone você pode salvar na galeria ou enviar direto ao Instagram.</p>
   </div>
   <canvas id="storyCanvas" width="1080" height="1920" style="display:none"></canvas>
   <div id="printArea" class="printArea"></div>
@@ -272,8 +272,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=50tabela"></script>
-<script src="script.js?v=50tabela"></script>
+<script src="supabase-config.js?v=51previa"></script>
+<script src="script.js?v=51previa"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -440,6 +440,26 @@ body.disputeFocus .scoreCards{display:none!important}
 #page-disputa .scoreTable .quickScore button{width:46px!important;height:46px!important;min-height:46px!important;font-size:24px!important;border-radius:12px!important}
 #page-disputa .scoreTable .quickScoreInput{width:60px!important;min-width:60px!important;height:46px!important;font-size:18px!important;border-radius:12px!important;text-align:center!important;padding:0!important}
 #page-disputa .scoreTable .tableBonus{height:46px!important;min-width:56px!important;border-radius:12px!important;display:inline-flex!important;align-items:center;justify-content:center;font-size:18px!important;font-weight:900!important;margin:0 auto}
+</style>
+<div id="storyPreviewOverlay" class="storyPreviewOverlay hidden">
+  <div class="storyPreviewCard">
+    <h3>Prévia da classificação</h3>
+    <div class="storyPreviewImgBox"><img id="storyPreviewImg" alt="Prévia da classificação"></div>
+    <div class="storyPreviewBtns">
+      <button type="button" class="secondary" onclick="closeStoryPreview()">Fechar</button>
+      <button type="button" class="success" onclick="saveStoryImage()">Baixar / Salvar</button>
+    </div>
+  </div>
+</div>
+<style>
+.storyPreviewOverlay{position:fixed;inset:0;background:rgba(2,8,23,.94);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px}
+.storyPreviewOverlay.hidden{display:none}
+.storyPreviewCard{background:#0b1533;border:1px solid rgba(56,189,248,.5);border-radius:16px;padding:14px;max-width:430px;width:100%;text-align:center;color:#eaf1ff;box-shadow:0 0 30px rgba(56,189,248,.28);max-height:94vh;display:flex;flex-direction:column}
+.storyPreviewCard h3{margin:0 0 10px;font-size:18px}
+.storyPreviewImgBox{flex:1;overflow:auto;border-radius:12px;background:#020714;min-height:0}
+.storyPreviewImgBox img{width:100%;height:auto;display:block;border-radius:12px}
+.storyPreviewBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.storyPreviewBtns button{min-height:48px;border-radius:12px;font-weight:900;font-size:15px}
 </style>
 </body>
 </html>
