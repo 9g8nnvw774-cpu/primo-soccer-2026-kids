@@ -3,11 +3,11 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="53";
+const APP_VERSION="54";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
-const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Meninas","meninas"],["Sub 11-12-13-14 anos","sub1114"]];
-const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Meninas":["Quarta 10:45 • Meninas"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
+const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
+const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
 const STORAGE_KEY="primo_soccer_2026_kids_state_v3",MONTH_KEY="primo_soccer_2026_kids_month_v3";
 const APP_TITLE_HTML = "<span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span>";
 const APP_TITLE_TEXT = "PRIMO SOCCER KIDS / INFANTO / JUVENIL 2026";
@@ -301,6 +301,7 @@ function renderAll(){fillDbConfigScreen();
   renderRankings();
   renderPrintSelect();
   renderRules();
+  if(typeof renderPremioConfig==="function")renderPremioConfig();
   renderCustomScheduleControls();
   applyAppTitle();
   if(typeof applyDashboardCover==="function") applyDashboardCover();
@@ -408,6 +409,44 @@ function saveRules(){
   state.settings=state.settings||{};
   state.settings.rules=(editor?.value||DEFAULT_RULES).trim()||DEFAULT_RULES;
   scheduleSave();renderRules();alert("Regras atualizadas!");
+}
+/* ===== V54 - PREMIAÇÃO (3 logos + descrição) no link dos pais ===== */
+function renderPremioConfig(){
+  state.settings=state.settings||{};
+  const desc=document.getElementById("premioDesc");
+  if(desc&&document.activeElement!==desc)desc.value=state.settings.premioDesc||"";
+  const box=document.getElementById("premioPreview");
+  if(box){
+    const list=state.settings.premios||[];
+    box.innerHTML=list.filter(Boolean).map(p=>`<img src="${photoPublicUrl(p)}" alt="Logo premiação">`).join("")||"<span class='smallText'>Nenhum logo enviado ainda.</span>";
+  }
+}
+async function uploadPremio(e,idx){
+  const input=e.target,file=input.files&&input.files[0];
+  input.value="";
+  if(!file)return;
+  if(!requireAdmin())return;
+  try{
+    setSync("Enviando logo da premiação...","warn");
+    const dataUrl=await fileToCompressedPhoto(file,600,.9);
+    state.settings=state.settings||{};
+    state.settings.premios=state.settings.premios||[];
+    const path=await uploadPhotoToStorage("premio"+(idx+1),dataUrl);
+    state.settings.premios[idx]=path;
+    saveLocal();await saveCloudNow();renderPremioConfig();
+    setSync("Logo da premiação salvo.","ok");
+  }catch(err){console.error(err);alert("Não consegui enviar esse logo. Tente outra imagem.");setSync("Erro ao enviar logo.","error");}
+}
+function savePremio(){
+  state.settings=state.settings||{};
+  state.settings.premioDesc=(document.getElementById("premioDesc")?.value||"").trim();
+  scheduleSave();renderPremioConfig();alert("Premiação atualizada!");
+}
+function removePremios(){
+  if(!confirm("Remover todos os logos da premiação?"))return;
+  state.settings=state.settings||{};
+  state.settings.premios=[];
+  scheduleSave();renderPremioConfig();
 }
 function renderCustomScheduleControls(){
   const catSel=document.getElementById("newScheduleCategory");
@@ -588,7 +627,7 @@ async function saveCloudRest(){
    dos pais consegue ler. Os dados sensíveis ficam só na tabela protegida. */
 function publicPhotoFor(s){ return s.photoPath ? photoPublicUrl(s.photoPath) : (s.photo||null); }
 function buildPublicState(){
-  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,months:{},generatedAt:new Date().toISOString()};
+  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,premioDesc:(state&&state.settings&&state.settings.premioDesc)||"",premios:((state&&state.settings&&state.settings.premios)||[]).filter(Boolean).map(p=>photoPublicUrl(p)),months:{},generatedAt:new Date().toISOString()};
   MONTHS.forEach(mo=>{
     const bucket={};
     CATEGORIES.forEach(c=>{
@@ -814,7 +853,13 @@ function renderParentMode(){
   const area=document.getElementById("parentRankingArea");if(area){
     const monthList=(parentData&&parentData.months&&parentData.months[parentSelectedMonth]&&parentData.months[parentSelectedMonth][parentCategory])||[];
     const rules=esc((parentData&&parentData.rules)||DEFAULT_RULES).replace(/\n/g,"<br>");
-    area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div><div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>`;
+    const premios=(parentData&&parentData.premios)||[];
+    const premioDesc=(parentData&&parentData.premioDesc)||"";
+    let premioHtml="";
+    if(premios.length||premioDesc){
+      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premios.length?`<div class="premioLogos">${premios.map(u=>`<img src="${u}" alt="Premiação">`).join("")}</div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
+    }
+    area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${premioHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>`;
   }
 }
 function parentRankRow(o,i){const pos=i+1;const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${pos}º`;const top=i<3?`neonTop neonTop${pos}`:"";const av=o.photo?`<span class="avatar"><img src="${o.photo}" onclick="openPhoto('${o.photo}')"></span>`:`<span class="avatar">${initials(o.name)}</span>`;return`<div class="rankRow neonRow ${top}"><div class="rankLeft"><span class="neonPos">${medal}</span>${av}<span class="neonName">${esc(o.name)}</span></div><strong class="neonPts">${o.total} pts</strong></div>`}
