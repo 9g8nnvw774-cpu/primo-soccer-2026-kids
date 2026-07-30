@@ -3,6 +3,8 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
+const APP_VERSION="53";
+const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Meninas","meninas"],["Sub 11-12-13-14 anos","sub1114"]];
 const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Meninas":["Quarta 10:45 • Meninas"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
@@ -526,7 +528,7 @@ function renderScore(){
   if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><button type="button" class="bonusMini tableBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this)'><small data-bonus="${field}">${+score[field]||0}</small></button></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`
 }
 function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[field]=+value||0;updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
-function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta);updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
+function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta*STEP_POINTS);updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
 async function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();setSync("Finalizando e salvando treino online...","warn");const ok=await saveCloudNow();renderScore();renderRankings();if(isParentMode())renderParentMode();alert(ok?"Treino finalizado e salvo no banco online!":"Treino salvo neste celular, mas houve erro no banco online. Toque em Sincronizar agora quando a internet melhorar.");}
 function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
@@ -538,7 +540,7 @@ function renderRankings(){
   if(all){all.innerHTML=CATEGORIES.map(c=>{const monthly=ranked(c[0]),annual=rankedAnnual(c[0]);return`<div class="catCard cat-${c[1]}"><h2>${c[0]}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthly.map(rankRow).join("")||"<p>Nenhum aluno ativo no mês.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${annual.map(rankRow).join("")||"<p>Nenhuma pontuação anual.</p>"}</div>`}).join("")}
 }
 function renderCopyMonthPicker(){const picker=document.getElementById("copyMonthPicker");const available=MONTHS.filter(m=>m!==currentMonth&&Object.values(state.months?.[m]?.participants||{}).some(p=>p.schedules&&p.schedules.some(s=>(schedulesFor(activeCategory)).includes(s))));picker.innerHTML=available.map(m=>`<option value="${m}">${m}</option>`).join("")||`<option value="">Nenhum mês com agenda</option>`}
-function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
+function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");if(!confirm("Copiar a agenda de "+source+" para "+currentMonth+"? Isso substitui a agenda atual desta categoria (a pontuação vem zerada)."))return;const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
 function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
@@ -629,6 +631,29 @@ async function saveCloudClient(){
   if(result.error)throw result.error;
   return true;
 }
+/* ===== V52 - BACKUP AUTOMÁTICO DIÁRIO + VERSÃO VISÍVEL ===== */
+const LAST_DAILY_KEY="primo_kids_last_daily_backup";
+async function dailyBackupIfNeeded(){
+  try{
+    if(!isAdminAuthenticated()||!cloudReady())return;
+    const today=new Date().toISOString().slice(0,10);
+    if(localStorage.getItem(LAST_DAILY_KEY)===today){updateConfigLabels();return;}
+    const payload={app_id:APP_ID,backup_date:today,data:state,created_at:new Date().toISOString()};
+    const url=cloudUrl()+"/rest/v1/primo_daily_backups?on_conflict=app_id,backup_date";
+    const r=await authedFetch(url,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
+    if(r.ok){
+      localStorage.setItem(LAST_DAILY_KEY,today);
+      updateConfigLabels();
+      const cutoff=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+      const del=cloudUrl()+"/rest/v1/primo_daily_backups?app_id=eq."+encodeURIComponent(APP_ID)+"&backup_date=lt."+cutoff;
+      authedFetch(del,{method:"DELETE",headers:{"Prefer":"return=minimal"}}).catch(()=>{});
+    }
+  }catch(e){ console.warn("Backup diário falhou (não afeta o app):",e); }
+}
+function updateConfigLabels(){
+  const v=document.getElementById("appVersionLabel"); if(v)v.textContent="Versão "+APP_VERSION;
+  const b=document.getElementById("lastDailyBackup"); if(b)b.textContent=localStorage.getItem(LAST_DAILY_KEY)||"ainda não feito hoje";
+}
 async function initCloud(){
   // MODO PAIS: lê SOMENTE a tabela pública (ranking, sem dados sensíveis).
   if(isParentMode()){
@@ -663,6 +688,7 @@ async function initCloud(){
     try{await savePublicStateRest();}catch(e){console.warn("Espelho público não atualizou agora:",e);}
     await refreshPhotoUrls();       // gera as URLs temporárias das fotos do Storage
     syncStudentsTable();            // mantém a tabela "um aluno por linha" atualizada
+    dailyBackupIfNeeded();          // backup automático 1x por dia (não trava se falhar)
     setSync("✅ Banco online conectado.","ok");renderAll();
   }catch(e){
     errors.push(cloudErrText(e));
@@ -1208,3 +1234,4 @@ async function saveStoryImage(){
   renderAll = function(){ _renderAllBase(); fillRankingFilters(); renderReportStudentSelect(); initAdminGate(); };
 })();
 initAdminGate();renderAll();
+if(typeof updateConfigLabels==="function")updateConfigLabels();

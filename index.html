@@ -266,14 +266,20 @@
       <p class="smallText">Envie uma imagem pronta de capa. O app não vai escrever textos por cima da sua arte, apenas mostra o seletor do mês abaixo.</p>
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
-    <p><strong>Versão:</strong> Kids v32 Pro • Admin + backup + relatórios + presença + filtros</p>
+    <hr class="softLine">
+    <h3>Backup automático diário</h3>
+    <p class="smallText">Todo dia, ao entrar como administrador, o app guarda uma cópia dos dados no banco online (mantém os últimos 30 dias). Isso é além do backup a cada salvamento.</p>
+    <p class="smallText"><strong>Último backup diário:</strong> <span id="lastDailyBackup">—</span></p>
+    <hr class="softLine">
+    <p><strong>Versão do app:</strong> <span id="appVersionLabel">—</span></p>
+    <p class="smallText">Se esta versão não bater com a última publicada, seu celular está usando o cache antigo — feche e abra o app de novo.</p>
     <p><strong>App ID:</strong> primo_soccer_kids_league_2026</p>
   </div>
 </section>
 </main>
 
-<script src="supabase-config.js?v=51previa"></script>
-<script src="script.js?v=51previa"></script>
+<script src="supabase-config.js?v=53toque5"></script>
+<script src="script.js?v=53toque5"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
