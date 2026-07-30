@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="54";
+const APP_VERSION="56";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
@@ -589,12 +589,18 @@ function supabaseHeaders(){const token=(typeof getAdminToken==="function"&&getAd
 function cloudUrl(){return String(SUPABASE_URL||"").replace(/\/$/,"")}
 /* Faz a requisição autenticada com o token do admin. Se o token expirar (401),
    tenta renovar automaticamente uma vez e refaz a requisição. */
-async function authedFetch(url,opts={},allowRefresh=true){
+async function authedFetch(url,opts={},allowRefresh=true,netTries=2){
   const headers=Object.assign({},supabaseHeaders(),opts.headers||{});
-  const r=await withTimeout(fetch(url,Object.assign({},opts,{headers,cache:"no-store"})),12000,"Banco demorou para responder");
+  let r;
+  try{
+    r=await withTimeout(fetch(url,Object.assign({},opts,{headers,cache:"no-store"})),12000,"Banco demorou para responder");
+  }catch(err){
+    if(netTries>0){await new Promise(res=>setTimeout(res,900));return authedFetch(url,opts,allowRefresh,netTries-1);}
+    throw err;
+  }
   if((r.status===401||r.status===403)&&allowRefresh&&typeof getAdminToken==="function"&&getAdminToken()){
     const ok=await refreshAdminToken();
-    if(ok)return authedFetch(url,opts,false);
+    if(ok)return authedFetch(url,opts,false,netTries);
   }
   return r;
 }
@@ -750,9 +756,17 @@ async function saveCloud(){
     setSync("✅ Dados salvos online.","ok");return true;
   }catch(e){
     console.error("Erro ao salvar Supabase REST:",e,{SUPABASE_URL,APP_ID});
-    setSync("❌ Não salvou online: REST "+cloudErrText(e).slice(0,180),"error");return false;
+    saveLocal(); // garante que ficou salvo no celular
+    setSync("💾 Salvo neste celular. Sem internet estável agora — vou sincronizar sozinho.","warn");
+    // tenta de novo sozinho daqui a pouco (ex.: 4G oscilando)
+    clearTimeout(_retrySaveTimer);
+    _retrySaveTimer=setTimeout(()=>{ if(isAdminAuthenticated())saveCloud(); },8000);
+    return false;
   }
 }
+let _retrySaveTimer=null;
+// quando a internet voltar, tenta sincronizar na hora
+if(typeof window!=="undefined"){window.addEventListener("online",()=>{ if(typeof isAdminAuthenticated==="function"&&isAdminAuthenticated())saveCloud(); });}
 function saveDbConfigFromScreen(){
   const url=document.getElementById("dbUrl")?.value?.trim();
   const anonKey=document.getElementById("dbKey")?.value?.trim();
@@ -857,7 +871,7 @@ function renderParentMode(){
     const premioDesc=(parentData&&parentData.premioDesc)||"";
     let premioHtml="";
     if(premios.length||premioDesc){
-      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premios.length?`<div class="premioLogos">${premios.map(u=>`<img src="${u}" alt="Premiação">`).join("")}</div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
+      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premios.length?`<div class="premioLogos">${premios.map(u=>`<span class="premioTile"><img src="${u}" alt="Premiação"></span>`).join("")}</div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
     }
     area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${premioHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>`;
   }
