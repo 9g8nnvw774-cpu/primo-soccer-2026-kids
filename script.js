@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="57";
+const APP_VERSION="58";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
@@ -428,11 +428,11 @@ async function uploadPremio(e,idx){
   if(!requireAdmin())return;
   try{
     setSync("Enviando logo da premiação...","warn");
-    const dataUrl=await fileToCompressedPhoto(file,600,.9);
+    const dataUrl=await fileToCompressedPhoto(file,1080,.92);
     state.settings=state.settings||{};
     state.settings.premios=state.settings.premios||[];
     const path=await uploadPhotoToStorage("premio"+(idx+1),dataUrl);
-    state.settings.premios[idx]=path;
+    state.settings.premios=[path]; // uma imagem só
     saveLocal();await saveCloudNow();renderPremioConfig();
     setSync("Logo da premiação salvo.","ok");
   }catch(err){console.error(err);alert("Não consegui enviar esse logo. Tente outra imagem.");setSync("Erro ao enviar logo.","error");}
@@ -633,7 +633,7 @@ async function saveCloudRest(){
    dos pais consegue ler. Os dados sensíveis ficam só na tabela protegida. */
 function publicPhotoFor(s){ return s.photoPath ? photoPublicUrl(s.photoPath) : (s.photo||null); }
 function buildPublicState(){
-  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,premioDesc:(state&&state.settings&&state.settings.premioDesc)||"",premios:((state&&state.settings&&state.settings.premios)||[]).filter(Boolean).map(p=>photoPublicUrl(p)),months:{},generatedAt:new Date().toISOString()};
+  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,premioDesc:(state&&state.settings&&state.settings.premioDesc)||"",premios:((state&&state.settings&&state.settings.premios)||[]).filter(Boolean).slice(0,1).map(p=>photoPublicUrl(p)),months:{},generatedAt:new Date().toISOString()};
   MONTHS.forEach(mo=>{
     const bucket={};
     CATEGORIES.forEach(c=>{
@@ -867,11 +867,11 @@ function renderParentMode(){
   const area=document.getElementById("parentRankingArea");if(area){
     const monthList=(parentData&&parentData.months&&parentData.months[parentSelectedMonth]&&parentData.months[parentSelectedMonth][parentCategory])||[];
     const rules=esc((parentData&&parentData.rules)||DEFAULT_RULES).replace(/\n/g,"<br>");
-    const premios=(parentData&&parentData.premios)||[];
+    const premioUrl=(parentData&&parentData.premios&&parentData.premios[0])||"";
     const premioDesc=(parentData&&parentData.premioDesc)||"";
     let premioHtml="";
-    if(premios.length||premioDesc){
-      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premios.length?`<div class="premioLogos ${premios.length===1?"one":premios.length===2?"two":"three"}">${premios.map(u=>`<span class="premioTile"><img src="${u}" alt="Premiação"></span>`).join("")}</div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
+    if(premioUrl||premioDesc){
+      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premioUrl?`<div class="premioLogos"><span class="premioTile premioBig"><img src="${premioUrl}" alt="Premiação"></span></div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
     }
     area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${premioHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>`;
   }
