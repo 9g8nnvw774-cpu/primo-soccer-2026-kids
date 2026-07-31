@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="56";
+const APP_VERSION="57";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
@@ -871,7 +871,7 @@ function renderParentMode(){
     const premioDesc=(parentData&&parentData.premioDesc)||"";
     let premioHtml="";
     if(premios.length||premioDesc){
-      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premios.length?`<div class="premioLogos">${premios.map(u=>`<span class="premioTile"><img src="${u}" alt="Premiação"></span>`).join("")}</div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
+      premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premios.length?`<div class="premioLogos ${premios.length===1?"one":premios.length===2?"two":"three"}">${premios.map(u=>`<span class="premioTile"><img src="${u}" alt="Premiação"></span>`).join("")}</div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
     }
     area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${premioHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>`;
   }
