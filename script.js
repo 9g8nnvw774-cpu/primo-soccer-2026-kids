@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="58";
+const APP_VERSION="61";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
@@ -1287,6 +1287,93 @@ async function saveStoryImage(){
   const url=URL.createObjectURL(_storyBlob);const a=document.createElement("a");a.href=url;a.download=_storyName;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),3000);
   setSync("✅ Imagem baixada em alta definição.","ok");
+}
+/* ===== V59 - IMAGEM GERAL: todas as categorias em uma imagem só ===== */
+const CATCOL={"futbaby23":["#7a3b1e","#e8a45c"],"futbaby45":["#0f5132","#5cd68a"],"sub678":["#0b4a6e","#5cc4e8"],"sub8910":["#3b2f7a","#a58ce8"],"sub1114":["#7a2f1e","#e8795c"]};
+async function downloadAllClassifications(){
+  if(!requireAdmin())return;
+  try{
+    setSync("Gerando imagem das classificações...","warn");
+    const cats=CATEGORIES.map(c=>({name:c[0],code:c[1],list:ranked(c[0])})).filter(c=>c.list.length);
+    if(!cats.length){setSync("Sem classificações ainda.","warn");alert("Nenhuma categoria tem pontuação ainda.");return;}
+    const logo=await _loadImg("primo-logo.png");
+    const spImg=await _loadImg("patrocinadores.png?v=3");
+    const photoMap={};
+    for(const c of cats){for(const s of c.list){if(photoSrc(s)&&!(s.id in photoMap))photoMap[s.id]=await _loadImg(photoSrc(s));}}
+    const W=1080,M=24,gap=20,colW=Math.floor((W-2*M-gap)/2);
+    const pad=16,titleH=48,subH=26,rowH=44,rowGap=5,headerH=540;
+    const gold="#ffd54a",silver="#eef4ff",bronze="#ff9d5c";
+    const cardH=c=>pad+titleH+subH+8+c.list.length*rowH+pad;
+    // colagem (masonry) em 2 colunas: cabeçalho no topo esquerdo, cards por altura desc
+    const leftX=M,rightX=M+colW+gap;
+    let leftY=M,rightY=M;
+    const placements=[{kind:"header",x:leftX,y:leftY,w:colW,h:headerH}];
+    leftY+=headerH+gap;
+    [...cats].sort((a,b)=>cardH(b)-cardH(a)).forEach(c=>{
+      const h=cardH(c);
+      if(leftY<=rightY){placements.push({kind:"cat",cat:c,x:leftX,y:leftY,w:colW,h});leftY+=h+gap;}
+      else{placements.push({kind:"cat",cat:c,x:rightX,y:rightY,w:colW,h});rightY+=h+gap;}
+    });
+    const colsBottom=Math.max(leftY,rightY);
+    const spW=W-2*M,spH=Math.round(spW*(300/2000)),spX=M,spY=colsBottom+50;
+    const H=spY+spH+M;
+    const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
+    const spacer=(ctx.letterSpacing!==undefined);
+    let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#0a1c44");g.addColorStop(.5,"#061334");g.addColorStop(1,"#020714");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    function drawHeader(x,y,w){
+      ctx.textAlign="center";ctx.textBaseline="alphabetic";const cx=x+w/2;
+      if(logo)ctx.drawImage(logo,cx-105,y+6,210,210);
+      let sg=ctx.createLinearGradient(0,y+230,0,y+286);sg.addColorStop(0,"#fff");sg.addColorStop(1,"#dfe8f6");
+      ctx.fillStyle=sg;ctx.font='900 44px "Arial Black",Arial,sans-serif';ctx.fillText("PRIMO SOCCER",cx,y+272);
+      const ty=y+352;
+      ctx.save();ctx.shadowColor="rgba(56,189,248,.85)";ctx.shadowBlur=20;ctx.lineJoin="round";ctx.lineWidth=8;ctx.strokeStyle="rgba(2,8,23,.6)";
+      let fs=54;ctx.font=`italic 900 ${fs}px "Arial Black",Arial,sans-serif`;
+      while(ctx.measureText("CLASSIFICAÇÕES").width>w-8&&fs>30){fs-=2;ctx.font=`italic 900 ${fs}px "Arial Black",Arial,sans-serif`;}
+      let tg=ctx.createLinearGradient(0,ty-fs,0,ty);tg.addColorStop(0,"#fff");tg.addColorStop(.55,"#c3d0e6");tg.addColorStop(1,"#fff");
+      ctx.strokeText("CLASSIFICAÇÕES",cx,ty);ctx.fillStyle=tg;ctx.fillText("CLASSIFICAÇÕES",cx,ty);ctx.restore();
+      ctx.fillStyle="#7dd3fc";ctx.font='900 23px "Arial Black",Arial,sans-serif';ctx.fillText("KIDS / INFANTO / JUVENIL",cx,ty+38);
+      ctx.font='900 30px Arial';const mt="MÊS: "+String(currentMonth||"").toUpperCase();const mw=ctx.measureText(mt).width+50;
+      _rr(ctx,cx-mw/2,ty+58,mw,50,25);ctx.fillStyle="rgba(6,20,52,.85)";ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.7)";ctx.stroke();
+      ctx.fillStyle="#fff";ctx.textBaseline="middle";ctx.fillText(mt,cx,ty+83);ctx.textBaseline="alphabetic";
+    }
+    function drawCatCard(x,y,w,c){
+      const col=CATCOL[c.code]||["#0b4a6e","#5cc4e8"],accent=col[1],h=cardH(c),cx=x+w/2;
+      _rr(ctx,x,y,w,h,18);
+      let cg=ctx.createLinearGradient(0,y,0,y+h);cg.addColorStop(0,"rgba(10,24,54,.6)");cg.addColorStop(1,"rgba(2,8,23,.66)");ctx.fillStyle=cg;ctx.fill();
+      ctx.lineWidth=3;ctx.strokeStyle="rgba(56,189,248,.6)";ctx.save();ctx.shadowColor="rgba(56,189,248,.5)";ctx.shadowBlur=16;ctx.stroke();ctx.restore();
+      ctx.textAlign="center";ctx.textBaseline="alphabetic";
+      ctx.save();ctx.shadowColor=accent;ctx.shadowBlur=14;ctx.fillStyle="#eaf6ff";
+      let cs=32;ctx.font=`italic 900 ${cs}px "Arial Black",Arial,sans-serif`;
+      while(ctx.measureText(c.name.toUpperCase()).width>w-2*pad&&cs>20){cs-=2;ctx.font=`italic 900 ${cs}px "Arial Black",Arial,sans-serif`;}
+      ctx.fillText(c.name.toUpperCase(),cx,y+pad+cs);ctx.restore();
+      if(spacer)ctx.letterSpacing="4px";
+      ctx.fillStyle="#7dd3fc";ctx.font='800 18px Arial';ctx.fillText("MAIOR PONTUADOR",cx,y+pad+titleH+6);
+      if(spacer)ctx.letterSpacing="0px";
+      let ry=y+pad+titleH+subH+8;const rowX=x+pad,rowW=w-2*pad,rh=rowH-rowGap;
+      c.list.forEach((s,i)=>{
+        const pos=i+1,isTop=pos<=3,acc=pos===1?gold:pos===2?silver:pos===3?bronze:accent;
+        _rr(ctx,rowX,ry,rowW,rh,rh/2);
+        ctx.fillStyle=pos===1?"rgba(70,56,12,.9)":pos===2?"rgba(40,48,66,.9)":pos===3?"rgba(70,38,16,.9)":"rgba(9,20,52,.8)";ctx.fill();
+        ctx.lineWidth=isTop?2.5:1.2;ctx.strokeStyle=isTop?acc:"rgba(90,150,220,.5)";ctx.stroke();
+        const cy=ry+rh/2,fs=Math.min(20,rh*0.5);
+        ctx.textBaseline="middle";ctx.textAlign="left";ctx.font=`900 ${fs}px Arial`;ctx.fillStyle=isTop?acc:"#cfe3ff";ctx.fillText(pos+"º",rowX+12,cy);
+        const r=rh*0.36,pcx=rowX+12+fs*2.6,ph=photoMap[s.id];
+        ctx.save();ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.clip();
+        if(ph)_cover(ctx,ph,pcx-r,cy-r,2*r,2*r);else{ctx.fillStyle="#0b1c44";ctx.fillRect(pcx-r,cy-r,2*r,2*r);ctx.fillStyle=accent;ctx.font=`900 ${r*0.8}px Arial`;ctx.textAlign="center";ctx.fillText(initials(s.name),pcx,cy);}
+        ctx.restore();ctx.lineWidth=1.8;ctx.strokeStyle=acc;ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.stroke();
+        ctx.textAlign="left";ctx.font=`800 ${fs}px Arial`;ctx.fillStyle="#fff";const nameX=pcx+r+12;
+        ctx.fillText(_fit(ctx,String(s.name).toUpperCase(),rowW-(nameX-rowX)-84),nameX,cy);
+        ctx.textAlign="right";ctx.font=`900 ${fs}px Arial`;ctx.fillStyle=isTop?acc:"#cfe3ff";ctx.fillText(s.total+" pts",rowX+rowW-12,cy);
+        ctx.textBaseline="alphabetic";ry+=rowH;
+      });
+    }
+    placements.forEach(p=>{ if(p.kind==="header")drawHeader(p.x,p.y,p.w); else drawCatCard(p.x,p.y,p.w,p.cat); });
+    ctx.textAlign="center";if(spacer)ctx.letterSpacing="10px";ctx.fillStyle="#7dd3fc";ctx.font='900 26px Arial';ctx.fillText("AGRADECIMENTO",W/2,spY-16);if(spacer)ctx.letterSpacing="0px";
+    if(spImg){ctx.save();_rr(ctx,spX,spY,spW,spH,16);ctx.clip();_cover(ctx,spImg,spX,spY,spW,spH);ctx.restore();}
+    ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.5)";_rr(ctx,spX,spY,spW,spH,16);ctx.stroke();
+    const fname=`primo-classificacoes-${String(currentMonth||"").toLowerCase()}.png`;
+    cv.toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("Prévia gerada. Toque em Baixar/Salvar.","ok");},"image/png");
+  }catch(e){console.error(e);setSync("Erro ao gerar: "+(e.message||e),"error");alert("Não consegui gerar a imagem. Tente de novo.");}
 }
 (function(){
   var _renderAllBase = renderAll;

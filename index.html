@@ -212,7 +212,7 @@
       <option value="5">Top 5</option>
     </select>
     <button onclick="downloadStoryImage('category')" class="success">Gerar imagem da categoria</button>
-    <button onclick="downloadStoryImage('general')" class="secondary">Gerar imagem geral</button>
+    <button onclick="downloadAllClassifications()" class="secondary">Gerar imagem geral (todas as categorias)</button>
     <p class="smallText">Gera a prévia em alta definição (1080×1920). Confira e toque em Baixar/Salvar. No iPhone você pode salvar na galeria ou enviar direto ao Instagram.</p>
   </div>
   <canvas id="storyCanvas" width="1080" height="1920" style="display:none"></canvas>
@@ -286,8 +286,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=58premio"></script>
-<script src="script.js?v=58premio"></script>
+<script src="supabase-config.js?v=61colagem"></script>
+<script src="script.js?v=61colagem"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
