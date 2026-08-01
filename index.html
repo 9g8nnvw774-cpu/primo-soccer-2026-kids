@@ -227,6 +227,7 @@
       <label for="parentMonthSelect">Selecionar mês da disputa</label>
       <select id="parentMonthSelect" onchange="setParentMonth(this.value)"></select>
     </div>
+    <h2 class="parentCatTitle">CATEGORIAS</h2>
     <div id="parentCategoryTabs" class="parentTabs"></div>
   </div>
   <div id="parentRankingArea"></div>
@@ -286,8 +287,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=62story"></script>
-<script src="script.js?v=62story"></script>
+<script src="supabase-config.js?v=63link"></script>
+<script src="script.js?v=63link"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -461,6 +462,11 @@ body.disputeFocus .scoreCards{display:none!important}
 .parentOnlyPage .premioCard .premioDesc{color:#eaf6ff;text-align:center;font-size:15px;line-height:1.45;margin:10px 4px 0}
 .premioPreviewBox{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
 .premioPreviewBox img{width:96px;height:120px;object-fit:cover;border-radius:10px;border:2px solid rgba(56,189,248,.6);box-shadow:0 0 10px rgba(56,189,248,.35)}
+/* V63 - título CATEGORIAS + patrocinadores no link dos pais */
+.parentOnlyPage .parentCatTitle{text-align:center;font-weight:900;font-size:24px;letter-spacing:3px;color:#7dd3fc;text-transform:uppercase;margin:6px 0 10px;text-shadow:0 0 10px rgba(56,189,248,.85),0 0 20px rgba(56,189,248,.5)}
+.parentOnlyPage .parentSponsorsCard{text-align:center}
+.parentOnlyPage .parentSponsorsCard .agradTitle{font-weight:900;letter-spacing:6px;font-size:16px;color:#7dd3fc;margin:2px 0 10px;text-shadow:0 0 10px rgba(56,189,248,.6)}
+.parentOnlyPage .parentSponsorsImg{width:100%;height:auto;display:block;border-radius:12px;border:1px solid rgba(56,189,248,.4);box-shadow:0 0 16px rgba(56,189,248,.25)}
 </style>
 <div id="storyPreviewOverlay" class="storyPreviewOverlay hidden">
   <div class="storyPreviewCard">
