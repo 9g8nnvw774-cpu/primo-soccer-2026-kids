@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="65";
+const APP_VERSION="66";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
@@ -396,7 +396,46 @@ function renderSelectors(){
   const sw=document.getElementById("scoreWeek");if(sw){sw.innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");restoreSelectValue("scoreWeek",currentWeek)}
   renderCopyMonthPicker();
 }
-function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0);renderRules()}
+function renderDashboard(){document.getElementById("categoryButtons").innerHTML=CATEGORIES.map(c=>`<button class="btn-${c[1]}" onclick="openCategory('${c[0]}')">${c[0]}</button>`).join("");document.getElementById("dashActive").textContent=activeStudents().length;document.getElementById("dashBank").textContent=state.students.filter(s=>s.active!==false).length;document.getElementById("dashPoints").textContent=activeStudents().reduce((a,s)=>a+totalStudent(s.id),0);renderRules();renderPendingTrainings()}
+/* ===== V66 - TREINOS NÃO FINALIZADOS ===== */
+function pendingTrainings(m=currentMonth){
+  const mo=monthObj(m),out=[];
+  CATEGORIES.forEach(c=>{const cat=c[0];
+    schedulesFor(cat).forEach(sch=>{
+      for(let w=0;w<5;w++){
+        let pts=0,cnt=0;
+        Object.values(mo.participants||{}).forEach(p=>{
+          const st=studentById(p.studentId);
+          if(!st||st.category!==cat)return;
+          if(!(p.schedules||[]).includes(sch))return;
+          const sc=p.weeks&&p.weeks[w]&&p.weeks[w][sch];
+          if(sc){const t=scoreTotal(sc);if(t>0){pts+=t;cnt++;}}
+        });
+        if(pts>0 && !isTrainingFinished(cat,w,sch))out.push({cat,week:w,sch,pts,cnt});
+      }
+    });
+  });
+  return out;
+}
+function renderPendingTrainings(){
+  const box=document.getElementById("pendingTrainings");if(!box)return;
+  const list=pendingTrainings();
+  if(!list.length){box.innerHTML="";box.classList.add("hidden");return;}
+  box.classList.remove("hidden");
+  box.innerHTML=`<h3>⚠️ Treinos não finalizados — ${esc(currentMonth)}</h3><p class="smallText">Estes horários têm pontos lançados mas você não tocou em "Finalizar treino". Toque para abrir e finalizar.</p>`+
+    list.map(it=>`<button type="button" class="pendingItem" onclick='goFinalize(${JSON.stringify(it.cat)},${it.week},${JSON.stringify(it.sch)})'><span class="pendTop"><strong>${esc(it.cat)}</strong><span class="pendBadge">${it.pts} pts</span></span><span class="pendSch">Semana ${it.week+1} • ${esc(it.sch)} • ${it.cnt} atleta(s)</span></button>`).join("");
+}
+function goFinalize(cat,week,sch){
+  setCategory(cat);showPage("disputa");
+  setTimeout(()=>{
+    const day=document.getElementById("scoreDay");if(day)day.value="";
+    if(typeof renderSelectors==="function")renderSelectors();
+    const ssel=document.getElementById("scoreSchedule");if(ssel)ssel.value=sch;
+    const wsel=document.getElementById("scoreWeek");if(wsel)wsel.value=week;
+    renderScore();
+    document.getElementById("finishStatus")?.scrollIntoView({behavior:"smooth",block:"center"});
+  },140);
+}
 
 function renderRules(){
   const dash=document.getElementById("championshipRules");

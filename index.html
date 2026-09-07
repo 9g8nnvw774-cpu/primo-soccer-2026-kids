@@ -61,6 +61,7 @@
 <div id="syncStatus" class="sync">Conectando ao banco online...</div>
 
 <section id="page-dashboard" class="page">
+  <div id="pendingTrainings" class="card pendingCard hidden"></div>
   <div class="card">
     <h2>Escolha a categoria</h2>
     <p>Toque em uma categoria para abrir a disputa, agenda e ranking.</p>
@@ -299,8 +300,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=65logo"></script>
-<script src="script.js?v=65logo"></script>
+<script src="supabase-config.js?v=66pendentes"></script>
+<script src="script.js?v=66pendentes"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -479,6 +480,13 @@ body.disputeFocus .scoreCards{display:none!important}
 .parentOnlyPage .parentSponsorsCard{text-align:center}
 .parentOnlyPage .parentSponsorsCard .agradTitle{font-weight:900;letter-spacing:6px;font-size:16px;color:#7dd3fc;margin:2px 0 10px;text-shadow:0 0 10px rgba(56,189,248,.6)}
 .parentOnlyPage .parentSponsorsImg{width:100%;height:auto;display:block;border-radius:12px;border:1px solid rgba(56,189,248,.4);box-shadow:0 0 16px rgba(56,189,248,.25)}
+/* V66 - treinos não finalizados */
+.pendingCard{border:2px solid rgba(255,213,74,.65)!important;background:linear-gradient(180deg,rgba(60,45,5,.55),rgba(18,13,2,.5))!important;box-shadow:0 0 18px rgba(255,213,74,.25)!important}
+.pendingCard h3{color:#ffd54a;margin:0 0 4px}
+.pendingItem{display:block;width:100%;text-align:left;margin:8px 0 0;padding:10px 12px;border-radius:12px;background:rgba(9,20,52,.72);border:1px solid rgba(255,213,74,.5);color:#fff}
+.pendingItem .pendTop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pendingItem .pendBadge{background:#ffd54a;color:#1a1a1a;font-weight:900;border-radius:999px;padding:2px 10px;font-size:13px;white-space:nowrap}
+.pendingItem .pendSch{display:block;font-size:13px;opacity:.85;margin-top:3px}
 </style>
 <div id="storyPreviewOverlay" class="storyPreviewOverlay hidden">
   <div class="storyPreviewCard">
