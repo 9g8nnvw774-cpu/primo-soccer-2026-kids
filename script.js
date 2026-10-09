@@ -3,11 +3,14 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="66";
+const APP_VERSION="67";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
-const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"]];
-const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"]};
+const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
+// Categoria Adulto pontua só com P/D, P/E e Uniforme (sem fruta e comportamento)
+function bonusFieldsFor(cat){ return cat==="Adulto" ? ["uniforme"] : ["uniforme","fruta","comportamento"]; }
+function bonusLabelsFor(cat){ return cat==="Adulto" ? [["uniforme","Uniforme"]] : [["uniforme","Uniforme"],["fruta","Fruta"],["comportamento","Comport."]]; }
+const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"],"Adulto":["Segunda 20:00 • Adulto","Quarta 20:00 • Adulto","Sexta 20:00 • Adulto"]};
 const STORAGE_KEY="primo_soccer_2026_kids_state_v3",MONTH_KEY="primo_soccer_2026_kids_month_v3";
 const APP_TITLE_HTML = "<span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span>";
 const APP_TITLE_TEXT = "PRIMO SOCCER KIDS / INFANTO / JUVENIL 2026";
@@ -822,7 +825,7 @@ async function syncNow(){setSync("Sincronizando agora...");const ok=await saveCl
 async function loadCloud(){await initCloud()}
 
 // ===== Logo + Link dos Pais v5 - seletor de todos os meses =====
-let parentCategory = CATEGORIES[0][0];
+let parentCategory = (()=>{ try{ const c=(new URLSearchParams(location.search)).get("cat")||""; const hit=CATEGORIES.find(x=>x[0].toLowerCase()===c.toLowerCase()||x[1]===c.toLowerCase()); return hit?hit[0]:CATEGORIES[0][0]; }catch(e){ return CATEGORIES[0][0]; } })();
 let parentData = null; // ranking sanitizado carregado da tabela pública
 let parentSelectedMonth = (()=>{
   try{
@@ -838,16 +841,19 @@ function isParentMode(){
   return p.get("pais")==="1" || p.get("parents")==="1" || location.hash==="#pais";
 }
 
-function copyParentLink(){
-  const url = location.origin + location.pathname + "?pais=1&mes=" + encodeURIComponent(parentSelectedMonth || currentMonth) + "&t=" + Date.now();
+function copyParentLink(cat){
+  let url = location.origin + location.pathname + "?pais=1&mes=" + encodeURIComponent(parentSelectedMonth || currentMonth);
+  if(cat) url += "&cat=" + encodeURIComponent(cat);
+  url += "&t=" + Date.now();
   const el = document.getElementById("parentLinkText");
   if(el) el.textContent = url;
   if(navigator.clipboard){
-    navigator.clipboard.writeText(url).then(()=>alert("Link dos pais copiado!"));
+    navigator.clipboard.writeText(url).then(()=>alert(cat?("Link dos pais ("+cat+") copiado!"):"Link dos pais copiado!"));
   } else {
     alert(url);
   }
 }
+function copyParentLinkAdulto(){ copyParentLink("Adulto"); }
 
 function setParentCategory(cat){
   parentCategory = cat;
@@ -1118,7 +1124,9 @@ scoreCardHtml = function(s,i,week,sch,score){
   const key=esc(scoreKey(s.id,week,sch));
   const id=JSON.stringify(s.id), safeSch=JSON.stringify(sch);
   const bonus=(field,label)=>`<div class="srItem"><label>${label}</label><button type="button" class="bonusMini srBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${id},${week},${safeSch},${JSON.stringify(field)},this)' title="${label}"><small data-bonus="${field}">${+score[field]||0}</small></button></div>`;
-  return `<div class="scorePlayerCard scoreRowV37" data-score-key="${key}"><div class="srScroll"><div class="srAthlete"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<strong class="srName">${esc(s.name)}</strong></div><div class="srCtrls"><div class="srItem srStep"><label>P/D</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div><div class="srItem srStep"><label>P/E</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>${bonus("comportamento","Com")}${bonus("fruta","Fru")}${bonus("uniforme","Unif")}</div><div class="srTotal"><b data-total>${scoreTotal(score)}</b><small>pts</small></div></div></div>`;
+  const shortLbl={uniforme:"Unif",fruta:"Fru",comportamento:"Com"};
+  const bonusHtml=bonusFieldsFor(activeCategory).map(f=>bonus(f,shortLbl[f])).join("");
+  return `<div class="scorePlayerCard scoreRowV37" data-score-key="${key}"><div class="srScroll"><div class="srAthlete"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<strong class="srName">${esc(s.name)}</strong></div><div class="srCtrls"><div class="srItem srStep"><label>P/D</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div><div class="srItem srStep"><label>P/E</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>${bonusHtml}</div><div class="srTotal"><b data-total>${scoreTotal(score)}</b><small>pts</small></div></div></div>`;
 };
 
 renderScore = function(){
@@ -1128,7 +1136,10 @@ renderScore = function(){
   if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Ao terminar, toque em <strong>Finalizar treino</strong>.`;
   const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
   const cards=document.getElementById("scoreCards"); if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
-  const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${["uniforme","fruta","comportamento"].map(field=>`<td><button type="button" class="bonusMini tableBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this)'><small data-bonus="${field}">${+score[field]||0}</small></button></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="8">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
+  const bf=bonusFieldsFor(activeCategory), bl=bonusLabelsFor(activeCategory);
+  const thead=document.getElementById("scoreHeadRow"); if(thead)thead.innerHTML=`<th>#</th><th class="sticky">ATLETA</th><th>P/D</th><th>P/E</th>${bl.map(([,lbl])=>`<th>${lbl}</th>`).join("")}<th>Total</th>`;
+  const colCount=4+bf.length+1;
+  const table=document.getElementById("scoreTable"); if(table)table.innerHTML=list.map((s,i)=>{const score=getScore(s.id,week,sch);const key=esc(scoreKey(s.id,week,sch));return`<tr data-score-key="${key}"><td>${i+1}</td><td class="sticky"><div class="playerCell">${avatarHtml(s)}<strong>${esc(s.name)}</strong></div></td><td>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</td><td>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</td>${bf.map(field=>`<td><button type="button" class="bonusMini tableBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${JSON.stringify(s.id)},${week},${JSON.stringify(sch)},${JSON.stringify(field)},this)'><small data-bonus="${field}">${+score[field]||0}</small></button></td>`).join("")}<td class="totalCell"><strong data-total>${scoreTotal(score)}</strong></td></tr>`}).join("")||`<tr><td colspan="${colCount}">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</td></tr>`;
   syncScoreScroll();
 };
 /* V38 - rolar a linha de um aluno move a de todos (P/D, P/E... alinhados) */
@@ -1329,7 +1340,7 @@ async function saveStoryImage(){
   setSync("✅ Imagem baixada em alta definição.","ok");
 }
 /* ===== V59 - IMAGEM GERAL: todas as categorias em uma imagem só ===== */
-const CATCOL={"futbaby23":["#7a3b1e","#e8a45c"],"futbaby45":["#0f5132","#5cd68a"],"sub678":["#0b4a6e","#5cc4e8"],"sub8910":["#3b2f7a","#a58ce8"],"sub1114":["#7a2f1e","#e8795c"]};
+const CATCOL={"futbaby23":["#7a3b1e","#e8a45c"],"futbaby45":["#0f5132","#5cd68a"],"sub678":["#0b4a6e","#5cc4e8"],"sub8910":["#3b2f7a","#a58ce8"],"sub1114":["#7a2f1e","#e8795c"],"adulto":["#0b2b5e","#5c8ee8"]};
 async function downloadAllClassifications(){
   if(!requireAdmin())return;
   try{

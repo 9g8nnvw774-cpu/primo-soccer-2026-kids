@@ -160,7 +160,7 @@
     <div class="tableWrap scoreTableWrap">
       <table class="scoreTable">
         <thead>
-          <tr>
+          <tr id="scoreHeadRow">
             <th>#</th>
             <th class="sticky">ATLETA</th>
             <th>P/D</th>
@@ -255,7 +255,7 @@
     <button onclick="prepareGeneralReport()" class="secondary">Relatório geral</button>
     <button onclick="prepareStudentReport()" class="secondary">Relatório individual</button>
     <select id="reportStudentSelect"></select>
-    <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais</button>
+    <button onclick="loadCloud()" class="secondary">Recarregar online</button><button onclick="copyParentLink()" class="success">Copiar link dos pais (Kids)</button><button onclick="copyParentLinkAdulto()" class="success">Copiar link dos pais (Adulto)</button>
       <hr class="softLine">
       <h3>Fotos no Storage</h3>
       <p class="smallText">Move as fotos antigas (que ficam dentro do banco) para o Storage do Supabase, deixando o app mais leve e rápido. Faça isso uma vez, logado como admin.</p>
@@ -300,8 +300,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=66pendentes"></script>
-<script src="script.js?v=66pendentes"></script>
+<script src="supabase-config.js?v=67adulto"></script>
+<script src="script.js?v=67adulto"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -487,6 +487,8 @@ body.disputeFocus .scoreCards{display:none!important}
 .pendingItem .pendTop{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .pendingItem .pendBadge{background:#ffd54a;color:#1a1a1a;font-weight:900;border-radius:999px;padding:2px 10px;font-size:13px;white-space:nowrap}
 .pendingItem .pendSch{display:block;font-size:13px;opacity:.85;margin-top:3px}
+/* V67 - categoria Adulto */
+.cat-adulto,.btn-adulto{background:linear-gradient(180deg,#0b2b5e,#061734)!important}
 </style>
 <div id="storyPreviewOverlay" class="storyPreviewOverlay hidden">
   <div class="storyPreviewCard">
