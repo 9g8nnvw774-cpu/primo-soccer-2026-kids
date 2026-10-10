@@ -3,14 +3,14 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="68";
+const APP_VERSION="69";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
 // Categoria Adulto pontua só com P/D, P/E e Uniforme (sem fruta e comportamento)
 function bonusFieldsFor(cat){ return cat==="Adulto" ? ["uniforme"] : ["uniforme","fruta","comportamento"]; }
 function bonusLabelsFor(cat){ return cat==="Adulto" ? [["uniforme","Uniforme"]] : [["uniforme","Uniforme"],["fruta","Fruta"],["comportamento","Comport."]]; }
-const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"],"Adulto":["Segunda 19:30 • Adulto","Terça 19:30 • Adulto","Quarta 19:30 • Adulto","Quinta 19:30 • Adulto"]};
+const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"],"Adulto":["Terça 11:30 • Adulto","Quinta 11:30 • Adulto","Terça 18:30 • Adulto","Quinta 18:30 • Adulto","Segunda 19:30 • Adulto","Terça 19:30 • Adulto","Quarta 19:30 • Adulto","Quinta 19:30 • Adulto"]};
 const STORAGE_KEY="primo_soccer_2026_kids_state_v3",MONTH_KEY="primo_soccer_2026_kids_month_v3";
 const APP_TITLE_HTML = "<span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span>";
 const APP_TITLE_TEXT = "PRIMO SOCCER KIDS / INFANTO / JUVENIL 2026";
@@ -23,7 +23,7 @@ let currentMonth=localStorage.getItem(MONTH_KEY)||MONTHS[new Date().getMonth()],
 function defaultState(){return{students:[],months:{},currentMonth,settings:{rules:DEFAULT_RULES,customSchedules:{}},schemaVersion:4}}
 function loadLocal(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||defaultState()}catch(e){return defaultState()}}
 function norm(){if(!state||typeof state!=="object")state=defaultState();if(!Array.isArray(state.students))state.students=[];state.students.forEach(s=>{if(!s.id)s.id=uid();if(!s.studentCode)s.studentCode=s.id});if(!state.months)state.months={};Object.values(state.months).forEach(m=>{if(m){if(!m.participants)m.participants={};if(!m.finishedTrainings)m.finishedTrainings={}}});if(!state.settings)state.settings={};if(!state.settings.rules)state.settings.rules=DEFAULT_RULES;if(!state.settings.customSchedules)state.settings.customSchedules={};state.currentMonth=currentMonth;if(!state.months[currentMonth])state.months[currentMonth]={participants:{},finishedTrainings:{}};if(!state.months[currentMonth].finishedTrainings)state.months[currentMonth].finishedTrainings={}}
-function slotCapacity(cat){ return cat==="Adulto" ? 8 : 6; }
+function slotCapacity(cat,sch){ if(cat==="Adulto"){ return String(sch||"").includes("19:30") ? 8 : 6; } return 6; }
 function removedSchedulesFor(cat){ return (state?.settings?.removedSchedules?.[cat])||[]; }
 function schedulesFor(cat){const base=DEFAULT_SCHEDULES[cat]||[];const custom=state?.settings?.customSchedules?.[cat]||[];const removed=removedSchedulesFor(cat);return [...base,...custom].filter((v,i,a)=>v&&a.indexOf(v)===i&&!removed.includes(v))}
 function appTitleBlock(cls="appTitleBlock"){return `<div class="${cls}">${APP_TITLE_HTML}</div>`}
@@ -313,7 +313,7 @@ function renderAll(){fillDbConfigScreen();
 }
 function renderMonth(){const sel=document.getElementById("monthSelect");if(!sel.dataset.ready){sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");sel.dataset.ready="1";sel.onchange=()=>{currentMonth=sel.value;if(!state.months[currentMonth])state.months[currentMonth]={participants:{}};scheduleSave();renderAll()}}sel.value=currentMonth;document.getElementById("heroMonth").textContent=currentMonth}
 
-const MULTI_SCHEDULE_CATEGORIES = ["Futbaby 4-5 Anos","Sub 6-7-8 anos","Sub 8-9-10 anos","Sub 11-12-13-14 anos"];
+const MULTI_SCHEDULE_CATEGORIES = ["Futbaby 4-5 Anos","Sub 6-7-8 anos","Sub 8-9-10 anos","Sub 11-12-13-14 anos","Adulto"];
 function canHaveTwoSchedules(cat){return MULTI_SCHEDULE_CATEGORIES.includes(cat)}
 function annualTotalStudent(id){return MONTHS.reduce((sum,m)=>sum+totalStudent(id,m),0)}
 function rankedAnnual(cat=null){return state.students.filter(s=>s.active!==false&&(!cat||s.category===cat)).map(s=>({...s,total:annualTotalStudent(s.id)})).filter(s=>s.total>0).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
@@ -577,13 +577,13 @@ function addToSchedule(){
   const p=participant(id);const maxSchedules=canHaveTwoSchedules(student.category)?2:1;
   if(p.schedules.includes(sch))return alert("Esse aluno já está nesse horário.");
   if(p.schedules.length>=maxSchedules)return alert(canHaveTwoSchedules(student.category)?"Esse aluno já está em 2 horários nesta semana.":"Essa categoria permite apenas 1 horário por aluno.");
-  const cap=slotCapacity(activeCategory);const studentsInSlot=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));if(studentsInSlot.length>=cap)return alert("Esse horário já está com "+cap+" vagas preenchidas.");
+  const cap=slotCapacity(activeCategory,sch);const studentsInSlot=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));if(studentsInSlot.length>=cap)return alert("Esse horário já está com "+cap+" vagas preenchidas.");
   p.schedules.push(sch);scheduleSave();renderAll();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
 }
 function renderAgenda(){
   const schList=schedulesFor(activeCategory);
-  const cap=slotCapacity(activeCategory);
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
+    const cap=slotCapacity(activeCategory,sch);
     const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
     return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
   }).join("");
