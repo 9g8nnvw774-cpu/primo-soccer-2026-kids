@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="76";
+const APP_VERSION="77";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -707,6 +707,21 @@ function buildPublicState(){
     });
     if(Object.keys(bucket).length)pub.months[mo]=bucket;
   });
+  // V77 - dados do MATA-MATA (Adulto) por mês, para o link dos pais
+  pub.mm={};
+  try{
+    const byId={}; state.students.forEach(s=>byId[s.id]=s);
+    MONTHS.forEach(mo=>{
+      const seeds=mataMataSeeds(mo);
+      if(seeds.length>=2){
+        const st=mmState(mo);
+        pub.mm[mo]={
+          seeds:seeds.map(s=>({id:s.id,name:s.name,pts:s.pts,photo:(byId[s.id]?publicPhotoFor(byId[s.id]):"")})),
+          q:(st.q||[]).slice(),s:(st.s||[]).slice(),champ:st.champ||null
+        };
+      }
+    });
+  }catch(e){}
   return pub;
 }
 async function savePublicStateRest(){
@@ -925,6 +940,33 @@ function ensureParentHeroMonthSelect(){
   sel.value=parentSelectedMonth;
 }
 
+/* V77 - chaveamento do MATA-MATA no link dos pais (categoria Adulto) */
+function mmParentChip(p,seedNo,won){
+  if(!p)return `<div class="mmSide mmSideEmpty"><span class="mmAvatar">?</span><span class="mmNm">A definir</span></div>`;
+  const av=p.photo?`<span class="mmAvatar"><img src="${p.photo}" onclick="openPhoto('${p.photo}')"></span>`:`<span class="mmAvatar">${initials(p.name)}</span>`;
+  const seed=seedNo?`<span class="mmSeed">${seedNo}º</span>`:"";
+  return `<div class="mmSide ${won?'mmWin':''}">${av}<span class="mmNm">${esc(p.name)}</span>${seed}${won?'<span class="mmCk">✔</span>':''}</div>`;
+}
+function mmParentMatch(a,b,seedA,seedB,winnerId){
+  const aw=!!(a&&winnerId&&a.id===winnerId), bw=!!(b&&winnerId&&b.id===winnerId);
+  return `<div class="mmMatch">${mmParentChip(a,seedA,aw)}<span class="mmVs">×</span>${mmParentChip(b,seedB,bw)}</div>`;
+}
+function parentMataMataCard(mm){
+  if(!mm||!mm.seeds||mm.seeds.length<2){
+    return `<div class="card neonRankCard mmCard"><h2 class="neonCatTitle">MATA-MATA</h2><p class="mmInfo">A disputa começa na <strong>Semana 3</strong>. Os 8 melhores das Semanas 1 e 2 entram no chaveamento.</p></div>`;
+  }
+  const S=mm.seeds, byId={}; S.forEach(x=>byId[x.id]=x);
+  const seed=i=>S[i]||null, q=mm.q||[], s=mm.s||[];
+  const pairs=[[0,7],[1,6],[2,5],[3,4]];
+  const quartas=pairs.map((pr,i)=>mmParentMatch(seed(pr[0]),seed(pr[1]),pr[0]+1,pr[1]+1,q[i]||null)).join("");
+  const q0=byId[q[0]],q1=byId[q[1]],q2=byId[q[2]],q3=byId[q[3]];
+  const semis=mmParentMatch(q0,q1,null,null,s[0]||null)+mmParentMatch(q2,q3,null,null,s[1]||null);
+  const s0=byId[s[0]],s1=byId[s[1]];
+  const fin=mmParentMatch(s0,s1,null,null,mm.champ||null);
+  const champ=byId[mm.champ];
+  const champHtml=champ?`<div class="mmChampBanner">🏆 CAMPEÃO: <strong>${esc(champ.name)}</strong></div>`:"";
+  return `<div class="card neonRankCard mmCard"><h2 class="neonCatTitle">MATA-MATA</h2><p class="mmInfo">Início: Semana 3 · Classificação até o fim da Semana 2</p>${champHtml}<h3 class="mmPhaseT">QUARTAS DE FINAL</h3><div class="mmPhase">${quartas}</div><h3 class="mmPhaseT">SEMIFINAL</h3><div class="mmPhase">${semis}</div><h3 class="mmPhaseT">FINAL</h3><div class="mmPhase">${fin}</div></div>`;
+}
 function renderParentMode(){
   if(!MONTHS.includes(parentSelectedMonth)) parentSelectedMonth=currentMonth;
   const m=document.getElementById("parentMonth");if(m)m.textContent=parentSelectedMonth;
@@ -942,7 +984,11 @@ function renderParentMode(){
       premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premioUrl?`<div class="premioLogos"><span class="premioTile premioBig"><img src="${premioUrl}" alt="Premiação"></span></div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
     }
     const sponsorsHtml=`<div class="card neonRankCard parentSponsorsCard"><h2 class="agradTitle">AGRADECIMENTO</h2><img class="parentSponsorsImg" src="patrocinadores.png?v=4" alt="Patrocinadores"></div>`;
-    area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${premioHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>${sponsorsHtml}`;
+    // V77 - no Adulto, o MATA-MATA substitui a PREMIAÇÃO
+    const isAdulto=parentCategory==="Adulto";
+    const mmData=(parentData&&parentData.mm&&parentData.mm[parentSelectedMonth])||null;
+    const midHtml=isAdulto?parentMataMataCard(mmData):premioHtml;
+    area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${midHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>${sponsorsHtml}`;
   }
 }
 function parentRankRow(o,i){const pos=i+1;const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${pos}º`;const top=i<3?`neonTop neonTop${pos}`:"";const av=o.photo?`<span class="avatar"><img src="${o.photo}" onclick="openPhoto('${o.photo}')"></span>`:`<span class="avatar">${initials(o.name)}</span>`;return`<div class="rankRow neonRow ${top}"><div class="rankLeft"><span class="neonPos">${medal}</span>${av}<span class="neonName">${esc(o.name)}</span></div><strong class="neonPts">${o.total} pts</strong></div>`}
@@ -1228,6 +1274,23 @@ preparePrint = function(type){
 
 /* ===== V43 - BAIXAR CLASSIFICAÇÃO EM ALTA (Story 1080x1920, canvas) ===== */
 function _loadImg(src){return new Promise(res=>{if(!src)return res(null);const im=new Image();im.crossOrigin="anonymous";im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
+/* V77 - encaixa a arte 2:3 num quadro de story 1080x1920 sem distorcer nem cortar.
+   A arte vai pra largura cheia (1080) e as sobras de cima/baixo são preenchidas
+   estendendo as bordas escuras do próprio template (fica sem emenda visível). */
+function _toStory1080(src){
+  const OW=1080,OH=1920;
+  const out=document.createElement("canvas");out.width=OW;out.height=OH;
+  const o=out.getContext("2d");
+  const sw=src.width,sh=src.height;
+  const dw=OW, dh=Math.round(sh*(OW/sw));
+  const dy=Math.round((OH-dh)/2);
+  o.fillStyle="#01040f";o.fillRect(0,0,OW,OH);
+  if(dy>0)o.drawImage(src,0,0,sw,2, 0,0, OW,dy+2);
+  const botGap=OH-(dy+dh);
+  if(botGap>0)o.drawImage(src,0,sh-2,sw,2, 0,dy+dh-2, OW,botGap+2);
+  o.drawImage(src,0,0,sw,sh, 0,dy, dw,dh);
+  return out;
+}
 function _rr(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function _fit(ctx,t,maxW){if(ctx.measureText(t).width<=maxW)return t;while(t.length>1&&ctx.measureText(t+"…").width>maxW)t=t.slice(0,-1);return t+"…";}
 function _cover(ctx,img,x,y,w,h){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;const s=Math.max(w/iw,h/ih),dw=iw*s,dh=ih*s;ctx.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh);}
@@ -1308,7 +1371,7 @@ async function downloadStoryImage(type){
     ctx.textAlign="center";ctx.fillStyle="#7dd3fc";ctx.font='900 22px Arial';ctx.fillText("AGRADECIMENTO",W/2,spY-10);
     if(spImg){ctx.save();_rr(ctx,px0,spY,px1-px0,spH,14);ctx.clip();_cover(ctx,spImg,px0,spY,px1-px0,spH);ctx.restore();ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.5)";_rr(ctx,px0,spY,px1-px0,spH,14);ctx.stroke();}
     const fname=`primo-${(catName).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}-${String(currentMonth||"").toLowerCase()}.png`;
-    cv.toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("✅ Prévia gerada. Confira e toque em Baixar.","ok");},"image/png");
+    _toStory1080(cv).toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("✅ Prévia gerada. Confira e toque em Baixar.","ok");},"image/png");
   }catch(e){console.error(e);setSync("Erro ao gerar a imagem: "+(e.message||e),"error");alert("Não consegui gerar a imagem. Tente de novo.");}
 }
 
@@ -1548,7 +1611,7 @@ async function downloadMataMata(){
     else{ctx.fillStyle="#9fc4ef";ctx.font='800 22px Arial';ctx.fillText("CAMPEÃO",(pill.x0+pill.x1)/2,(pill.y0+pill.y1)/2);}
     ctx.textBaseline="alphabetic";
     const fname=`primo-matamata-adulto-${String(m).toLowerCase()}.png`;
-    cv.toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("Prévia do mata-mata gerada. Toque em Baixar/Salvar.","ok");},"image/png");
+    _toStory1080(cv).toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("Prévia do mata-mata gerada. Toque em Baixar/Salvar.","ok");},"image/png");
   }catch(e){console.error(e);setSync("Erro ao gerar o mata-mata: "+(e.message||e),"error");alert("Não consegui gerar a imagem do mata-mata. Tente de novo.");}
 }
 
