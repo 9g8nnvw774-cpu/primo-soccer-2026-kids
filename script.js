@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="75";
+const APP_VERSION="76";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1279,8 +1279,12 @@ async function downloadStoryImage(type){
     if(typeof ctx.letterSpacing!=="undefined")ctx.letterSpacing="4px";
     ctx.fillText("MAIOR PONTUADOR",W/2,rowsTop-6);
     if(typeof ctx.letterSpacing!=="undefined")ctx.letterSpacing="0px";
-    const n=list.length, gap=7;
-    let rowH=Math.max(28,Math.min(64,(rowsBot-(rowsTop+14)-gap*(n-1))/n));
+    const n=list.length;
+    // caber TODOS os atletas: diminui o espaçamento e a altura conforme a quantidade
+    let gap = n>24?3 : n>16?4 : 7;
+    const availRows=rowsBot-(rowsTop+14);
+    let rowH=Math.min(64,(availRows-gap*(n-1))/n);
+    if(rowH<14)rowH=14; // piso extremo
     const rowX=px0, rowW=px1-px0;
     const gold="#ffd54a",silver="#eef4ff",bronze="#ff9d5c",blue="#bcd3ff";
     let y=rowsTop+14;
@@ -1485,10 +1489,22 @@ async function downloadMataMata(){
     setSync("Gerando imagem do mata-mata...","warn");
     const st=mmState(m);
     const bg=await _loadImg("bg-matamata.png?v=1");
+    const logo=await _loadImg("primo-logo.png");
     const photos={}; for(const s of seeds){ photos[s.id]=await _loadImg(s.photo); }
     const W=1024,H=1536;
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
     if(bg)ctx.drawImage(bg,0,0,W,H); else { ctx.fillStyle="#061334";ctx.fillRect(0,0,W,H); }
+    // ===== cabeçalho e títulos (estilo do modelo) =====
+    if(logo){const ls=84;ctx.drawImage(logo,20,18,ls,ls);ctx.drawImage(logo,W-20-ls,18,ls,ls);}
+    ctx.textAlign="center";ctx.textBaseline="alphabetic";
+    _chromeText(ctx,"PRIMO SOCCER",W/2,56,34);
+    _chromeText(ctx,"MATA-MATA",W/2,104,40,{gold:true});
+    ctx.fillStyle="#cfe3ff";ctx.font='800 22px Arial';ctx.fillText("ADULTO • "+String(m||"").toUpperCase(),W/2,140);
+    ctx.fillStyle="#9fc4ef";ctx.font='700 18px Arial';ctx.fillText("Início: Semana 3  |  Classificação até o fim da Semana 2",W/2,172);
+    // títulos das fases
+    _chromeText(ctx,"QUARTAS DE FINAL",W/2,302,30,{gold:true});
+    _chromeText(ctx,"SEMI FINAL",W/2,970,30,{gold:true});
+    _chromeText(ctx,"FINAL",W/2,1222,30);
     // colunas (x0,x1) e linhas (y0,y1) medidas no template
     const cols=[[59,271],[294,504],[524,736],[757,969]];
     const rowA=[337,528], rowB=[674,868], rowS=[1003,1173];
