@@ -228,6 +228,13 @@
     <button onclick="downloadAllClassifications()" class="secondary">Gerar imagem geral (todas as categorias)</button>
     <p class="smallText">Gera a prévia em alta definição (1080×1920). Confira e toque em Baixar/Salvar. No iPhone você pode salvar na galeria ou enviar direto ao Instagram.</p>
   </div>
+  <div class="card noPrint">
+    <h2>🏆 MATA-MATA — Adulto</h2>
+    <p class="smallText">Os 8 melhores pontuadores das <strong>Semanas 1 e 2</strong> do Adulto entram no mata-mata. Quartas na Semana 3, Semifinal na Semana 4 e Final na Semana 5. Confrontos: 1º×8º, 2º×7º, 3º×6º, 4º×5º.</p>
+    <select id="mmMonth"></select>
+    <button onclick="downloadMataMata()" class="success">Gerar imagem do Mata-Mata</button>
+    <div id="mmWinners" class="mmWinners"></div>
+  </div>
   <canvas id="storyCanvas" width="1080" height="1920" style="display:none"></canvas>
   <div id="printArea" class="printArea"></div>
 </section>
@@ -300,8 +307,8 @@
 </section>
 </main>
 
-<script src="supabase-config.js?v=69adultoag"></script>
-<script src="script.js?v=69adultoag"></script>
+<script src="supabase-config.js?v=73mmpatroc"></script>
+<script src="script.js?v=73mmpatroc"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -461,9 +468,11 @@ body.parentMode .parentHeroMonthBox{margin-top:14px!important}
 body.disputeFocus .scoreTableWrap{display:block!important}
 body.disputeFocus .scoreCards{display:none!important}
 #page-disputa .scoreTableWrap{overscroll-behavior:contain;touch-action:pan-x pan-y}
-#page-disputa .scoreTable td{padding:10px 10px!important}
-#page-disputa .scoreTable .sticky{min-width:186px!important}
-#page-disputa .scoreTable .playerCell strong{font-size:15px!important;line-height:1.05}
+#page-disputa .scoreTable td{padding:8px 8px!important}
+#page-disputa .scoreTable .sticky{min-width:150px!important;max-width:150px!important;width:150px!important;padding-left:8px!important;padding-right:6px!important}
+#page-disputa .scoreTable .playerCell{gap:6px!important}
+#page-disputa .scoreTable .playerCell .avatar{width:30px!important;height:30px!important;flex:0 0 30px!important}
+#page-disputa .scoreTable .playerCell strong{font-size:12.5px!important;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #page-disputa .scoreTable .quickScore{display:grid!important;grid-template-columns:46px 60px 46px!important;gap:6px!important;min-width:0!important;margin:0 auto}
 #page-disputa .scoreTable .quickScore button{width:46px!important;height:46px!important;min-height:46px!important;font-size:24px!important;border-radius:12px!important}
 #page-disputa .scoreTable .quickScoreInput{width:60px!important;min-width:60px!important;height:46px!important;font-size:18px!important;border-radius:12px!important;text-align:center!important;padding:0!important}
@@ -492,6 +501,10 @@ body.disputeFocus .scoreCards{display:none!important}
 /* V68 - botões do horário na agenda */
 .slotBtns{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:8px 0}
 .slotBtns .danger.compactGo{width:auto!important;white-space:nowrap;padding:0 14px!important}
+/* V71 - painel mata-mata */
+.mmWinners{margin-top:8px}
+.mmWinners label{display:block;margin:10px 0 2px;color:#7dd3fc}
+.mmSeedList{margin:4px 0 8px 18px;color:#eaf6ff;font-size:13px;line-height:1.5}
 </style>
 <div id="storyPreviewOverlay" class="storyPreviewOverlay hidden">
   <div class="storyPreviewCard">

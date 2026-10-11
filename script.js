@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="69";
+const APP_VERSION="73";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -941,7 +941,7 @@ function renderParentMode(){
     if(premioUrl||premioDesc){
       premioHtml=`<div class="card neonRankCard premioCard"><h2 class="neonCatTitle">PREMIAÇÃO</h2>${premioUrl?`<div class="premioLogos"><span class="premioTile premioBig"><img src="${premioUrl}" alt="Premiação"></span></div>`:""}${premioDesc?`<p class="premioDesc">${esc(premioDesc).replace(/\n/g,"<br>")}</p>`:""}</div>`;
     }
-    const sponsorsHtml=`<div class="card neonRankCard parentSponsorsCard"><h2 class="agradTitle">AGRADECIMENTO</h2><img class="parentSponsorsImg" src="patrocinadores.png?v=3" alt="Patrocinadores"></div>`;
+    const sponsorsHtml=`<div class="card neonRankCard parentSponsorsCard"><h2 class="agradTitle">AGRADECIMENTO</h2><img class="parentSponsorsImg" src="patrocinadores.png?v=4" alt="Patrocinadores"></div>`;
     area.innerHTML=`<div class="card neonRankCard"><h2 class="neonCatTitle">${esc(parentCategory)}</h2><h3 class="neonSub">🏆 Classificação • ${parentSelectedMonth}</h3><div class="rankList neonRankList">${monthList.map(parentRankRow).join("")||"<p>Nenhum resultado nesta categoria neste mês.</p>"}</div></div>${premioHtml}<div class="card rulesCard parentRulesOnly neonRulesCard"><h2>REGRAS DO CAMPEONATO</h2><p id="parentRulesInline">${rules}</p></div>${sponsorsHtml}`;
   }
 }
@@ -1231,6 +1231,19 @@ function _loadImg(src){return new Promise(res=>{if(!src)return res(null);const i
 function _rr(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function _fit(ctx,t,maxW){if(ctx.measureText(t).width<=maxW)return t;while(t.length>1&&ctx.measureText(t+"…").width>maxW)t=t.slice(0,-1);return t+"…";}
 function _cover(ctx,img,x,y,w,h){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;const s=Math.max(w/iw,h/ih),dw=iw*s,dh=ih*s;ctx.drawImage(img,x+(w-dw)/2,y+(h-dh)/2,dw,dh);}
+// Texto "cromado" (prata com brilho) para títulos — estilo da arte oficial
+function _chromeText(ctx,txt,cx,yBase,size,opt){
+  opt=opt||{};const italic=opt.italic?"italic ":"";
+  ctx.save();ctx.textAlign=opt.align||"center";ctx.font=`${italic}900 ${size}px "Arial Black",Arial,sans-serif`;ctx.lineJoin="round";
+  // leve brilho neon atrás
+  ctx.shadowColor=opt.glow||"rgba(56,189,248,.65)";ctx.shadowBlur=opt.glowBlur!=null?opt.glowBlur:18;
+  ctx.lineWidth=Math.max(5,size*0.13);ctx.strokeStyle="rgba(2,8,23,.78)";ctx.strokeText(txt,cx,yBase);
+  ctx.shadowBlur=0;
+  const g=ctx.createLinearGradient(0,yBase-size,0,yBase);
+  if(opt.gold){g.addColorStop(0,"#fff3c9");g.addColorStop(.45,"#f2cf6b");g.addColorStop(.5,"#d9a93a");g.addColorStop(.55,"#f6d879");g.addColorStop(1,"#fff6d8");}
+  else{g.addColorStop(0,"#ffffff");g.addColorStop(.42,"#e3ebf7");g.addColorStop(.5,"#aeb9cc");g.addColorStop(.52,"#8c99ad");g.addColorStop(.6,"#c7d1e0");g.addColorStop(1,"#ffffff");}
+  ctx.fillStyle=g;ctx.fillText(txt,cx,yBase);ctx.restore();
+}
 async function downloadStoryImage(type){
   if(!requireAdmin())return;
   try{
@@ -1242,7 +1255,7 @@ async function downloadStoryImage(type){
     if(limit!=="all")list=list.slice(0,+limit);
     if(!list.length){setSync("Nenhum aluno para gerar a imagem.","warn");alert("Não há alunos com pontos nessa classificação ainda.");return;}
     const logo=await _loadImg("primo-logo.png");
-    const spImg=await _loadImg("patrocinadores.png?v=3");
+    const spImg=await _loadImg("patrocinadores.png?v=4");
     const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
     const W=1080,H=1920,M=40;
     const TH={
@@ -1270,10 +1283,9 @@ async function downloadStoryImage(type){
     const bx=238,bw=W-2*bx,by=58,bh=150;
     _rr(ctx,bx,by,bw,bh,16);ctx.fillStyle="rgba(2,8,23,.75)";ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=AC(.55);ctx.stroke();
     ctx.textAlign="center";ctx.textBaseline="alphabetic";
-    let sg=ctx.createLinearGradient(0,by,0,by+70);sg.addColorStop(0,"#ffffff");sg.addColorStop(1,"#dfe8f6");
-    ctx.fillStyle=sg;let fs1=56;ctx.font=`900 ${fs1}px "Arial Black",Arial,sans-serif`;
+    let fs1=56;ctx.font=`900 ${fs1}px "Arial Black",Arial,sans-serif`;
     while(ctx.measureText("PRIMO SOCCER").width>bw-40&&fs1>34){fs1-=2;ctx.font=`900 ${fs1}px "Arial Black",Arial,sans-serif`;}
-    ctx.fillText("PRIMO SOCCER",W/2,by+66);
+    _chromeText(ctx,"PRIMO SOCCER",W/2,by+66,fs1);
     ctx.fillStyle=softC;let fs2=34;ctx.font=`900 ${fs2}px "Arial Black",Arial,sans-serif`;
     while(ctx.measureText("KIDS / INFANTO / JUVENIL").width>bw-30&&fs2>22){fs2-=2;ctx.font=`900 ${fs2}px "Arial Black",Arial,sans-serif`;}
     ctx.fillText("KIDS / INFANTO / JUVENIL",W/2,by+118);
@@ -1287,9 +1299,7 @@ async function downloadStoryImage(type){
     let ts=76;ctx.font=`italic 900 ${ts}px "Arial Black",Arial,sans-serif`;
     const bigMax=W-2*M-70;while(ctx.measureText(catName.toUpperCase()).width>bigMax&&ts>40){ts-=2;ctx.font=`italic 900 ${ts}px "Arial Black",Arial,sans-serif`;}
     const tyBase=pT+66;
-    ctx.save();ctx.shadowColor=AC(.85);ctx.shadowBlur=22;ctx.lineJoin="round";ctx.lineWidth=9;ctx.strokeStyle="rgba(2,8,23,.6)";ctx.strokeText(catName.toUpperCase(),W/2,tyBase);
-    let tg=ctx.createLinearGradient(0,tyBase-ts,0,tyBase);tg.addColorStop(0,"#ffffff");tg.addColorStop(.5,"#dbe6f7");tg.addColorStop(.55,"#b9c6dc");tg.addColorStop(1,"#ffffff");
-    ctx.fillStyle=tg;ctx.fillText(catName.toUpperCase(),W/2,tyBase);ctx.restore();
+    _chromeText(ctx,catName.toUpperCase(),W/2,tyBase,ts,{italic:true,glow:AC(.85),glowBlur:22});
     if(spacer)ctx.letterSpacing="8px";
     ctx.fillStyle=softC;ctx.font='800 27px Arial';ctx.fillText("MAIOR PONTUADOR",W/2,pT+108);
     if(spacer)ctx.letterSpacing="0px";
@@ -1371,7 +1381,7 @@ async function downloadAllClassifications(){
     const cats=CATEGORIES.map(c=>({name:c[0],code:c[1],list:ranked(c[0])})).filter(c=>c.list.length);
     if(!cats.length){setSync("Sem classificações ainda.","warn");alert("Nenhuma categoria tem pontuação ainda.");return;}
     const logo=await _loadImg("primo-logo.png");
-    const spImg=await _loadImg("patrocinadores.png?v=3");
+    const spImg=await _loadImg("patrocinadores.png?v=4");
     const photoMap={};
     for(const c of cats){for(const s of c.list){if(photoSrc(s)&&!(s.id in photoMap))photoMap[s.id]=await _loadImg(photoSrc(s));}}
     const W=1080,H=1920,M=22,gap=16,colW=Math.floor((W-2*M-gap)/2);
@@ -1402,14 +1412,11 @@ async function downloadAllClassifications(){
     function drawHeader(x,y,w){
       ctx.textAlign="center";ctx.textBaseline="alphabetic";const cx=x+w/2;
       if(logo)ctx.drawImage(logo,cx-80,y+4,160,160);
-      let sg=ctx.createLinearGradient(0,y+178,0,y+220);sg.addColorStop(0,"#fff");sg.addColorStop(1,"#dfe8f6");
-      ctx.fillStyle=sg;ctx.font='900 40px "Arial Black",Arial,sans-serif';ctx.fillText("PRIMO SOCCER",cx,y+210);
+      _chromeText(ctx,"PRIMO SOCCER",cx,y+210,40);
       const ty=y+280;
-      ctx.save();ctx.shadowColor="rgba(56,189,248,.85)";ctx.shadowBlur=18;ctx.lineJoin="round";ctx.lineWidth=8;ctx.strokeStyle="rgba(2,8,23,.6)";
       let fs=50;ctx.font=`italic 900 ${fs}px "Arial Black",Arial,sans-serif`;
       while(ctx.measureText("CLASSIFICAÇÕES").width>w-6&&fs>28){fs-=2;ctx.font=`italic 900 ${fs}px "Arial Black",Arial,sans-serif`;}
-      let tg=ctx.createLinearGradient(0,ty-fs,0,ty);tg.addColorStop(0,"#fff");tg.addColorStop(.55,"#c3d0e6");tg.addColorStop(1,"#fff");
-      ctx.strokeText("CLASSIFICAÇÕES",cx,ty);ctx.fillStyle=tg;ctx.fillText("CLASSIFICAÇÕES",cx,ty);ctx.restore();
+      _chromeText(ctx,"CLASSIFICAÇÕES",cx,ty,fs,{italic:true});
       ctx.fillStyle="#7dd3fc";ctx.font='900 22px "Arial Black",Arial,sans-serif';ctx.fillText("KIDS / INFANTO / JUVENIL",cx,ty+34);
       ctx.font='900 28px Arial';const mt="MÊS: "+String(currentMonth||"").toUpperCase();const mw=ctx.measureText(mt).width+46;
       _rr(ctx,cx-mw/2,ty+52,mw,46,23);ctx.fillStyle="rgba(6,20,52,.85)";ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.7)";ctx.stroke();
@@ -1456,9 +1463,146 @@ async function downloadAllClassifications(){
     cv.toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("Prévia gerada. Toque em Baixar/Salvar.","ok");},"image/png");
   }catch(e){console.error(e);setSync("Erro ao gerar: "+(e.message||e),"error");alert("Não consegui gerar a imagem. Tente de novo.");}
 }
+/* ===== V71 - MATA-MATA ADULTO (chave eliminatória) ===== */
+function mmScore(id,m){ return totalStudentFiltered(id,m,"0","all")+totalStudentFiltered(id,m,"1","all"); }
+function mataMataSeeds(m=currentMonth){
+  return state.students.filter(s=>s.active!==false&&s.category==="Adulto")
+    .map(s=>({id:s.id,name:s.name,photo:photoSrc(s),pts:mmScore(s.id,m)}))
+    .filter(s=>s.pts>0)
+    .sort((a,b)=>b.pts-a.pts||a.name.localeCompare(b.name))
+    .slice(0,8);
+}
+function mmState(m=currentMonth){
+  state.settings=state.settings||{};
+  state.settings.mm=state.settings.mm||{};
+  if(!state.settings.mm[m])state.settings.mm[m]={q:[null,null,null,null],s:[null,null],champ:null};
+  return state.settings.mm[m];
+}
+function mmSeedById(seeds,id){ return seeds.find(x=>x.id===id)||null; }
+function mmQuarterPair(seeds,qi){ const pairs=[[0,7],[1,6],[2,5],[3,4]]; return [seeds[pairs[qi][0]]||null, seeds[pairs[qi][1]]||null]; }
+function renderMmMonthSelect(){
+  const sel=document.getElementById("mmMonth"); if(!sel)return;
+  const old=sel.value; sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");
+  sel.value=old||currentMonth; if(!sel.dataset.ready){sel.dataset.ready="1";sel.onchange=renderMmWinners;}
+}
+function mmOpt(player,sel){ return player?`<option value="${player.id}" ${sel===player.id?"selected":""}>${esc(player.name)}</option>`:""; }
+function renderMmWinners(){
+  const box=document.getElementById("mmWinners"); if(!box)return;
+  const m=document.getElementById("mmMonth")?.value||currentMonth;
+  const seeds=mataMataSeeds(m);
+  if(seeds.length<2){ box.innerHTML=`<p class="smallText">Ainda não há pontuação suficiente no Adulto nas Semanas 1 e 2 para montar o mata-mata (${seeds.length} classificado(s)).</p>`; return; }
+  const st=mmState(m);
+  let html=`<p class="smallText"><strong>Classificados (Semanas 1+2):</strong></p><ol class="mmSeedList">`+seeds.map(s=>`<li>${esc(s.name)} — ${s.pts} pts</li>`).join("")+`</ol>`;
+  html+=`<p class="smallText">Escolha quem venceu cada fase (em branco = "A definir"):</p>`;
+  for(let qi=0;qi<4;qi++){
+    const pr=mmQuarterPair(seeds,qi),a=pr[0],b=pr[1];
+    html+=`<label class="smallText">Quartas #${qi+1}: ${a?esc(a.name):"-"} × ${b?esc(b.name):"-"}</label>
+      <select onchange="mmSetWinner('q',${qi},this.value)"><option value="">A definir</option>${mmOpt(a,st.q[qi])}${mmOpt(b,st.q[qi])}</select>`;
+  }
+  const q0=mmSeedById(seeds,st.q[0]),q1=mmSeedById(seeds,st.q[1]),q2=mmSeedById(seeds,st.q[2]),q3=mmSeedById(seeds,st.q[3]);
+  html+=`<label class="smallText">Semifinal #1: ${q0?esc(q0.name):"?"} × ${q1?esc(q1.name):"?"}</label>
+    <select onchange="mmSetWinner('s',0,this.value)"><option value="">A definir</option>${mmOpt(q0,st.s[0])}${mmOpt(q1,st.s[0])}</select>`;
+  html+=`<label class="smallText">Semifinal #2: ${q2?esc(q2.name):"?"} × ${q3?esc(q3.name):"?"}</label>
+    <select onchange="mmSetWinner('s',1,this.value)"><option value="">A definir</option>${mmOpt(q2,st.s[1])}${mmOpt(q3,st.s[1])}</select>`;
+  const s0=mmSeedById(seeds,st.s[0]),s1=mmSeedById(seeds,st.s[1]);
+  html+=`<label class="smallText">Campeão (Final): ${s0?esc(s0.name):"?"} × ${s1?esc(s1.name):"?"}</label>
+    <select onchange="mmSetWinner('champ',0,this.value)"><option value="">A definir</option>${mmOpt(s0,st.champ)}${mmOpt(s1,st.champ)}</select>`;
+  box.innerHTML=html;
+}
+function mmSetWinner(kind,idx,val){
+  if(!requireAdmin())return;
+  const m=document.getElementById("mmMonth")?.value||currentMonth;
+  const st=mmState(m); const v=val||null;
+  if(kind==="q"){ st.q[idx]=v; st.s=[null,null]; st.champ=null; }
+  else if(kind==="s"){ st.s[idx]=v; st.champ=null; }
+  else { st.champ=v; }
+  scheduleSave(); renderMmWinners();
+}
+async function downloadMataMata(){
+  if(!requireAdmin())return;
+  try{
+    const m=document.getElementById("mmMonth")?.value||currentMonth;
+    const seeds=mataMataSeeds(m);
+    if(seeds.length<2){ alert("Ainda não há classificados suficientes no Adulto (Semanas 1 e 2)."); return; }
+    setSync("Gerando imagem do mata-mata...","warn");
+    const st=mmState(m);
+    const logo=await _loadImg("primo-logo.png");
+    const photos={}; for(const s of seeds){ photos[s.id]=await _loadImg(s.photo); }
+    const spImg=await _loadImg("patrocinadores.png?v=4");
+    const W=1080,H=1920,M=34;
+    const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
+    let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#0a1c44");g.addColorStop(.5,"#061334");g.addColorStop(1,"#020714");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    if(logo){ctx.drawImage(logo,M,24,140,140);ctx.drawImage(logo,W-M-140,24,140,140);}
+    ctx.textAlign="center";ctx.textBaseline="alphabetic";
+    const chrome=(txt,y,size)=>{ctx.save();ctx.font=`900 ${size}px "Arial Black",Arial,sans-serif`;ctx.lineJoin="round";ctx.lineWidth=size*0.14;ctx.strokeStyle="rgba(2,8,23,.7)";ctx.strokeText(txt,W/2,y);const gg=ctx.createLinearGradient(0,y-size,0,y);gg.addColorStop(0,"#ffffff");gg.addColorStop(.5,"#ccd6e8");gg.addColorStop(.52,"#9fb0c8");gg.addColorStop(1,"#f2f6fc");ctx.fillStyle=gg;ctx.fillText(txt,W/2,y);ctx.restore();};
+    chrome("PRIMO SOCCER",118,58);
+    ctx.save();ctx.font='900 50px "Arial Black",Arial,sans-serif';ctx.lineWidth=8;ctx.lineJoin="round";ctx.strokeStyle="rgba(2,8,23,.7)";ctx.strokeText("MATA-MATA",W/2,172);const gold=ctx.createLinearGradient(0,132,0,176);gold.addColorStop(0,"#ffe9a8");gold.addColorStop(.5,"#e8b84a");gold.addColorStop(1,"#fff1c4");ctx.fillStyle=gold;ctx.fillText("MATA-MATA",W/2,172);ctx.restore();
+    chrome("QUARTAS DE FINAL",224,38);
+    ctx.fillStyle="#9fc4ef";ctx.font='700 21px Arial';ctx.fillText("Início: Semana 3  |  Classificação até o fim da Semana 2",W/2,256);
+    function drawPlayer(x,y,w,h,seedLabel,pl){
+      _rr(ctx,x,y,w,h,14);const cg=ctx.createLinearGradient(0,y,0,y+h);cg.addColorStop(0,"rgba(14,30,66,.92)");cg.addColorStop(1,"rgba(3,10,34,.92)");ctx.fillStyle=cg;ctx.fill();
+      ctx.lineWidth=2.5;ctx.strokeStyle="rgba(56,189,248,.75)";ctx.save();ctx.shadowColor="rgba(56,189,248,.6)";ctx.shadowBlur=14;ctx.stroke();ctx.restore();
+      const cx=x+w/2, r=Math.min(w,h)*0.26, pcy=y+h*0.40;
+      if(pl){
+        ctx.save();ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.clip();const ph=photos[pl.id];
+        if(ph)_cover(ctx,ph,cx-r,pcy-r,2*r,2*r);else{ctx.fillStyle="#0b1c44";ctx.fillRect(cx-r,pcy-r,2*r,2*r);ctx.fillStyle="#7dd3fc";ctx.font=`900 ${r*0.8}px Arial`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(initials(pl.name),cx,pcy);}
+        ctx.restore();ctx.textBaseline="alphabetic";
+        ctx.lineWidth=3;ctx.strokeStyle="#5cc4e8";ctx.save();ctx.shadowColor="#5cc4e8";ctx.shadowBlur=12;ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.stroke();ctx.restore();
+      }else{
+        ctx.save();ctx.setLineDash([6,6]);ctx.lineWidth=3;ctx.strokeStyle="rgba(120,180,240,.8)";ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.stroke();ctx.restore();
+        ctx.fillStyle="#7dd3fc";ctx.font=`900 ${r}px Arial`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("?",cx,pcy);ctx.textBaseline="alphabetic";
+      }
+      if(seedLabel){ctx.fillStyle="#ffd54a";ctx.font='900 20px Arial';ctx.textAlign="left";ctx.fillText(seedLabel,x+10,y+26);}
+      ctx.textAlign="center";ctx.fillStyle="#eaf6ff";ctx.font='800 18px Arial';
+      ctx.fillText(_fit(ctx,(pl?pl.name:"A DEFINIR").toUpperCase(),w-14),cx,y+h-14);
+    }
+    function matchup(x,y,w,h,title,pA,pB,seedA,seedB){
+      ctx.textAlign="center";ctx.fillStyle="#cfe3ff";ctx.font='800 20px Arial';ctx.fillText(title,x+w/2,y-8);
+      const tw=(w-44)/2;
+      drawPlayer(x,y,tw,h,seedA,pA);
+      drawPlayer(x+w-tw,y,tw,h,seedB,pB);
+      ctx.fillStyle="#ffd54a";ctx.font='900 34px "Arial Black",Arial';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("X",x+w/2,y+h/2);ctx.textBaseline="alphabetic";
+    }
+    function panel(y,h,label){
+      _rr(ctx,M,y,W-2*M,h,20);ctx.fillStyle="rgba(6,18,46,.55)";ctx.fill();ctx.lineWidth=3;ctx.strokeStyle="rgba(56,189,248,.6)";ctx.save();ctx.shadowColor="rgba(56,189,248,.5)";ctx.shadowBlur=16;ctx.stroke();ctx.restore();
+      chrome(label,y+46,32);
+    }
+    const colW=(W-2*M-60)/2, colX1=M+20, colX2=M+20+colW+20, mH=182;
+    // QUARTAS
+    const qpY=286,qpH=560; panel(qpY,qpH,"QUARTAS DE FINAL");
+    const rowY1=qpY+78, rowY2=qpY+78+mH+52;
+    const qp=[mmQuarterPair(seeds,0),mmQuarterPair(seeds,1),mmQuarterPair(seeds,2),mmQuarterPair(seeds,3)];
+    matchup(colX1,rowY1,colW,mH,"QUARTAS #1",qp[0][0],qp[0][1],"1º","8º");
+    matchup(colX2,rowY1,colW,mH,"QUARTAS #3",qp[2][0],qp[2][1],"3º","6º");
+    matchup(colX1,rowY2,colW,mH,"QUARTAS #2",qp[1][0],qp[1][1],"2º","7º");
+    matchup(colX2,rowY2,colW,mH,"QUARTAS #4",qp[3][0],qp[3][1],"4º","5º");
+    // SEMI
+    const q0=mmSeedById(seeds,st.q[0]),q1=mmSeedById(seeds,st.q[1]),q2=mmSeedById(seeds,st.q[2]),q3=mmSeedById(seeds,st.q[3]);
+    const spY=qpY+qpH+30, spH=288; panel(spY,spH,"SEMI FINAL");
+    const sRow=spY+90;
+    matchup(colX1,sRow,colW,mH,"SEMI #1",q0,q1,"","");
+    matchup(colX2,sRow,colW,mH,"SEMI #2",q2,q3,"","");
+    // FINAL
+    const s0=mmSeedById(seeds,st.s[0]),s1=mmSeedById(seeds,st.s[1]);
+    const champ=mmSeedById(seeds,st.champ);
+    const fY=spY+spH+30, fH=300; panel(fY,fH,"FINAL");
+    const fBlockW=W-2*M-120, fx=(W-fBlockW)/2, fRow=fY+86;
+    matchup(fx,fRow,fBlockW,mH,"FINAL #1",s0,s1,"","");
+    ctx.textAlign="center";
+    if(champ){ ctx.fillStyle="#ffd54a";ctx.font='900 22px "Arial Black",Arial';ctx.fillText("🏆 CAMPEÃO: "+champ.name.toUpperCase(),W/2,fRow+mH+34); }
+    // AGRADECIMENTO + patrocinadores
+    const spBH=150, spBY=H-M-spBH, spBX=M, spBW=W-2*M;
+    ctx.textAlign="center";ctx.fillStyle="#7dd3fc";ctx.font='900 26px Arial';ctx.fillText("AGRADECIMENTO",W/2,spBY-16);
+    if(spImg){ctx.save();_rr(ctx,spBX,spBY,spBW,spBH,16);ctx.clip();_cover(ctx,spImg,spBX,spBY,spBW,spBH);ctx.restore();}
+    ctx.lineWidth=2;ctx.strokeStyle="rgba(56,189,248,.5)";_rr(ctx,spBX,spBY,spBW,spBH,16);ctx.stroke();
+    const fname=`primo-matamata-adulto-${String(m).toLowerCase()}.png`;
+    cv.toBlob((blob)=>{if(!blob){setSync("Não consegui gerar a imagem.","error");return;}_storyBlob=blob;_storyName=fname;const img=document.getElementById("storyPreviewImg");if(img)img.src=URL.createObjectURL(blob);document.getElementById("storyPreviewOverlay")?.classList.remove("hidden");setSync("Prévia do mata-mata gerada. Toque em Baixar/Salvar.","ok");},"image/png");
+  }catch(e){console.error(e);setSync("Erro ao gerar o mata-mata: "+(e.message||e),"error");alert("Não consegui gerar a imagem do mata-mata. Tente de novo.");}
+}
+
 (function(){
   var _renderAllBase = renderAll;
-  renderAll = function(){ _renderAllBase(); fillRankingFilters(); renderReportStudentSelect(); initAdminGate(); };
+  renderAll = function(){ _renderAllBase(); fillRankingFilters(); renderReportStudentSelect(); initAdminGate(); if(typeof renderMmMonthSelect==="function"){renderMmMonthSelect();renderMmWinners();} };
 })();
 initAdminGate();renderAll();
 if(typeof updateConfigLabels==="function")updateConfigLabels();
