@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="73";
+const APP_VERSION="74";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1483,14 +1483,21 @@ function mmQuarterPair(seeds,qi){ const pairs=[[0,7],[1,6],[2,5],[3,4]]; return 
 function renderMmMonthSelect(){
   const sel=document.getElementById("mmMonth"); if(!sel)return;
   const old=sel.value; sel.innerHTML=MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("");
-  sel.value=old||currentMonth; if(!sel.dataset.ready){sel.dataset.ready="1";sel.onchange=renderMmWinners;}
+  if(!sel.dataset.ready){sel.dataset.ready="1";sel.onchange=renderMmWinners;}
+  // escolhe o mês atual; se não tiver classificados do Adulto, pega um mês que tenha
+  let chosen=old||currentMonth;
+  if(mataMataSeeds(chosen).length<2){
+    const withData=MONTHS.find(m=>mataMataSeeds(m).length>=2);
+    if(withData)chosen=withData;
+  }
+  sel.value=chosen;
 }
 function mmOpt(player,sel){ return player?`<option value="${player.id}" ${sel===player.id?"selected":""}>${esc(player.name)}</option>`:""; }
 function renderMmWinners(){
   const box=document.getElementById("mmWinners"); if(!box)return;
   const m=document.getElementById("mmMonth")?.value||currentMonth;
   const seeds=mataMataSeeds(m);
-  if(seeds.length<2){ box.innerHTML=`<p class="smallText">Ainda não há pontuação suficiente no Adulto nas Semanas 1 e 2 para montar o mata-mata (${seeds.length} classificado(s)).</p>`; return; }
+  if(seeds.length<2){ box.innerHTML=`<p class="smallText">Para montar o mata-mata, escolha o <strong>mês da disputa</strong> acima e tenha atletas do <strong>Adulto</strong> com pontos nas <strong>Semanas 1 e 2</strong> desse mês. No mês <strong>${esc(m)}</strong> há ${seeds.length} classificado(s).</p>`; return; }
   const st=mmState(m);
   let html=`<p class="smallText"><strong>Classificados (Semanas 1+2):</strong></p><ol class="mmSeedList">`+seeds.map(s=>`<li>${esc(s.name)} — ${s.pts} pts</li>`).join("")+`</ol>`;
   html+=`<p class="smallText">Escolha quem venceu cada fase (em branco = "A definir"):</p>`;
