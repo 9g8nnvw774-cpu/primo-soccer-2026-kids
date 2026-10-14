@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="80";
+const APP_VERSION="81";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1326,8 +1326,8 @@ function _loadStoryFonts(){
   _psFontsReady=(async()=>{
     try{
       if(!window.FontFace||!document.fonts)return;
-      for(const [w,u] of [["700","montserrat-700.woff2?v=1"],["800","montserrat-800.woff2?v=1"]]){
-        const f=new FontFace("PSMont",`url(${u}) format("woff2")`,{weight:w});
+      for(const [w,u,st] of [["700","montserrat-700.woff2?v=1","normal"],["800","montserrat-800.woff2?v=1","normal"],["600","montserrat-600.woff2?v=1","normal"],["800","montserrat-800i.woff2?v=1","italic"]]){
+        const f=new FontFace("PSMont",`url(${u}) format("woff2")`,{weight:w,style:st});
         await f.load();document.fonts.add(f);
       }
     }catch(e){console.warn("Fonte Montserrat não carregou, usando Arial",e);}
@@ -1360,45 +1360,84 @@ async function downloadStoryImage(type){
     if(limit!=="all")list=list.slice(0,+limit);
     if(!list.length){setSync("Nenhum aluno para gerar a imagem.","warn");alert("Não há alunos com pontos nessa classificação ainda.");return;}
     await _loadStoryFonts();
-    const bg=await _loadImg("bg-classificacao-story.png?v=1");
+    const bg=await _loadImg("bg-classificacao-v2.png?v=1");
     const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
     const W=1080,H=1920;
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
     if(bg)ctx.drawImage(bg,0,0,W,H); else {const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#0a1c44");g.addColorStop(1,"#020714");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
-    // linha abaixo de PRIMO SOCCER (no modelo: "LEAGUE 2026")
-    const line2=type==="general"?"GERAL 2026":(cat==="Adulto"?"LEAGUE 2026":String(cat).toUpperCase());
-    _glowText(ctx,line2,W/2,227,{size:54,weight:700,color:"#ffffff",glow:"rgba(90,190,255,.55)",blur:10,maxW:560});
-    // mês dentro da pílula
-    _glowText(ctx,String(currentMonth||"").toUpperCase(),W/2,446,{size:56,weight:700,color:"#c1f2ff",glow:"rgba(60,190,255,.95)",blur:18,maxW:560});
-    // ===== linhas da classificação =====
-    const rowX=55,rowW=950,top=604,bottom=1546;
+    // ===== textos cromados das pílulas (categoria e mês) =====
+    function chrome(txt,cx,base,size,weightStyle,maxW){
+      ctx.save();ctx.textAlign="center";ctx.textBaseline="alphabetic";
+      let s=size;ctx.font=`${weightStyle} ${s}px ${PSF}`;
+      while(ctx.measureText(txt).width>maxW&&s>20){s--;ctx.font=`${weightStyle} ${s}px ${PSF}`;}
+      ctx.shadowColor="rgba(0,8,40,.75)";ctx.shadowBlur=10;ctx.shadowOffsetY=3;
+      const g=ctx.createLinearGradient(0,base-s*0.74,0,base);
+      g.addColorStop(0,"#ffffff");g.addColorStop(.45,"#f1f5fd");g.addColorStop(.62,"#d3ddf0");g.addColorStop(1,"#a9bbdc");
+      ctx.fillStyle=g;ctx.fillText(txt,cx,base);
+      ctx.shadowColor="transparent";ctx.fillText(txt,cx,base);
+      ctx.restore();
+    }
+    const catLabel=type==="general"?"GERAL":String(cat).replace(/\s*anos?\s*$/i,"").replace(/-/g,"/").toUpperCase();
+    chrome(catLabel,546,367,73,"italic 800",500);
+    chrome(String(currentMonth||"").toUpperCase(),548,470,52,"800",420);
+    // ===== linhas (todas as atletas dentro do painel) =====
+    const X0=102,X1=994,TOP=628,BOT=1482;
     const n=list.length;
-    const pitch=Math.min(58,(bottom-top)/n);
-    const h=Math.max(12,pitch-Math.max(2,Math.round(pitch*0.07)));
-    const s=Math.min(2,Math.max(0.6,h/28));
-    let y=top;
+    const P=Math.min(61,(BOT-TOP)/n);           // altura de cada linha
+    const h=P-Math.max(2,P*0.05);                // barra
+    const rad=Math.min(h*0.32,18);
+    const k=P/60;                                // escala em relação ao modelo
+    const STY={
+      1:{body:[[0,"#87702d"],[.5,"#705b22"],[1,"#836c28"]],tab:[[0,"#e6bb4a"],[.5,"#cfa339"],[1,"#d4a53c"]],top:"rgba(255,232,130,.95)",pos:"#1b2440"},
+      2:{body:[[0,"#273a59"],[.5,"#122648"],[1,"#142b51"]],tab:[[0,"#314668"],[.5,"#15294e"],[1,"#1d2f53"]],top:"rgba(200,210,235,.75)",pos:"#ffffff"},
+      3:{body:[[0,"#6d2f23"],[.5,"#5e281c"],[1,"#6c2d23"]],tab:[[0,"#a74c2c"],[.5,"#7d3a27"],[1,"#834028"]],top:"rgba(255,170,120,.85)",pos:"#ffffff"},
+      0:{body:[[0,"#031b41"],[.5,"#041a3f"],[1,"#061b40"]],tab:[[0,"#13336c"],[.5,"#071c45"],[1,"#061b43"]],top:"rgba(70,140,235,.75)",pos:"#ffffff"}
+    };
     for(let i=0;i<n;i++){
-      const st=list[i],pos=i+1;
-      let fill,border,ptsCol="#ffffff",lw=1.5,glow=null;
-      if(pos===1){const g=ctx.createLinearGradient(0,y,0,y+h);g.addColorStop(0,"rgba(128,104,22,.92)");g.addColorStop(1,"rgba(74,58,10,.92)");fill=g;border="#e3cb4c";ptsCol="#f9b61a";lw=2.5;glow="rgba(240,205,70,.85)";}
-      else if(pos===2){fill="rgba(28,46,84,.88)";border="#e8f0fc";lw=2.5;glow="rgba(230,240,255,.8)";}
-      else if(pos===3){const g=ctx.createLinearGradient(0,y,0,y+h);g.addColorStop(0,"rgba(128,58,30,.9)");g.addColorStop(1,"rgba(82,36,18,.9)");fill=g;border="#f28b51";ptsCol="#f2a072";lw=2.5;glow="rgba(242,139,81,.85)";}
-      else {fill="rgba(6,22,62,.55)";border="rgba(70,135,225,.7)";}
-      _rr(ctx,rowX,y,rowW,h,h/2);ctx.fillStyle=fill;ctx.fill();
-      ctx.save();if(glow){ctx.shadowColor=glow;ctx.shadowBlur=10;}ctx.lineWidth=lw;ctx.strokeStyle=border;_rr(ctx,rowX,y,rowW,h,h/2);ctx.stroke();ctx.restore();
-      const cy=y+h/2,fs=Math.max(9,h*0.52);
-      ctx.textBaseline="middle";
-      ctx.font=`700 ${fs}px ${PSF}`;ctx.fillStyle="#ffffff";ctx.textAlign="center";ctx.fillText(pos+"º",rowX+30*s,cy+1);
-      const r=h*0.40,pcx=rowX+57*s,ph=photos[i];
-      ctx.save();ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.clip();
-      if(ph)_cover(ctx,ph,pcx-r,cy-r,2*r,2*r);else{ctx.fillStyle="#0b1c44";ctx.fillRect(pcx-r,cy-r,2*r,2*r);ctx.fillStyle="#7dd3fc";ctx.font=`700 ${r*0.8}px ${PSF}`;ctx.textAlign="center";ctx.fillText(initials(st.name),pcx,cy+1);}
-      ctx.restore();ctx.lineWidth=1.5;ctx.strokeStyle="#a9dcff";ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.stroke();
-      ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="left";ctx.fillStyle="#ffffff";
-      const nameX=rowX+85*s;
-      ctx.fillText(_fit(ctx,String(st.name).toUpperCase(),rowW-(nameX-rowX)-170*s),nameX,cy+1);
-      ctx.textAlign="right";ctx.fillStyle=ptsCol;ctx.fillText(st.total+" PTS",rowX+rowW-16*s,cy+1);
+      const st=list[i],pos=i+1,S=STY[pos<=3?pos:0];
+      const y=TOP+i*P, cy=y+h/2;
+      // corpo
+      ctx.save();_rr(ctx,X0,y,X1-X0,h,rad);ctx.clip();
+      let g=ctx.createLinearGradient(0,y,0,y+h);S.body.forEach(([o,c])=>g.addColorStop(o,c));ctx.fillStyle=g;ctx.fillRect(X0,y,X1-X0,h);
+      // aba da posição (borda direita inclinada)
+      const tx=X0+120, sl=25*Math.min(1,h/57);
+      g=ctx.createLinearGradient(0,y,0,y+h);S.tab.forEach(([o,c])=>g.addColorStop(o,c));
+      ctx.beginPath();ctx.moveTo(X0,y);ctx.lineTo(tx,y);ctx.lineTo(tx-sl,y+h);ctx.lineTo(X0,y+h);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+      // brilho suave da aba para o corpo
+      const fx=ctx.createLinearGradient(tx-sl,0,tx+40,0);fx.addColorStop(0,"rgba(255,255,255,.07)");fx.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.fillStyle=fx;ctx.fillRect(tx-sl,y,40+sl,h);
+      // luz superior (vidro)
+      const gl=ctx.createLinearGradient(0,y,0,y+h*0.5);gl.addColorStop(0,"rgba(255,255,255,.10)");gl.addColorStop(1,"rgba(255,255,255,0)");
+      ctx.fillStyle=gl;ctx.fillRect(X0,y,X1-X0,h*0.5);
+      ctx.restore();
+      // filete superior + contorno
+      ctx.save();_rr(ctx,X0,y,X1-X0,h,rad);ctx.clip();ctx.strokeStyle=S.top;ctx.lineWidth=Math.max(1.2,2*k);
+      ctx.beginPath();ctx.moveTo(X0+rad*0.6,y+1);ctx.lineTo(X1-rad*0.6,y+1);ctx.stroke();ctx.restore();
+      ctx.save();ctx.lineWidth=1;ctx.strokeStyle="rgba(90,150,230,.35)";_rr(ctx,X0+.5,y+.5,X1-X0-1,h-1,rad);ctx.stroke();ctx.restore();
+      if(pos<=3){ctx.save();ctx.shadowColor=S.top;ctx.shadowBlur=10*k;ctx.lineWidth=1.2;ctx.strokeStyle=S.top.replace(/[\d.]+\)$/,".55)");_rr(ctx,X0,y,X1-X0,h,rad);ctx.stroke();ctx.restore();}
+      // posição
+      const capC=0.70;
       ctx.textBaseline="alphabetic";
-      y+=pitch;
+      let fs=Math.min(35,h*0.62);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="center";ctx.fillStyle=S.pos;
+      if(S.pos==="#ffffff"){ctx.shadowColor="rgba(0,0,0,.45)";ctx.shadowBlur=4*k;}
+      ctx.fillText(pos+"°",X0+59,cy+fs*capC/2);ctx.shadowBlur=0;ctx.shadowColor="transparent";
+      // foto
+      const r=Math.min(26,h*0.45),pcx=X0+170,ph=photos[i];
+      ctx.save();ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.clip();
+      if(ph)_cover(ctx,ph,pcx-r,cy-r,2*r,2*r);else{ctx.fillStyle="#0b1c44";ctx.fillRect(pcx-r,cy-r,2*r,2*r);ctx.fillStyle="#7dd3fc";ctx.font=`700 ${r*0.8}px ${PSF}`;ctx.textAlign="center";ctx.fillText(initials(st.name),pcx,cy+r*0.28);}
+      ctx.restore();
+      ctx.save();ctx.lineWidth=Math.max(1.2,2*k);ctx.strokeStyle="#d8a948";ctx.shadowColor="rgba(0,0,0,.5)";ctx.shadowBlur=3;ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.stroke();ctx.restore();
+      // nome
+      fs=Math.min(30,h*0.57);ctx.font=`600 ${fs}px ${PSF}`;ctx.textAlign="left";ctx.fillStyle="#ffffff";
+      ctx.shadowColor="rgba(0,0,0,.45)";ctx.shadowBlur=4*k;
+      const nameX=X0+249, maxName=(X1-170)-nameX;
+      let nm=String(st.name).toUpperCase();
+      while(ctx.measureText(nm).width>maxName&&fs>10){fs-=0.5;ctx.font=`600 ${fs}px ${PSF}`;}
+      ctx.fillText(_fitDots(ctx,nm,maxName),nameX,cy+fs*capC/2);
+      // pontos
+      fs=Math.min(32,h*0.6);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="right";
+      ctx.fillText(st.total+" PTS",X0+852,cy+fs*capC/2);
+      ctx.shadowBlur=0;ctx.shadowColor="transparent";
     }
     const fname=`primo-${(catName).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}-${String(currentMonth||"").toLowerCase()}.png`;
     _showStoryPreview(cv,fname,"✅ Prévia gerada. Confira e toque em Baixar.");
