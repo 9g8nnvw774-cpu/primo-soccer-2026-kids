@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="78";
+const APP_VERSION="79";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -12,8 +12,8 @@ function bonusFieldsFor(cat){ return cat==="Adulto" ? ["uniforme"] : ["uniforme"
 function bonusLabelsFor(cat){ return cat==="Adulto" ? [["uniforme","Uniforme"]] : [["uniforme","Uniforme"],["fruta","Fruta"],["comportamento","Comport."]]; }
 const DEFAULT_SCHEDULES={"Futbaby 2-3 Anos":["Segunda 11:00 • Futbaby 2-3 anos","Quinta 17:30 • Futbaby 2-3 anos (Capi)","Sexta 17:30 • Futbaby 2-3 anos (Capi)","Sábado 09:30 • Futbaby 2-3 anos (Capi)","Sábado 11:30 • Futbaby 2-3 anos (Capi)"],"Futbaby 4-5 Anos":["Segunda 10:00 • Futbaby 4-5 anos","Terça 10:00 • Futbaby 4-5 anos","Quarta 10:00 • Futbaby 4-5 anos","Quarta 17:30 • Futbaby 4-5 anos","Sexta 09:15 • Futbaby 4-5 anos","Sábado 10:30 • Futbaby 4-5 anos (Capi)"],"Sub 6-7-8 anos":["Terça 10:45 • Sub 6-7-8 anos","Quinta 10:45 • Sub 6-7-8","Sexta 19:10 • Sub 6-7-8 (Capi)"],"Sub 8-9-10 anos":["Segunda 09:15 • Sub 8-9-10 anos","Quarta 09:15 • Sub 8-9-10 anos","Sexta 18:15 • Sub 8-9-10 (Capi)"],"Sub 11-12-13-14 anos":["Terça 15:30 • Sub 11-12-13 anos","Quarta 15:30 • Sub 11-12-13-14"],"Adulto":["Terça 11:30 • Adulto","Quinta 11:30 • Adulto","Terça 18:30 • Adulto","Quinta 18:30 • Adulto","Segunda 19:30 • Adulto","Terça 19:30 • Adulto","Quarta 19:30 • Adulto","Quinta 19:30 • Adulto"]};
 const STORAGE_KEY="primo_soccer_2026_kids_state_v3",MONTH_KEY="primo_soccer_2026_kids_month_v3";
-const APP_TITLE_HTML = "<span>PRIMO SOCCER</span><span>KIDS / INFANTO / JUVENIL</span><span>2026</span>";
-const APP_TITLE_TEXT = "PRIMO SOCCER KIDS / INFANTO / JUVENIL 2026";
+const APP_TITLE_HTML = "<span class=\"htMain\">PRIMO SOCCER</span><span class=\"htLeague\">LEAGUE 2026</span><span class=\"htCats\">KIDS / INFANTO / JUVENIL / ADULTO</span>";
+const APP_TITLE_TEXT = "PRIMO SOCCER LEAGUE 2026";
 const DEFAULT_RULES = `🏆 Regras do campeonato
 • Pontuação por treino: P/D + P/E + bônus.
 • Bônus: uniforme, fruta e comportamento.
