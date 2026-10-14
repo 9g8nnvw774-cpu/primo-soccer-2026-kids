@@ -364,6 +364,11 @@ body.parentMode #appHero .heroChev svg{height:.55em}
       <textarea id="rulesEditor" rows="6" placeholder="Digite as regras do campeonato"></textarea>
       <button onclick="saveRules()" class="success">Salvar regras</button>
       <hr class="softLine">
+      <h3>Regras da categoria Adulto</h3>
+      <p class="smallText">Aparecem no link, na aba <strong>Adulto</strong>, abaixo dos confrontos do mata-mata (no lugar das regras das crianças). Se ficar em branco, o Adulto mostra as regras gerais.</p>
+      <textarea id="rulesAdultEditor" rows="6" placeholder="Digite as regras da categoria Adulto"></textarea>
+      <button onclick="saveAdultRules()" class="success">Salvar regras do Adulto</button>
+      <hr class="softLine">
       <h3>Premiação (aparece no link dos pais)</h3>
       <p class="smallText">Envie <strong>1 imagem</strong> da premiação na proporção <strong>4:5</strong> (ex.: 1080×1350). Ela aparece grande no link dos pais, acima das regras.</p>
       <div id="premioPreview" class="premioPreviewBox"></div>
@@ -388,8 +393,8 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 </main>
 
-<script src="supabase-config.js?v=79"></script>
-<script src="script.js?v=79"></script>
+<script src="supabase-config.js?v=80"></script>
+<script src="script.js?v=80"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>

@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="79";
+const APP_VERSION="80";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -447,6 +447,16 @@ function renderRules(){
   if(dash)dash.innerHTML=rulesHtml();
   const editor=document.getElementById("rulesEditor");
   if(editor&&document.activeElement!==editor)editor.value=state?.settings?.rules||DEFAULT_RULES;
+  const ad=document.getElementById("rulesAdultEditor");
+  if(ad&&document.activeElement!==ad)ad.value=state?.settings?.rulesAdulto||"";
+}
+/* V80 - regras exclusivas da categoria Adulto (aparecem no link, aba Adulto) */
+function saveAdultRules(){
+  if(typeof requireAdmin==="function"&&!requireAdmin())return;
+  const ad=document.getElementById("rulesAdultEditor");
+  state.settings=state.settings||{};
+  state.settings.rulesAdulto=(ad?.value||"").trim();
+  scheduleSave();renderRules();alert("Regras do Adulto atualizadas!");
 }
 function saveRules(){
   const editor=document.getElementById("rulesEditor");
@@ -698,7 +708,7 @@ async function saveCloudRest(){
    dos pais consegue ler. Os dados sensíveis ficam só na tabela protegida. */
 function publicPhotoFor(s){ return s.photoPath ? photoPublicUrl(s.photoPath) : (s.photo||null); }
 function buildPublicState(){
-  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,premioDesc:(state&&state.settings&&state.settings.premioDesc)||"",premios:((state&&state.settings&&state.settings.premios)||[]).filter(Boolean).slice(0,1).map(p=>photoPublicUrl(p)),months:{},generatedAt:new Date().toISOString()};
+  const pub={rules:(state&&state.settings&&state.settings.rules)||DEFAULT_RULES,rulesAdulto:(state&&state.settings&&state.settings.rulesAdulto)||"",premioDesc:(state&&state.settings&&state.settings.premioDesc)||"",premios:((state&&state.settings&&state.settings.premios)||[]).filter(Boolean).slice(0,1).map(p=>photoPublicUrl(p)),months:{},generatedAt:new Date().toISOString()};
   MONTHS.forEach(mo=>{
     const bucket={};
     CATEGORIES.forEach(c=>{
@@ -976,7 +986,8 @@ function renderParentMode(){
   const tabs=document.getElementById("parentCategoryTabs");if(tabs){tabs.innerHTML=CATEGORIES.map(c=>{const active=c[0]===parentCategory?"active":"";return `<button class="btn-${c[1]} ${active}" onclick="setParentCategory('${c[0]}')">${c[0]}</button>`}).join("")}
   const area=document.getElementById("parentRankingArea");if(area){
     const monthList=(parentData&&parentData.months&&parentData.months[parentSelectedMonth]&&parentData.months[parentSelectedMonth][parentCategory])||[];
-    const rules=esc((parentData&&parentData.rules)||DEFAULT_RULES).replace(/\n/g,"<br>");
+    const rulesSrc=(parentCategory==="Adulto"&&parentData&&parentData.rulesAdulto)?parentData.rulesAdulto:((parentData&&parentData.rules)||DEFAULT_RULES);
+    const rules=esc(rulesSrc).replace(/\n/g,"<br>");
     const premioUrl=(parentData&&parentData.premios&&parentData.premios[0])||"";
     const premioDesc=(parentData&&parentData.premioDesc)||"";
     let premioHtml="";
@@ -1179,7 +1190,7 @@ async function adminLogout(){
 }
 function requireAdmin(){if(isParentMode())return false;if(isAdminAuthenticated())return true;showAdminOverlay(true);return false}
 function initAdminGate(){if(isParentMode()){showAdminOverlay(false);return;}const ok=isAdminAuthenticated();showAdminOverlay(!ok);const b=document.getElementById("adminLogoutBtn");if(b)b.classList.toggle("hidden",!ok)}
-["addStudent","editStudent","deleteStudent","addToSchedule","removeFromSchedule","setScore","adjustScore","toggleBonus","clearTrainingScore","finishTraining","copyAgendaFromMonth","clearCategoryAgenda","addCustomSchedule","removeCustomSchedule","saveRules","saveDbConfigFromScreen","uploadCover","clearCover","syncNow"].forEach(name=>{const fn=window[name];if(typeof fn==="function"){window[name]=function(...args){if(!requireAdmin())return;return fn.apply(this,args)}}});
+["addStudent","editStudent","deleteStudent","addToSchedule","removeFromSchedule","setScore","adjustScore","toggleBonus","clearTrainingScore","finishTraining","copyAgendaFromMonth","clearCategoryAgenda","addCustomSchedule","removeCustomSchedule","saveRules","saveAdultRules","saveDbConfigFromScreen","uploadCover","clearCover","syncNow"].forEach(name=>{const fn=window[name];if(typeof fn==="function"){window[name]=function(...args){if(!requireAdmin())return;return fn.apply(this,args)}}});
 
 const normBaseV32 = norm;
 norm = function(){normBaseV32();Object.values(state.months||{}).forEach(m=>{Object.values(m.participants||{}).forEach(p=>{if(!p.presence)p.presence=Array.from({length:5},()=>({}));if(!Array.isArray(p.presence))p.presence=Array.from({length:5},(_,i)=>p.presence?.[i]||{});(p.weeks||[]).forEach(wk=>{Object.values(wk||{}).forEach(sc=>{if(sc){["uniforme","fruta","comportamento"].forEach(f=>{if(+sc[f]===5)sc[f]=2;});}});});});});state.schemaVersion=32;};
@@ -1584,7 +1595,8 @@ async function downloadMataMata(){
     const finCols=[[295,533],[550,786]],finRow=[1461,1622];
     function drawInBox(x0,x1,y0,y1,pl,seedLabel,champ){
       const w=x1-x0,h=y1-y0,cx=(x0+x1)/2;
-      const r=Math.min(w*0.295,h*0.40), pcy=y0+Math.min(h*0.376,r+10);
+      // área da foto em cima; nome e pontuação embaixo
+      const r=Math.min(w*0.295,(h-62)/2), pcy=y0+8+(h-62)/2;
       if(seedLabel){ctx.save();ctx.font=`700 22px ${PSF}`;ctx.textAlign="left";ctx.fillStyle="#fbe7b5";ctx.shadowColor="rgba(0,0,0,.7)";ctx.shadowBlur=4;ctx.fillText(seedLabel,x0+12,y0+26);ctx.restore();}
       if(pl){
         ctx.save();ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.clip();const ph=photos[pl.id];
@@ -1592,22 +1604,24 @@ async function downloadMataMata(){
         ctx.restore();
         const ring=champ?"#ffd54a":"#6fd6ff";
         ctx.save();ctx.lineWidth=4;ctx.strokeStyle=ring;ctx.shadowColor=ring;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.stroke();ctx.stroke();ctx.restore();
-        ctx.save();let nfs=22;const nm=String(pl.name).toUpperCase();ctx.font=`700 ${nfs}px ${PSF}`;
-        while(ctx.measureText(nm).width>w-20&&nfs>17){nfs--;ctx.font=`700 ${nfs}px ${PSF}`;}
+        ctx.save();let nfs=21;const nm=String(pl.name).toUpperCase();ctx.font=`700 ${nfs}px ${PSF}`;
+        while(ctx.measureText(nm).width>w-20&&nfs>16){nfs--;ctx.font=`700 ${nfs}px ${PSF}`;}
         ctx.textAlign="center";ctx.fillStyle="#ffffff";ctx.shadowColor="rgba(0,0,0,.75)";ctx.shadowBlur=5;
-        ctx.fillText(_fitDots(ctx,nm,w-20),cx,y1-15);ctx.restore();
+        ctx.fillText(_fitDots(ctx,nm,w-20),cx,y1-33);ctx.restore();
+        // pontuação do atleta (amarelo)
+        _glowText(ctx,(pl.pts||0)+" PTS",cx,y1-11,{size:19,weight:800,color:"#ffd54a",glow:"rgba(255,200,40,.75)",blur:8,maxW:w-24});
       }else{
         ctx.save();ctx.setLineDash([7,6]);ctx.lineWidth=2.5;ctx.strokeStyle="rgba(170,215,250,.85)";ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.stroke();ctx.restore();
         _glowText(ctx,"?",cx,pcy+Math.round(r*0.36),{size:Math.round(r*1.0),weight:700,color:"#7dd2f6",glow:"rgba(80,190,255,.8)",blur:10});
-        ctx.save();ctx.font=`700 18px ${PSF}`;ctx.textAlign="center";ctx.fillStyle="#99b9e2";ctx.fillText("A DEFINIR",cx,y1-18);ctx.restore();
+        ctx.save();ctx.font=`700 18px ${PSF}`;ctx.textAlign="center";ctx.fillStyle="#99b9e2";ctx.fillText("A DEFINIR",cx,y1-22);ctx.restore();
       }
     }
-    // Quartas: coluna = confronto (cima = melhor seed, baixo = pior) -> 1x8, 2x7, 3x6, 4x5
-    const seedTop=[0,1,2,3], seedBot=[7,6,5,4];
-    for(let c=0;c<4;c++){
-      drawInBox(cols[c][0],cols[c][1],rowA[0],rowA[1],seeds[seedTop[c]]||null,(seedTop[c]+1)+"º");
-      drawInBox(cols[c][0],cols[c][1],rowB[0],rowB[1],seeds[seedBot[c]]||null,(seedBot[c]+1)+"º");
-    }
+    // Quartas: o X fica entre as caixas lado a lado, então cada par lado a lado é um confronto
+    // Linha 1: 1º x 8º | 2º x 7º   ·   Linha 2: 3º x 6º | 4º x 5º
+    const qLayout=[[0,7,1,6],[2,5,3,4]];
+    [rowA,rowB].forEach((row,ri)=>{
+      for(let c=0;c<4;c++){const sd=qLayout[ri][c];drawInBox(cols[c][0],cols[c][1],row[0],row[1],seeds[sd]||null,(sd+1)+"º");}
+    });
     // Semi: vencedores das quartas
     for(let c=0;c<4;c++) drawInBox(cols[c][0],cols[c][1],rowS[0],rowS[1],mmSeedById(seeds,st.q[c]),"");
     // Final: vencedores das semis
