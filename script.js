@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="81";
+const APP_VERSION="82";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1364,6 +1364,9 @@ async function downloadStoryImage(type){
     const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
     const W=1080,H=1920;
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
+    ctx.fillStyle="#04112e";ctx.fillRect(0,0,W,H);
+    // V82 - amplia 1,3% (arte + conteúdo juntos) para esconder as bordinhas brancas da arte
+    const ZS=W/1066; ctx.setTransform(ZS,0,0,ZS,-9*ZS,-9*ZS);
     if(bg)ctx.drawImage(bg,0,0,W,H); else {const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#0a1c44");g.addColorStop(1,"#020714");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
     // ===== textos cromados das pílulas (categoria e mês) =====
     function chrome(txt,cx,base,size,weightStyle,maxW){
