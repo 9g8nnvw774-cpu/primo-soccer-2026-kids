@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="82";
+const APP_VERSION="83";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -40,7 +40,16 @@ function participant(id,create=true,m=currentMonth){const mo=monthObj(m);if(!mo.
 function emptyScore(){return{pd:0,pe:0,uniforme:0,fruta:0,comportamento:0}}
 function getScore(id,w,sch){const p=participant(id);if(!p.weeks[w])p.weeks[w]={};if(!p.weeks[w][sch])p.weeks[w][sch]=emptyScore();return p.weeks[w][sch]}
 function scoreTotal(sc){return(+sc.pd||0)+(+sc.pe||0)+(+sc.uniforme||0)+(+sc.fruta||0)+(+sc.comportamento||0)}
-function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if(!p)return 0;return(p.weeks||[]).reduce((a,w)=>a+Object.values(w||{}).reduce((b,sc)=>b+scoreTotal(sc),0),0)}
+/* V83 - Nas categorias abaixo, se o aluno treina 2x na semana, vale só a MAIOR pontuação da semana (não soma os dois treinos) */
+const BEST_OF_WEEK_CATEGORIES=["Futbaby 4-5 Anos","Sub 6-7-8 anos","Sub 8-9-10 anos","Sub 11-12-13-14 anos"];
+function isBestOfWeek(cat){return BEST_OF_WEEK_CATEGORIES.includes(cat)}
+function weekPoints(w,cat,scheduleFilter){
+  const vals=Object.entries(w||{}).filter(([sch])=>!scheduleFilter||scheduleFilter==="all"||sch===scheduleFilter).map(([,sc])=>scoreTotal(sc||{}));
+  if(!vals.length)return 0;
+  return isBestOfWeek(cat)?Math.max(...vals):vals.reduce((a,b)=>a+b,0);
+}
+function studentCat(id){const s=state.students.find(x=>x.id===id);return s?s.category:""}
+function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if(!p)return 0;const cat=studentCat(id);return(p.weeks||[]).reduce((a,w)=>a+weekPoints(w,cat,"all"),0)}
 function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthObj(m).participants||{}).filter(([id,p])=>p.schedules&&p.schedules.length).map(([id])=>id));return state.students.filter(s=>s.active!==false&&ids.has(s.id))}
 function activeByCategory(cat=activeCategory){return activeStudents().filter(s=>s.category===cat)}
 function ranked(cat=null){return activeStudents().filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
@@ -1237,7 +1246,7 @@ function syncScoreScroll(){
 const finishTrainingV32Base = finishTraining;
 finishTraining = async function(){if(!requireAdmin())return;const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(sch){activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch)).forEach(s=>{if(!getPresence(s.id,week,sch))setPresence(s.id,week,sch,true)});}return finishTrainingV32Base();};
 
-function totalStudentFiltered(id,m=currentMonth,weekFilter="all",scheduleFilter="all"){const p=monthObj(m).participants[id];if(!p)return 0;const weeks=p.weeks||[];return weeks.reduce((sum,w,i)=>{if(weekFilter!=="all"&&String(i)!==String(weekFilter))return sum;return sum+Object.entries(w||{}).reduce((s,[sch,sc])=>{if(scheduleFilter!=="all"&&sch!==scheduleFilter)return s;return s+scoreTotal(sc)},0)},0)}
+function totalStudentFiltered(id,m=currentMonth,weekFilter="all",scheduleFilter="all"){const p=monthObj(m).participants[id];if(!p)return 0;const cat=studentCat(id);const weeks=p.weeks||[];return weeks.reduce((sum,w,i)=>{if(weekFilter!=="all"&&String(i)!==String(weekFilter))return sum;return sum+weekPoints(w,cat,scheduleFilter)},0)}
 function rankedFiltered(cat,m,weekFilter,scheduleFilter){return activeStudents(m).filter(s=>!cat||cat==="all"||s.category===cat).map(s=>({...s,total:totalStudentFiltered(s.id,m,weekFilter,scheduleFilter)})).filter(s=>s.total>0||presenceCount(s.id,m)>0).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 function fillRankingFilters(){const m=document.getElementById("rankingMonthFilter"),c=document.getElementById("rankingCategoryFilter"),sch=document.getElementById("rankingScheduleFilter");if(m&&!m.dataset.ready){m.innerHTML=MONTHS.map(x=>`<option value="${x}">${x}</option>`).join("");m.dataset.ready="1"}if(m)m.value=m.value||currentMonth;if(c&&!c.dataset.ready){c.innerHTML=`<option value="all">Todas as categorias</option>`+CATEGORIES.map(x=>`<option value="${x[0]}">${x[0]}</option>`).join("");c.dataset.ready="1"}if(sch){const cat=c?.value||"all";const all=[...new Set((cat==="all"?CATEGORIES.flatMap(x=>schedulesFor(x[0])):schedulesFor(cat)))];const old=sch.value;sch.innerHTML=`<option value="all">Todos os horários</option>`+all.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");if([...sch.options].some(o=>o.value===old))sch.value=old}}
 renderRankings = function(){
