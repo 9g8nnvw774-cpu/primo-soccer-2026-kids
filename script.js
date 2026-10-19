@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="83";
+const APP_VERSION="84";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1644,7 +1644,7 @@ async function downloadMataMata(){
     const cols=[[62,286],[310,532],[553,776],[798,1022]];
     const rowA=[505,707],rowB=[861,1066],rowS=[1208,1387];
     const finCols=[[295,533],[550,786]],finRow=[1461,1622];
-    function drawInBox(x0,x1,y0,y1,pl,seedLabel,champ){
+    function drawInBox(x0,x1,y0,y1,pl,seedLabel,champ,wk){ /* wk: semana dos pontos (2=3ª quartas, 3=4ª semi, 4=5ª final) */
       const w=x1-x0,h=y1-y0,cx=(x0+x1)/2;
       // área da foto em cima; nome e pontuação embaixo
       const r=Math.min(w*0.295,(h-62)/2), pcy=y0+8+(h-62)/2;
@@ -1660,7 +1660,7 @@ async function downloadMataMata(){
         ctx.textAlign="center";ctx.fillStyle="#ffffff";ctx.shadowColor="rgba(0,0,0,.75)";ctx.shadowBlur=5;
         ctx.fillText(_fitDots(ctx,nm,w-20),cx,y1-33);ctx.restore();
         // pontuação do atleta (amarelo)
-        _glowText(ctx,(pl.pts||0)+" PTS",cx,y1-11,{size:19,weight:800,color:"#ffd54a",glow:"rgba(255,200,40,.75)",blur:8,maxW:w-24});
+        _glowText(ctx,(wk!=null?totalStudentFiltered(pl.id,m,String(wk),"all"):(pl.pts||0))+" PTS",cx,y1-11,{size:19,weight:800,color:"#ffd54a",glow:"rgba(255,200,40,.75)",blur:8,maxW:w-24});
       }else{
         ctx.save();ctx.setLineDash([7,6]);ctx.lineWidth=2.5;ctx.strokeStyle="rgba(170,215,250,.85)";ctx.beginPath();ctx.arc(cx,pcy,r,0,7);ctx.stroke();ctx.restore();
         _glowText(ctx,"?",cx,pcy+Math.round(r*0.36),{size:Math.round(r*1.0),weight:700,color:"#7dd2f6",glow:"rgba(80,190,255,.8)",blur:10});
@@ -1671,14 +1671,14 @@ async function downloadMataMata(){
     // Linha 1: 1º x 8º | 2º x 7º   ·   Linha 2: 3º x 6º | 4º x 5º
     const qLayout=[[0,7,1,6],[2,5,3,4]];
     [rowA,rowB].forEach((row,ri)=>{
-      for(let c=0;c<4;c++){const sd=qLayout[ri][c];drawInBox(cols[c][0],cols[c][1],row[0],row[1],seeds[sd]||null,(sd+1)+"º");}
+      for(let c=0;c<4;c++){const sd=qLayout[ri][c];drawInBox(cols[c][0],cols[c][1],row[0],row[1],seeds[sd]||null,(sd+1)+"º",false,2);}
     });
     // Semi: vencedores das quartas
-    for(let c=0;c<4;c++) drawInBox(cols[c][0],cols[c][1],rowS[0],rowS[1],mmSeedById(seeds,st.q[c]),"");
+    for(let c=0;c<4;c++) drawInBox(cols[c][0],cols[c][1],rowS[0],rowS[1],mmSeedById(seeds,st.q[c]),"",false,3);
     // Final: vencedores das semis
     const sw=[mmSeedById(seeds,st.s[0]),mmSeedById(seeds,st.s[1])];
     const champ=mmSeedById(seeds,st.champ);
-    for(let c=0;c<2;c++) drawInBox(finCols[c][0],finCols[c][1],finRow[0],finRow[1],sw[c],"",!!(champ&&sw[c]&&champ.id===sw[c].id));
+    for(let c=0;c<2;c++) drawInBox(finCols[c][0],finCols[c][1],finRow[0],finRow[1],sw[c],"",!!(champ&&sw[c]&&champ.id===sw[c].id),4);
     // Pílula do campeão
     if(champ) _glowText(ctx,String(champ.name).toUpperCase(),W/2,1704,{size:34,weight:800,color:"#ffe08a",glow:"rgba(255,200,60,.95)",blur:16,maxW:220});
     else _glowText(ctx,"CAMPEÃO",W/2,1706,{size:40,weight:800,color:"#ffec9d",glow:"rgba(255,200,60,.95)",blur:16,maxW:225});
