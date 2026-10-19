@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="84";
+const APP_VERSION="85";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -48,6 +48,8 @@ function weekPoints(w,cat,scheduleFilter){
   if(!vals.length)return 0;
   return isBestOfWeek(cat)?Math.max(...vals):vals.reduce((a,b)=>a+b,0);
 }
+/* V85 - valor de cada bônus: no Adulto o uniforme vale 7; nas demais categorias, 2 */
+function bonusPoints(cat,field){return (cat==="Adulto"&&field==="uniforme")?7:2}
 function studentCat(id){const s=state.students.find(x=>x.id===id);return s?s.category:""}
 function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if(!p)return 0;const cat=studentCat(id);return(p.weeks||[]).reduce((a,w)=>a+weekPoints(w,cat,"all"),0)}
 function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthObj(m).participants||{}).filter(([id,p])=>p.schedules&&p.schedules.length).map(([id])=>id));return state.students.filter(s=>s.active!==false&&ids.has(s.id))}
@@ -383,7 +385,7 @@ function updateScoreDisplays(id,week,sch){
 function toggleBonus(id,week,sch,field,el){
   if(el&&el.blur)el.blur();
   const sc=getScore(id,week,sch);
-  sc[field]=(+sc[field]||0)>0?0:2;
+  sc[field]=(+sc[field]||0)>0?0:bonusPoints(studentCat(id),field);
   updateScoreDisplays(id,week,sch);
   scheduleSave(250);
   renderRankings();
@@ -1686,6 +1688,21 @@ async function downloadMataMata(){
   }catch(e){console.error(e);setSync("Erro ao gerar o mata-mata: "+(e.message||e),"error");alert("Não consegui gerar a imagem do mata-mata. Tente de novo.");}
 }
 
+
+/* V85 - converte uniformes do Adulto já marcados (2) para o novo valor (7) */
+(function(){
+  var _normV85=norm;
+  norm=function(){
+    _normV85.apply(this,arguments);
+    try{
+      const adult=new Set((state.students||[]).filter(s=>s.category==="Adulto").map(s=>s.id));
+      Object.values(state.months||{}).forEach(mo=>{Object.entries((mo&&mo.participants)||{}).forEach(([id,p])=>{
+        if(!adult.has(id))return;
+        (p.weeks||[]).forEach(w=>Object.values(w||{}).forEach(sc=>{if(sc&&(+sc.uniforme||0)>0&&+sc.uniforme!==7)sc.uniforme=7;}));
+      });});
+    }catch(e){}
+  };
+})();
 (function(){
   var _renderAllBase = renderAll;
   renderAll = function(){ _renderAllBase(); fillRankingFilters(); renderReportStudentSelect(); initAdminGate(); if(typeof renderMmMonthSelect==="function"){renderMmMonthSelect();renderMmWinners();} };
