@@ -1,5 +1,5 @@
 /* =====================================================================
-   V89 - GESTÃO: planos, mensalidades (parcelas), baixa, agenda/vagas e valores
+   V90 - GESTÃO: planos, mensalidades (parcelas), baixa, fluxo de caixa, agenda/vagas e valores
    - Os dados financeiros ficam na tabela primo_finance (separada).
      Só o login do dono lê/grava (RLS + função is_primo_admin).
    - Nada daqui vai para o link dos pais.
@@ -9,7 +9,7 @@
 "use strict";
 if(typeof window==="undefined")return;
 
-const G_VERSION="89";
+const G_VERSION="90";
 const FIN_TABLE="primo_finance";
 const PENDING_KEY="primo_gestao_pendente_v1";
 const DIAS=[["Segunda","SEG"],["Terça","TER"],["Quarta","QUA"],["Quinta","QUI"],["Sexta","SEX"],["Sábado","SÁB"],["Domingo","DOM"]];
@@ -282,12 +282,12 @@ function vagaTxt(free){return free<0?`${-free} acima`:free===0?"lotado":free===1
 function refresh(){if(gVisible())gRender();renderPlanFormState();}
 function gRender(){
   const root=$("gestaoRoot"); if(!root)return;
-  const tabs=[["resumo","Resumo"],["baixa","Baixa"],["mensal","Mensalidades"],["planos","Planos"],["agenda","Agenda"],["valores","Valores"],["ajustes","Ajustes"]];
+  const tabs=[["resumo","Resumo"],["baixa","Baixa"],["fluxo","Fluxo"],["mensal","Mensalidades"],["planos","Planos"],["agenda","Agenda"],["valores","Valores"],["ajustes","Ajustes"]];
   root.innerHTML=`
     <div class="gHead"><h2>Gestão</h2><p>Planos, mensalidades, vagas e valores · só você vê esta aba</p></div>
     ${statusCard()}
     <div class="gChips" role="tablist">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-v="${k}" class="${ui.tab===k?"on":""}">${l}</button>`).join("")}</div>
-    <div id="gBody">${({resumo:viewResumo,baixa:viewBaixa,mensal:viewMensal,planos:viewPlanos,agenda:viewAgenda,valores:viewValores,ajustes:viewAjustes}[ui.tab]||viewResumo)()}</div>`;
+    <div id="gBody">${({resumo:viewResumo,baixa:viewBaixa,fluxo:viewFluxo,mensal:viewMensal,planos:viewPlanos,agenda:viewAgenda,valores:viewValores,ajustes:viewAjustes}[ui.tab]||viewResumo)()}</div>`;
 }
 function statusCard(){
   if(finStatus==="ok")return "";
@@ -299,16 +299,16 @@ function statusCard(){
 
 /* RESUMO */
 function viewResumo(){
-  const F=VIEW(),list=chargesFor(ui.ym),t=totals(list),cells=Object.values(agendaCells());
-  const lucro=list.filter(c=>c.status!=="semplano"&&c.status!=="bolsa").reduce((s,c)=>s+lucroAluno(c.s,c.valor,F),0);
+  const F=VIEW(),list=chargesFor(ui.ym),t=totals(list),cells=Object.values(agendaCells()),d=fluxoDados(ui.ym);
   const freeT=cells.reduce((s,c)=>s+Math.max(0,c.free),0),capT=cells.reduce((s,c)=>s+c.cap,0),nT=cells.reduce((s,c)=>s+c.n,0);
   const comPlano=students().filter(s=>F.plans[s.id]).length;
   const pctRec=t.previsto?Math.round(t.recebido/t.previsto*100):0;
   const alerts=[];
-  const atr=list.filter(c=>c.status==="atrasado");
-  if(atr.length)alerts.push(["r","⏰",`${atr.length} mensalidade(s) em atraso · ${brl(t.atrasado)}`,atr.slice(0,6).map(c=>c.s.name).join(", ")+(atr.length>6?"…":""),"mensal","atrasado"]);
-  const venc=students().map(s=>({s,pl:F.plans[s.id]})).filter(x=>x.pl).map(x=>({...x,st:planState(x.pl)})).filter(x=>x.st.lvl==="r"||x.st.lvl==="y");
-  if(venc.length)alerts.push(["y","📅",`${venc.length} plano(s) vencendo ou vencido(s)`,venc.slice(0,6).map(x=>x.s.name).join(", ")+(venc.length>6?"…":""),"planos","vencendo"]);
+  if(d.atr.length)alerts.push(["r","⏰",`${d.atr.length} aluno(s) com mensalidade atrasada · ${brl(d.totAtr)}`,d.atr.slice(0,6).map(a=>a.s.name+(a.itens.length>1?` (${a.itens.length})`:"")).join(", ")+(d.atr.length>6?"…":""),"fluxo",""]);
+  const enc=list.filter(c=>c.status==="encerrado");
+  if(enc.length)alerts.push(["y","🔁",`${enc.length} plano(s) para renovar`,enc.slice(0,6).map(c=>c.s.name).join(", "),"mensal","encerrado"]);
+  const venc=students().map(s=>({s,pl:F.plans[s.id]})).filter(x=>x.pl).map(x=>({...x,st:planState(x.pl)})).filter(x=>x.st.lvl==="y");
+  if(venc.length)alerts.push(["y","📅",`${venc.length} plano(s) acabando nos próximos 30 dias`,venc.slice(0,6).map(x=>x.s.name).join(", ")+(venc.length>6?"…":""),"planos","vencendo"]);
   const sem=students().filter(s=>!F.plans[s.id]);
   if(sem.length)alerts.push(["y","⚠️",`${sem.length} aluno(s) sem plano lançado`,sem.slice(0,6).map(s=>s.name).join(", ")+(sem.length>6?"…":""),"planos","semplano"]);
   const mat=students().filter(s=>{const pl=F.plans[s.id];return pl&&pl.matricula&&!pl.matricula.pagoEm;});
@@ -318,11 +318,11 @@ function viewResumo(){
    ${monthNav()}
    <div class="gCard">
      <div class="gKpis">
-       <div class="gKpi big"><span>Previsto em ${e(ymLabel(ui.ym))}</span><b>${brl(t.previsto)}</b><div class="gBar"><i style="width:${pctRec}%"></i></div><small>${pctRec}% recebido</small></div>
-       <div class="gKpi ok"><span>Recebido</span><b>${brl(t.recebido)}</b><small>${t.nPago} pagamento(s)</small></div>
-       <div class="gKpi bad"><span>Em atraso</span><b>${brl(t.atrasado)}</b><small>${t.nAtrasado} aluno(s)</small></div>
-       <div class="gKpi"><span>A vencer</span><b>${brl(t.aReceber)}</b><small>${t.nAvencer} aluno(s)</small></div>
-       <div class="gKpi"><span>Seu lucro estimado</span><b>${brl(lucro)}</b><small>${F.settings.ownPct}% seus horários · ${(F.settings.repasse[0]||{}).pct??14}% outro prof.</small></div>
+       <div class="gKpi big" data-act="tab" data-v="fluxo"><span>Entrou no caixa em ${e(ymLabel(ui.ym))}</span><b>${brl(d.caixa.total)}</b><small>${d.caixa.atrasada?`inclui ${brl(d.caixa.atrasada)} de meses anteriores · `:""}${d.rec.length} recebimento(s) · ver fluxo ›</small></div>
+       <div class="gKpi"><span>Mensalidades do mês</span><b>${brl(t.previsto)}</b><div class="gBar"><i style="width:${pctRec}%"></i></div><small>${pctRec}% recebido</small></div>
+       <div class="gKpi bad"><span>Em atraso (todos os meses)</span><b>${brl(d.totAtr)}</b><small>${d.nAtrMeses} mensalidade(s) · ${d.atr.length} aluno(s)</small></div>
+       <div class="gKpi"><span>Em aberto (a vencer)</span><b>${brl(t.aReceber)}</b><small>${t.nAvencer} aluno(s)</small></div>
+       <div class="gKpi ok"><span>Seu lucro (caixa)</span><b>${brl(d.dist.seu)}</b><small>${F.settings.ownPct}% seus horários · ${(F.settings.repasse[0]||{}).pct??14}% outro prof.</small></div>
        <div class="gKpi"><span>Alunos com plano</span><b>${comPlano}/${students().length}</b><small>${t.nBolsa} bolsista(s)</small></div>
        <div class="gKpi"><span>Vagas livres</span><b>${freeT}</b><small>${nT} de ${capT} ocupadas</small></div>
      </div>
@@ -332,6 +332,192 @@ function viewResumo(){
    </div>`;
 }
 function monthNav(){return `<div class="gMonth"><button type="button" data-act="ym" data-v="-1" aria-label="Mês anterior">‹</button><b>${e(ymLabel(ui.ym))}</b><button type="button" data-act="ym" data-v="1" aria-label="Próximo mês">›</button></div>`;}
+
+/* ---------- FLUXO DE CAIXA: pelo dia em que o dinheiro entrou ---------- */
+/* divide um valor recebido entre seu lucro, despesas e repasse ao outro professor */
+function splitValor(s,valor,F){
+  F=F||VIEW();const own=+F.settings.ownPct||0;
+  const sch=s?studentScheds(s.id):[];
+  const r={seu:0,desp:0,rep:0};
+  if(!sch.length){r.seu=valor*own/100;r.desp=valor-r.seu;return r;}
+  sch.forEach(x=>{const v=valor/sch.length,pf=pctFor(x,F);const meu=v*pf.pct/100;r.seu+=meu;if(pf.outro)r.rep+=v-meu;else r.desp+=v-meu;});
+  return r;
+}
+function recebimentosDoMes(ym){
+  const F=VIEW(),out=[];
+  Object.entries(F.payments||{}).forEach(([comp,m])=>Object.entries(m||{}).forEach(([id,p])=>{
+    if(!p||!p.pagoEm||ymOf(p.pagoEm)!==ym)return;
+    const s=studentById(id),c=s?chargeFor(s,comp,F):null;
+    out.push({id,s,nome:s?s.name:"(aluno removido)",cat:s?s.category:"",comp,pay:p,valor:+p.valor||0,parc:c&&c.parc,
+      tipo:comp===ym?"mes":comp<ym?"atrasada":"adiantada"});
+  }));
+  Object.entries(F.plans||{}).forEach(([id,pl])=>{
+    const m=pl&&pl.matricula;if(!m||!m.pagoEm||ymOf(m.pagoEm)!==ym)return;
+    const s=studentById(id);
+    out.push({id,s,nome:s?s.name:"(aluno removido)",cat:s?s.category:"",comp:ym,pay:{pagoEm:m.pagoEm,forma:m.forma||""},valor:+m.valor||0,tipo:"matricula"});
+  });
+  return out.sort((a,b)=>a.pay.pagoEm.localeCompare(b.pay.pagoEm)||a.nome.localeCompare(b.nome));
+}
+/* mensalidades atrasadas (situação de hoje) de todos os meses até ymLim */
+function atrasosAte(ymLim){
+  const F=VIEW(),today=todayISO(),ctl=F.settings.inicioControle,out=[];
+  if(!ymLim||ymLim<ctl)return out;
+  students().forEach(s=>{
+    if(!F.plans[s.id])return;
+    const itens=[];
+    for(let ym=ctl;ym<=ymLim;ym=ymAdd(ym,1)){const c=chargeFor(s,ym,F,today);if(c&&c.status==="atrasado")itens.push(c);}
+    if(itens.length)out.push({s,itens,total:itens.reduce((t,c)=>t+c.valor,0)});
+  });
+  return out.sort((a,b)=>b.total-a.total||a.s.name.localeCompare(b.s.name));
+}
+function fluxoDados(ym){
+  const F=VIEW(),rec=recebimentosDoMes(ym),comp=chargesFor(ym),tc=totals(comp);
+  const soma=f=>rec.filter(f).reduce((t,r)=>t+r.valor,0);
+  const caixa={mes:soma(r=>r.tipo==="mes"),atrasada:soma(r=>r.tipo==="atrasada"),adiantada:soma(r=>r.tipo==="adiantada"),matricula:soma(r=>r.tipo==="matricula")};
+  caixa.total=caixa.mes+caixa.atrasada+caixa.adiantada+caixa.matricula;
+  const formas={};rec.forEach(r=>{const k=r.pay.forma||"Sem forma informada";formas[k]=(formas[k]||0)+r.valor;});
+  const dist={seu:0,desp:0,rep:0};rec.filter(r=>r.tipo!=="matricula").forEach(r=>{const x=splitValor(r.s,r.valor,F);dist.seu+=x.seu;dist.desp+=x.desp;dist.rep+=x.rep;});
+  const abertos=comp.filter(c=>c.status==="avencer");
+  const atr=atrasosAte(ym>ymToday()?ymToday():ym);
+  return {F,ym,rec,caixa,formas,dist,abertos,atr,tc,
+    totAberto:abertos.reduce((t,c)=>t+c.valor,0),
+    totAtr:atr.reduce((t,a)=>t+a.total,0),
+    nAtrMeses:atr.reduce((t,a)=>t+a.itens.length,0)};
+}
+const TIPO_LBL={mes:"do mês",atrasada:"atrasada",adiantada:"adiantada",matricula:"uniforme/matrícula"};
+function refTxt(r){return r.tipo==="matricula"?"Uniforme/matrícula":`${mesAbr(r.comp)}${r.parc?` · ${r.parc.n}/${r.parc.total}`:""}`;}
+
+function viewFluxo(){
+  const d=fluxoDados(ui.ym),c=d.caixa;
+  const recList=d.rec.map(r=>`<div class="gRow sm" ${r.tipo==="matricula"?`data-act="plan"`:`data-act="pay" data-ym="${r.comp}"`} data-id="${e(r.id)}">
+     <div><b>${e(r.nome)}${r.tipo!=="mes"?` <span class="gTag ${r.tipo==="atrasada"?"y":r.tipo==="adiantada"?"b":"p"}">${e(TIPO_LBL[r.tipo])}</span>`:""}</b><small>${brShort(r.pay.pagoEm)} · ${e(refTxt(r))} · ${e(r.pay.forma||"—")}${r.pay.pontualidade?" · c/ pontualidade":""}</small></div>
+     <div class="r"><b>${brl(r.valor)}</b></div></div>`).join("");
+  const atrList=d.atr.map(a=>`<div class="gBx"><div class="gBxTop" data-act="plan" data-id="${e(a.s.id)}"><div><b>${e(a.s.name)}</b><small>${e(shortCat(a.s.category))} · ${a.itens.length} mensalidade(s)</small></div><b class="gNeg">${brl(a.total)}</b></div>
+     <div class="gMeses">${a.itens.map(x=>`<button type="button" class="gMes a" data-act="pay" data-id="${e(a.s.id)}" data-ym="${x.ym}" title="${e(ymLabel(x.ym))}"><b>${MES_ABR[+x.ym.slice(5)-1]}</b><i>${x.parc?x.parc.n+"/"+x.parc.total:"!"}</i></button>`).join("")}</div></div>`).join("");
+  return `
+   ${monthNav()}
+   <div class="gTiles four">
+     <div class="ok"><span>Entrou no caixa</span><b>${brl(c.total)}</b></div>
+     <div><span>Em aberto</span><b>${brl(d.totAberto)}</b></div>
+     <div class="bad"><span>Em atraso</span><b>${brl(d.totAtr)}</b></div>
+     <div><span>Previsto do mês</span><b>${brl(d.tc.previsto)}</b></div>
+   </div>
+   <button type="button" class="gBtn" data-act="relatorio">🖨️ Ver relatório para imprimir / PDF</button>
+   <div class="gCard"><h3>Entrou no caixa <small>pela data do pagamento</small></h3>
+     <div class="gLines">
+       <div><span>Mensalidades de ${e(MONTHS[+ui.ym.slice(5)-1].toLowerCase())}</span><b>${brl(c.mes)}</b></div>
+       <div><span>Atrasadas de meses anteriores</span><b>${brl(c.atrasada)}</b></div>
+       ${c.adiantada?`<div><span>Adiantadas (meses seguintes)</span><b>${brl(c.adiantada)}</b></div>`:""}
+       <div><span>Uniformes / matrículas</span><b>${brl(c.matricula)}</b></div>
+       <div class="tot"><span>Total</span><b>${brl(c.total)}</b></div>
+     </div>
+     ${Object.keys(d.formas).length?`<p class="gNote">${Object.entries(d.formas).map(([k,v])=>`${e(k)} ${brl(v)}`).join(" · ")}</p>`:""}
+     <div class="gLines sub">
+       <div><span>Seu lucro estimado</span><b class="pos">${brl(d.dist.seu)}</b></div>
+       <div><span>Despesas (${100-(+d.F.settings.ownPct||0)}% dos seus horários)</span><b>${brl(d.dist.desp)}</b></div>
+       ${d.dist.rep?`<div><span>Repasse a ${e(d.F.settings.profNome)}</span><b>${brl(d.dist.rep)}</b></div>`:""}
+     </div>
+   </div>
+   <div class="gCard gList"><h3 style="margin-top:10px">Recebimentos <small>${d.rec.length}</small></h3>${recList||`<p class="gNote">Nenhum pagamento com data neste mês.</p>`}</div>
+   <div class="gCard gList"><h3 style="margin-top:10px">Em aberto · ${e(ymLabel(ui.ym))} <small>${d.abertos.length} · ${brl(d.totAberto)}</small></h3>
+     ${d.abertos.map(x=>`<div class="gRow sm" data-act="pay" data-id="${e(x.s.id)}" data-ym="${x.ym}"><div><b>${e(x.s.name)}${parcTag(x)}</b><small>${e(shortCat(x.s.category))} · vence ${brShort(x.due)}</small></div><div class="r"><b>${brl(x.valor)}</b></div></div>`).join("")||`<p class="gNote">Nada em aberto.</p>`}</div>
+   <div class="gCard gList gBxList"><h3 style="margin-top:10px">Em atraso <small>${d.nAtrMeses} mensalidade(s) · ${brl(d.totAtr)}</small></h3>${atrList||`<p class="gNote">Nenhum atraso. 👏</p>`}
+     <p class="gNote">Situação de hoje, somando todos os meses desde ${e(ymLabel(d.F.settings.inicioControle))}. Toque no mês para dar baixa.</p></div>`;
+}
+
+/* ---------- relatório para imprimir ---------- */
+function fluxoReportHtml(ym){
+  const d=fluxoDados(ym),c=d.caixa,F=d.F,h=t=>String(t??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+  const agora=new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const logo=location.origin+location.pathname.replace(/[^/]*$/,"")+"primo-logo.png";
+  const pct=d.tc.previsto?Math.round(d.tc.recebido/d.tc.previsto*100):0;
+  const rows=d.rec.map(r=>`<tr><td>${brDate(r.pay.pagoEm)}</td><td>${h(r.nome)}</td><td>${h(shortCat(r.cat))}</td><td>${h(refTxt(r))}${r.tipo==="atrasada"?' <span class="tag y">atrasada</span>':r.tipo==="adiantada"?' <span class="tag b">adiantada</span>':""}</td><td>${h(r.pay.forma||"—")}${r.pay.pontualidade?' <span class="tag g">pont.</span>':""}</td><td class="r">${brl(r.valor)}</td></tr>`).join("");
+  const ab=d.abertos.map(x=>`<tr><td>${h(x.s.name)}</td><td>${h(shortCat(x.s.category))}</td><td>${x.parc?x.parc.n+"/"+x.parc.total:"—"}</td><td>${brDate(x.due)}</td><td>${h(x.pl.zap||"")}</td><td class="r">${brl(x.valor)}</td></tr>`).join("");
+  const at=d.atr.map(a=>`<tr><td>${h(a.s.name)}</td><td>${h(shortCat(a.s.category))}</td><td>${a.itens.map(x=>`${mesAbr(x.ym)}${x.parc?` (${x.parc.n}/${x.parc.total})`:""} ${brl(x.valor)}`).join("<br>")}</td><td>${h(F.plans[a.s.id]&&F.plans[a.s.id].zap||"")}</td><td class="r">${brl(a.total)}</td></tr>`).join("");
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fluxo de caixa ${h(ymLabel(ym))} · Primo Soccer</title>
+<style>
+@page{size:A4;margin:12mm}
+*{box-sizing:border-box}
+html,body{background:#fff}
+body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;margin:0;padding:14px;font-size:11.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{body{padding:0}}
+header{display:flex;align-items:center;gap:12px;border-bottom:3px solid #1557ff;padding-bottom:10px}
+header img{width:58px;height:58px;object-fit:contain}
+header h1{font-size:19px;margin:0;letter-spacing:.5px}
+header .t{font-size:15px;font-weight:bold;color:#1557ff;margin-top:2px}
+header .e{font-size:10px;color:#64748b;margin-top:2px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 4px}
+.kpi{border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px}
+.kpi span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b}
+.kpi b{display:block;font-size:17px;margin-top:3px}
+.kpi small{display:block;font-size:9px;color:#64748b;margin-top:2px}
+.kpi.g b{color:#15803d}.kpi.bad b{color:#b91c1c}
+h2{font-size:12.5px;margin:16px 0 6px;padding:5px 8px;background:#eef2ff;border-left:4px solid #1557ff;text-transform:uppercase;letter-spacing:.4px}
+h2 small{font-weight:normal;color:#475569;text-transform:none;letter-spacing:0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:5px 6px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}
+th{font-size:9px;text-transform:uppercase;color:#64748b;letter-spacing:.3px}
+.r{text-align:right;white-space:nowrap}
+tr.tot td{font-weight:bold;border-top:2px solid #0f172a;border-bottom:0}
+tr{page-break-inside:avoid}
+.tag{display:inline-block;font-size:8.5px;font-weight:bold;border-radius:4px;padding:1px 4px;vertical-align:1px}
+.tag.y{background:#fef3c7;color:#92400e}.tag.b{background:#dbeafe;color:#1e40af}.tag.g{background:#dcfce7;color:#166534}
+.neg{color:#b91c1c}.pos{color:#15803d}
+.vazio{color:#64748b;font-style:italic;padding:6px}
+footer{margin-top:16px;padding-top:8px;border-top:1px solid #cbd5e1;font-size:9px;color:#64748b}
+</style></head><body>
+<header><img src="${logo}" alt=""><div><h1>PRIMO SOCCER EXCLUSIVE</h1><div class="t">Fluxo de caixa · ${h(ymLabel(ym))}</div><div class="e">Emitido em ${h(agora)} · atrasos e em aberto conforme a situação desta data</div></div></header>
+<div class="kpis">
+ <div class="kpi g"><span>Entrou no caixa</span><b>${brl(c.total)}</b><small>${d.rec.length} recebimento(s)</small></div>
+ <div class="kpi"><span>Em aberto (${h(MES_ABR[+ym.slice(5)-1])})</span><b>${brl(d.totAberto)}</b><small>${d.abertos.length} a vencer</small></div>
+ <div class="kpi bad"><span>Em atraso (acumulado)</span><b>${brl(d.totAtr)}</b><small>${d.nAtrMeses} mensalidade(s) · ${d.atr.length} aluno(s)</small></div>
+ <div class="kpi"><span>Mensalidades do mês</span><b>${brl(d.tc.previsto)}</b><small>${pct}% já recebido</small></div>
+</div>
+<div class="cols">
+ <div><h2>Resumo do caixa</h2><table>
+  <tr><td>Mensalidades de ${h(MONTHS[+ym.slice(5)-1].toLowerCase())}</td><td class="r">${brl(c.mes)}</td></tr>
+  <tr><td>Mensalidades atrasadas recebidas (meses anteriores)</td><td class="r">${brl(c.atrasada)}</td></tr>
+  <tr><td>Mensalidades adiantadas</td><td class="r">${brl(c.adiantada)}</td></tr>
+  <tr><td>Uniformes / matrículas</td><td class="r">${brl(c.matricula)}</td></tr>
+  <tr class="tot"><td>Total recebido</td><td class="r">${brl(c.total)}</td></tr></table></div>
+ <div><h2>Formas de pagamento</h2><table>
+  ${Object.entries(d.formas).map(([k,v])=>`<tr><td>${h(k)}</td><td class="r">${brl(v)}</td></tr>`).join("")||`<tr><td class="vazio">Sem recebimentos</td><td></td></tr>`}
+  <tr class="tot"><td>Total</td><td class="r">${brl(c.total)}</td></tr></table>
+  <h2>Distribuição estimada <small>(mensalidades)</small></h2><table>
+  <tr><td>Seu lucro</td><td class="r pos">${brl(d.dist.seu)}</td></tr>
+  <tr><td>Despesas (${100-(+F.settings.ownPct||0)}% dos seus horários)</td><td class="r">${brl(d.dist.desp)}</td></tr>
+  <tr><td>Repasse a ${h(F.settings.profNome)}</td><td class="r">${brl(d.dist.rep)}</td></tr></table></div>
+</div>
+<h2>Recebimentos detalhados <small>· ${d.rec.length} · ${brl(c.total)}</small></h2>
+<table><thead><tr><th>Data</th><th>Aluno</th><th>Categoria</th><th>Referente a</th><th>Forma</th><th class="r">Valor</th></tr></thead><tbody>
+${rows||`<tr><td colspan="6" class="vazio">Nenhum pagamento com data neste mês.</td></tr>`}
+${rows?`<tr class="tot"><td colspan="5">Total</td><td class="r">${brl(c.total)}</td></tr>`:""}</tbody></table>
+<h2>Em aberto · ${h(ymLabel(ym))} <small>· a vencer · ${brl(d.totAberto)}</small></h2>
+<table><thead><tr><th>Aluno</th><th>Categoria</th><th>Parcela</th><th>Vencimento</th><th>WhatsApp</th><th class="r">Valor</th></tr></thead><tbody>
+${ab||`<tr><td colspan="6" class="vazio">Nada em aberto.</td></tr>`}
+${ab?`<tr class="tot"><td colspan="5">Total em aberto</td><td class="r">${brl(d.totAberto)}</td></tr>`:""}</tbody></table>
+<h2>Em atraso <small>· todos os meses desde ${h(ymLabel(F.settings.inicioControle))} · ${brl(d.totAtr)}</small></h2>
+<table><thead><tr><th>Aluno</th><th>Categoria</th><th>Mensalidades atrasadas</th><th>WhatsApp</th><th class="r">Total</th></tr></thead><tbody>
+${at||`<tr><td colspan="5" class="vazio">Nenhum atraso.</td></tr>`}
+${at?`<tr class="tot"><td colspan="4">Total em atraso</td><td class="r neg">${brl(d.totAtr)}</td></tr>`:""}</tbody></table>
+<footer>Fluxo de caixa = pagamentos pela data em que foram recebidos (uma mensalidade de setembro paga em outubro entra em outubro). Lucro estimado: ${F.settings.ownPct}% nos seus horários e ${(F.settings.repasse[0]||{}).pct??14}% nos horários de ${h(F.settings.profNome)}. Valores em atraso consideram o valor sem desconto de pontualidade.</footer>
+</body></html>`;
+}
+function openRelatorio(){
+  let ov=$("gRelOv");
+  if(!ov){
+    ov=document.createElement("div");ov.id="gRelOv";ov.className="gRelOv";
+    ov.innerHTML=`<div class="gRelBar"><button type="button" class="gBtn ghost mini" id="gRelClose">Fechar</button><b>Relatório</b><button type="button" class="gBtn ok mini" id="gRelPrint">Imprimir / PDF</button></div><iframe id="gRelFrame" title="Relatório do fluxo"></iframe>`;
+    document.body.appendChild(ov);
+    $("gRelClose").onclick=()=>{ov.classList.add("hidden");document.body.classList.remove("gNoScroll");};
+    $("gRelPrint").onclick=()=>{const fr=$("gRelFrame");try{fr.contentWindow.focus();fr.contentWindow.print();}catch(err){alert("Não consegui abrir a impressão. Use o botão Compartilhar do navegador.");}};
+  }
+  const fr=$("gRelFrame"),doc=fr.contentWindow.document;
+  doc.open();doc.write(fluxoReportHtml(ui.ym));doc.close();
+  ov.classList.remove("hidden");document.body.classList.add("gNoScroll");
+}
 
 /* MENSALIDADES */
 const ST_LBL={pago:"Pago",atrasado:"Atrasado",avencer:"A vencer",semplano:"Sem plano",bolsa:"Bolsa",encerrado:"Renovar"};
@@ -343,8 +529,11 @@ function viewMensal(){
   const mats=students().map(s=>({s,pl:F.plans[s.id]})).filter(x=>x.pl&&x.pl.matricula&&!x.pl.matricula.pagoEm);
   if(ui.ym<F.settings.inicioControle)return `${monthNav()}<p class="gNote">O controle de mensalidades começa em <b>${e(ymLabel(F.settings.inicioControle))}</b>. Dá para mudar em Ajustes.</p>`;
   const abertos=all.filter(c=>c.status==="avencer"||c.status==="atrasado").length;
+  const ant=atrasosAte(ymAdd(ui.ym,-1)),antMap={};ant.forEach(a=>antMap[a.s.id]=a.itens.length);
+  const antTot=ant.reduce((s,a)=>s+a.total,0);
   return `
    ${monthNav()}
+   ${ant.length?`<button type="button" class="gAlertRow r" data-act="tab" data-v="fluxo"><span class="ic">⏰</span><span><b>Também há ${brl(antTot)} atrasado de meses anteriores</b>${ant.length} aluno(s) · ver no Fluxo</span></button>`:""}
    <div class="gTiles">
      <div class="ok"><span>Recebido</span><b>${brl(t.recebido)}</b></div>
      <div><span>A receber</span><b>${brl(t.aReceber)}</b></div>
@@ -358,7 +547,7 @@ function viewMensal(){
        const sub=c.status==="semplano"?"toque para lançar o plano":c.status==="encerrado"?`plano acabou (última: ${e(mesAbr(c.fim))}) · toque para renovar`:c.status==="pago"?`pago em ${brShort(c.pay.pagoEm)}${c.pay.forma?" · "+e(c.pay.forma):""}${c.pay.pontualidade?" · c/ pontualidade":""}`:c.status==="bolsa"?"bolsa 100%":`vence ${brShort(c.due)}${c.status==="atrasado"&&c.pi.pont!=null&&c.pi.pont!==c.pi.full?" · após venc.":""}`;
        const semValor=c.status==="semplano"||c.status==="encerrado";
        return `<div class="gRow" data-act="${semValor?"plan":"pay"}" data-id="${e(c.s.id)}" data-ym="${c.ym}">
-         <div><b>${e(c.s.name)}${parcTag(c)}</b><small>${e(shortCat(c.s.category))} · ${sub}</small></div>
+         <div><b>${e(c.s.name)}${parcTag(c)}${antMap[c.s.id]?` <span class="gTag y">+${antMap[c.s.id]} atrasada${antMap[c.s.id]>1?"s":""}</span>`:""}</b><small>${e(shortCat(c.s.category))} · ${sub}</small></div>
          <div class="r"><b>${semValor?"—":brl(c.valor)}</b><span class="gPill ${c.status}">${ST_LBL[c.status]}</span></div></div>`;
      }).join("")||`<p class="gNote">Ninguém nesta lista.</p>`}
    </div>`;
@@ -646,8 +835,10 @@ function openPay(id,ym){
     return;
   }
   const today=todayISO(),temPont=c.pi.pont!=null&&c.pi.pont!==c.pi.full,emDia=today<=c.due;
+  const outros=[];{const F=VIEW();for(let m=F.settings.inicioControle;m<=ymToday();m=ymAdd(m,1)){if(m===ym)continue;const x=chargeFor(s,m,F,today);if(x&&x.status==="atrasado")outros.push(x);}}
   openSheet(`<h3>${e(s.name)}</h3><p class="gNote">${payTitle(c)}</p>
    <div class="gStatus"><span class="gPill ${c.status}">${ST_LBL[c.status]}</span><span class="gNote">vencimento ${brDate(c.due)}</span></div>
+   ${outros.length?`<div class="gAlert r"><b>Também em atraso (${outros.length}) · ${brl(outros.reduce((t,x)=>t+x.valor,0))}</b>Toque no mês para dar baixa nele.<div class="gMeses">${outros.map(x=>`<button type="button" class="gMes a" data-act="pay" data-id="${e(id)}" data-ym="${x.ym}"><b>${MES_ABR[+x.ym.slice(5)-1]}</b><i>${x.parc?x.parc.n+"/"+x.parc.total:"!"}</i></button>`).join("")}</div></div>`:""}
    ${c.status==="bolsa"?`<p class="gNote">Aluno bolsista: nada a cobrar.</p>`:`
    <div class="gTwo"><label>Data do pagamento<input id="gpayDate" type="date" value="${today}"></label>
    <label>Forma<select id="gpayForma">${FORMAS.map(f=>`<option>${f}</option>`).join("")}</select></label></div>
@@ -755,6 +946,7 @@ function onClick(ev){
     case "repadd":if(!canWrite())return;FIN.settings.repasse.push({dia:"Sábado",hora:"12:00",pct:14});finChanged();gRender();break;
     case "repdel":if(!canWrite())return;FIN.settings.repasse.splice(+b.dataset.i,1);finChanged();gRender();break;
     case "export":exportFin();break;
+    case "relatorio":openRelatorio();break;
   }
 }
 function onSheetInput(ev){

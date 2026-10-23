@@ -180,3 +180,22 @@ label.gBtn{cursor:pointer}
 .gPont{flex-wrap:wrap}
 .gPont em{font-style:normal;font-size:12px;color:#86efac;width:100%;padding-left:32px;margin-top:-4px}
 .gSheet .gMeses{margin:4px 0 10px}
+
+/* ===== V90 - FLUXO DE CAIXA + relatório ===== */
+.gTiles.four{grid-template-columns:1fr 1fr}
+.gLines>div{display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-top:1px solid rgba(126,234,255,.12);font-size:13px;color:#dbeafe}
+.gLines>div:first-child{border-top:0}
+.gLines b{font-family:"Arial Black",Arial,sans-serif;font-size:14px;color:#fff;white-space:nowrap}
+.gLines .tot{border-top:2px solid rgba(126,234,255,.45)}
+.gLines .tot span{font-weight:900;color:#fff}.gLines .tot b{color:#7eeaff;font-size:16px}
+.gLines.sub{margin-top:6px;background:rgba(2,8,23,.45);border-radius:12px;padding:4px 10px}
+.gLines b.pos,.gNeg{white-space:nowrap}.gLines b.pos{color:#86efac}
+.gNeg{font-family:"Arial Black",Arial,sans-serif;color:#fca5a5;font-size:14px}
+.gKpi[data-act]{cursor:pointer}
+.gAlert .gMeses{margin-top:8px}
+.gRelOv{position:fixed;inset:0;z-index:100001;background:#0b1533;display:flex;flex-direction:column}
+.gRelOv.hidden{display:none!important}
+.gRelBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:#020817;border-bottom:1px solid rgba(126,234,255,.3);color:#fff}
+.gRelBar b{font-family:"Arial Black",Arial,sans-serif;font-size:14px;letter-spacing:.5px}
+.gRelBar .gBtn.mini{padding:10px 14px!important}
+#gRelFrame{flex:1;width:100%;border:0;background:#fff}
