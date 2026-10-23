@@ -1,5 +1,5 @@
 /* =====================================================================
-   V87 - GESTÃO: planos, mensalidades, agenda/vagas e valores
+   V89 - GESTÃO: planos, mensalidades (parcelas), baixa, agenda/vagas e valores
    - Os dados financeiros ficam na tabela primo_finance (separada).
      Só o login do dono lê/grava (RLS + função is_primo_admin).
    - Nada daqui vai para o link dos pais.
@@ -9,7 +9,7 @@
 "use strict";
 if(typeof window==="undefined")return;
 
-const G_VERSION="88";
+const G_VERSION="89";
 const FIN_TABLE="primo_finance";
 const PENDING_KEY="primo_gestao_pendente_v1";
 const DIAS=[["Segunda","SEG"],["Terça","TER"],["Quarta","QUA"],["Quinta","QUI"],["Sexta","SEX"],["Sábado","SÁB"],["Domingo","DOM"]];
@@ -135,10 +135,27 @@ async function finSaveNow(){
 window.addEventListener("online",()=>{if(readPending()&&canWrite())finSaveNow();});
 
 /* ---------- regras de preço / plano ---------- */
+const MES_ABR=["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+const PLANO_OPCOES=["Anual","Semestral","Mensal","Personalizado"];
+function ymOf(iso){return String(iso||"").slice(0,7);}
+function ymDiff(a,b){const [y1,m1]=a.split("-").map(Number),[y2,m2]=b.split("-").map(Number);return (y2-y1)*12+(m2-m1);}
+function mesAbr(ym){return MES_ABR[+ym.slice(5)-1]+"/"+ym.slice(2,4);}
 function planOf(id){const f=FIN||null;return f&&f.plans[id]||null;}
+/* nº de mensalidades do plano (null = mensal, renova todo mês) */
+function totalMeses(pl){
+  if(!pl)return null;
+  if(pl.plano==="Personalizado")return Math.max(1,Math.min(36,Math.round(+pl.meses||1)));
+  if(pl.plano==="Mensal")return null;
+  return PLANO_MESES[pl.plano]||null;
+}
 function priceInfo(pl,F){
-  F=F||VIEW();
-  const t=F.settings.prices[pl&&pl.plano];
+  F=F||VIEW(); if(!pl)return null;
+  if(pl.plano==="Personalizado"){
+    const v=Math.max(0,+pl.valor||0);
+    const late=(+pl.valorAtraso>v)?+pl.valorAtraso:v;
+    return {base:v,full:late,pont:late>v?v:null,onTime:v,bolsa:v===0};
+  }
+  const t=F.settings.prices[pl.plano];
   if(!t)return null;
   const desc=+pl.desc||0;
   const base=+t[pl.freq]||0;
@@ -149,51 +166,71 @@ function priceInfo(pl,F){
   return {base,full,pont,onTime:pont!=null?pont:full,bolsa:full===0&&(pont==null||pont===0)};
 }
 function planEnd(pl){
-  if(!pl||!pl.inicio||!PLANO_MESES[pl.plano]||pl.plano==="Mensal")return null;
-  return addDaysISO(addMonthsISO(pl.inicio,PLANO_MESES[pl.plano]),-1);
+  const n=totalMeses(pl); if(!pl||!pl.inicio||!n)return null;
+  return addDaysISO(addMonthsISO(pl.inicio,n),-1);
 }
+function ultimaParcela(pl){const n=totalMeses(pl);return pl&&pl.inicio&&n?ymAdd(ymOf(pl.inicio),n-1):null;}
 function planState(pl){
   const end=planEnd(pl); if(!end)return {end:null,lvl:"",txt:pl&&pl.plano==="Mensal"?"renova todo mês":"sem data de início"};
   const d=daysUntil(end);
-  if(d<0)return {end,lvl:"r",txt:"venceu em "+brDate(end)};
+  if(d<0)return {end,lvl:"r",txt:"acabou em "+brDate(end)};
   if(d<=30)return {end,lvl:"y",txt:"vence em "+brDate(end)+" ("+d+" dia"+(d===1?"":"s")+")"};
   return {end,lvl:"g",txt:"até "+brDate(end)};
 }
+function planNome(pl){return pl.plano==="Personalizado"?`Personalizado (${totalMeses(pl)} meses)`:pl.plano;}
 function planLine(pl,F){
   const pi=priceInfo(pl,F); if(!pi)return "plano inválido";
-  if(pi.bolsa)return `${pl.plano} ${pl.freq} · bolsa 100%`;
-  return `${pl.plano} ${pl.freq} · ${brl(pi.onTime)}${pi.pont!=null&&pi.pont!==pi.full?` (${brl(pi.full)} após venc.)`:""} · dia ${pl.venc||10}`;
+  if(pi.bolsa)return `${planNome(pl)} ${pl.freq} · bolsa 100%`;
+  return `${planNome(pl)} ${pl.freq} · ${brl(pi.onTime)}${pi.pont!=null&&pi.pont!==pi.full?` (${brl(pi.full)} após venc.)`:""} · dia ${pl.venc||10}`;
 }
 function valorDevido(pi,due,payDate){return (pi.pont!=null&&payDate<=due)?pi.pont:pi.full;}
 
-/* ---------- mensalidades do mês ---------- */
+/* períodos: o plano atual + os anteriores (guardados ao renovar) */
+function periodoDe(pl,ym){
+  const list=[pl].concat(Array.isArray(pl.anteriores)?pl.anteriores:[]);
+  for(const p of list){
+    if(!p.inicio)return {per:p,n:null,total:totalMeses(p)};      // sem data de início: cobra todo mês
+    const i=ymDiff(ymOf(p.inicio),ym),t=totalMeses(p);
+    if(i>=0&&(t==null||i<t))return {per:p,n:i+1,total:t};
+  }
+  if(pl.inicio&&ym>ymOf(pl.inicio))return {encerrado:true,per:pl}; // passou da última parcela
+  return {antes:true};                                              // plano ainda não tinha começado
+}
+
+/* ---------- mensalidades ---------- */
+function chargeFor(s,ym,F,today){
+  F=F||VIEW();today=today||todayISO();
+  const pl=F.plans[s.id];
+  if(!pl)return {s,ym,status:"semplano",valor:0};
+  const pr=periodoDe(pl,ym);
+  if(pr.antes)return null;
+  const pay=(F.payments[ym]||{})[s.id]||null;
+  if(pr.encerrado&&!(pay&&pay.pagoEm))return {s,ym,pl,status:"encerrado",valor:0,fim:ultimaParcela(pl)};
+  const per=pr.per,pi=priceInfo(per,F);
+  if(!pi)return {s,ym,pl,status:"semplano",valor:0};
+  let due=ym+"-"+pad(+per.venc||10);
+  if(per.inicio&&ymOf(per.inicio)===ym&&per.inicio>due)due=per.inicio;   // 1ª mensalidade vence no dia da matrícula
+  let status;
+  if(pi.bolsa)status="bolsa";
+  else if(pay&&pay.pagoEm)status="pago";
+  else if(today>due)status="atrasado";
+  else status="avencer";
+  const valor=status==="pago"?(+pay.valor||0):status==="atrasado"?pi.full:status==="bolsa"?0:pi.onTime;
+  return {s,ym,pl,per,pi,due,pay,status,valor,parc:(pr.n&&pr.total)?{n:pr.n,total:pr.total}:null};
+}
 function chargesFor(ym){
-  const F=VIEW(),today=todayISO(),out=[];
-  if(ym<F.settings.inicioControle)return out;
-  students().forEach(s=>{
-    const pl=F.plans[s.id];
-    if(!pl){out.push({s,status:"semplano",valor:0});return;}
-    if(pl.inicio&&pl.inicio.slice(0,7)>ym)return;                    // plano ainda não começou
-    const pi=priceInfo(pl,F); if(!pi){out.push({s,pl,status:"semplano",valor:0});return;}
-    let due=ym+"-"+pad(+pl.venc||10);
-    if(pl.inicio&&pl.inicio.slice(0,7)===ym&&pl.inicio>due)due=pl.inicio;   // 1ª mensalidade: vence no dia da matrícula
-    const pay=(F.payments[ym]||{})[s.id]||null;
-    let status;
-    if(pi.bolsa)status="bolsa";
-    else if(pay&&pay.pagoEm)status="pago";
-    else if(today>due)status="atrasado";
-    else status="avencer";
-    const valor=status==="pago"?(+pay.valor||0):status==="atrasado"?pi.full:status==="bolsa"?0:pi.onTime;
-    const end=planEnd(pl);
-    out.push({s,pl,pi,due,pay,status,valor,planoVencido:!!(end&&end.slice(0,7)<ym)});
-  });
-  const ord={atrasado:0,avencer:1,semplano:2,pago:3,bolsa:4};
+  const F=VIEW(),today=todayISO();
+  if(ym<F.settings.inicioControle)return [];
+  const out=students().map(s=>chargeFor(s,ym,F,today)).filter(Boolean);
+  const ord={atrasado:0,avencer:1,encerrado:2,semplano:3,pago:4,bolsa:5};
   return out.sort((a,b)=>(ord[a.status]-ord[b.status])||a.s.name.localeCompare(b.s.name));
 }
+function parcTag(c){return c&&c.parc?` <span class="gTag b">${c.parc.n}/${c.parc.total}</span>`:"";}
 function totals(list){
   const t={previsto:0,recebido:0,aReceber:0,atrasado:0,nAtrasado:0,nPago:0,nAvencer:0,nSem:0,nBolsa:0};
   list.forEach(c=>{
     if(c.status==="semplano"){t.nSem++;return;}
+    if(c.status==="encerrado"){t.nEnc=(t.nEnc||0)+1;return;}
     if(c.status==="bolsa"){t.nBolsa++;return;}
     t.previsto+=c.valor;
     if(c.status==="pago"){t.recebido+=c.valor;t.nPago++;}
@@ -245,12 +282,12 @@ function vagaTxt(free){return free<0?`${-free} acima`:free===0?"lotado":free===1
 function refresh(){if(gVisible())gRender();renderPlanFormState();}
 function gRender(){
   const root=$("gestaoRoot"); if(!root)return;
-  const tabs=[["resumo","Resumo"],["mensal","Mensalidades"],["planos","Planos"],["agenda","Agenda"],["valores","Valores"],["ajustes","Ajustes"]];
+  const tabs=[["resumo","Resumo"],["baixa","Baixa"],["mensal","Mensalidades"],["planos","Planos"],["agenda","Agenda"],["valores","Valores"],["ajustes","Ajustes"]];
   root.innerHTML=`
     <div class="gHead"><h2>Gestão</h2><p>Planos, mensalidades, vagas e valores · só você vê esta aba</p></div>
     ${statusCard()}
     <div class="gChips" role="tablist">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-v="${k}" class="${ui.tab===k?"on":""}">${l}</button>`).join("")}</div>
-    <div id="gBody">${({resumo:viewResumo,mensal:viewMensal,planos:viewPlanos,agenda:viewAgenda,valores:viewValores,ajustes:viewAjustes}[ui.tab]||viewResumo)()}</div>`;
+    <div id="gBody">${({resumo:viewResumo,baixa:viewBaixa,mensal:viewMensal,planos:viewPlanos,agenda:viewAgenda,valores:viewValores,ajustes:viewAjustes}[ui.tab]||viewResumo)()}</div>`;
 }
 function statusCard(){
   if(finStatus==="ok")return "";
@@ -297,11 +334,11 @@ function viewResumo(){
 function monthNav(){return `<div class="gMonth"><button type="button" data-act="ym" data-v="-1" aria-label="Mês anterior">‹</button><b>${e(ymLabel(ui.ym))}</b><button type="button" data-act="ym" data-v="1" aria-label="Próximo mês">›</button></div>`;}
 
 /* MENSALIDADES */
-const ST_LBL={pago:"Pago",atrasado:"Atrasado",avencer:"A vencer",semplano:"Sem plano",bolsa:"Bolsa"};
+const ST_LBL={pago:"Pago",atrasado:"Atrasado",avencer:"A vencer",semplano:"Sem plano",bolsa:"Bolsa",encerrado:"Renovar"};
 function viewMensal(){
   const F=VIEW(),all=chargesFor(ui.ym),t=totals(all);
   const cnt=k=>all.filter(c=>c.status===k).length;
-  const chips=[["todos","Todos",all.length],["atrasado","Atrasados",cnt("atrasado")],["avencer","A vencer",cnt("avencer")],["pago","Pagos",cnt("pago")],["semplano","Sem plano",cnt("semplano")]];
+  const chips=[["todos","Todos",all.length],["atrasado","Atrasados",cnt("atrasado")],["avencer","A vencer",cnt("avencer")],["pago","Pagos",cnt("pago")],["semplano","Sem plano",cnt("semplano")]].concat(cnt("encerrado")?[["encerrado","Renovar",cnt("encerrado")]]:[]);
   const list=ui.payFilter==="todos"?all:all.filter(c=>c.status===ui.payFilter);
   const mats=students().map(s=>({s,pl:F.plans[s.id]})).filter(x=>x.pl&&x.pl.matricula&&!x.pl.matricula.pagoEm);
   if(ui.ym<F.settings.inicioControle)return `${monthNav()}<p class="gNote">O controle de mensalidades começa em <b>${e(ymLabel(F.settings.inicioControle))}</b>. Dá para mudar em Ajustes.</p>`;
@@ -318,12 +355,69 @@ function viewMensal(){
    ${abertos&&canWrite()&&ui.payFilter!=="pago"?`<button type="button" class="gBtn ghost slim" data-act="bulkpay">Marcar os ${abertos} em aberto como pagos</button>`:""}
    <div class="gCard gList">
      ${list.map(c=>{
-       const sub=c.status==="semplano"?"toque para lançar o plano":c.status==="pago"?`pago em ${brShort(c.pay.pagoEm)}${c.pay.forma?" · "+e(c.pay.forma):""}`:c.status==="bolsa"?"bolsa 100%":`vence ${brShort(c.due)}${c.status==="atrasado"&&c.pi.pont!=null&&c.pi.pont!==c.pi.full?" · perdeu pontualidade":""}`;
-       return `<div class="gRow" data-act="${c.status==="semplano"?"plan":"pay"}" data-id="${e(c.s.id)}">
-         <div><b>${e(c.s.name)}${c.planoVencido?' <span class="gTag y">plano vencido</span>':""}</b><small>${e(shortCat(c.s.category))} · ${sub}</small></div>
-         <div class="r"><b>${c.status==="semplano"?"—":brl(c.valor)}</b><span class="gPill ${c.status}">${ST_LBL[c.status]}</span></div></div>`;
+       const sub=c.status==="semplano"?"toque para lançar o plano":c.status==="encerrado"?`plano acabou (última: ${e(mesAbr(c.fim))}) · toque para renovar`:c.status==="pago"?`pago em ${brShort(c.pay.pagoEm)}${c.pay.forma?" · "+e(c.pay.forma):""}${c.pay.pontualidade?" · c/ pontualidade":""}`:c.status==="bolsa"?"bolsa 100%":`vence ${brShort(c.due)}${c.status==="atrasado"&&c.pi.pont!=null&&c.pi.pont!==c.pi.full?" · após venc.":""}`;
+       const semValor=c.status==="semplano"||c.status==="encerrado";
+       return `<div class="gRow" data-act="${semValor?"plan":"pay"}" data-id="${e(c.s.id)}" data-ym="${c.ym}">
+         <div><b>${e(c.s.name)}${parcTag(c)}</b><small>${e(shortCat(c.s.category))} · ${sub}</small></div>
+         <div class="r"><b>${semValor?"—":brl(c.valor)}</b><span class="gPill ${c.status}">${ST_LBL[c.status]}</span></div></div>`;
      }).join("")||`<p class="gNote">Ninguém nesta lista.</p>`}
    </div>`;
+}
+
+/* BAIXA: todos os alunos com os meses do plano em quadradinhos */
+function baixaMeses(pl,F){
+  const hoje=ymToday(),ctl=F.settings.inicioControle,t=totalMeses(pl);
+  if(pl.inicio&&t){const st=ymOf(pl.inicio);return Array.from({length:t},(_,i)=>ymAdd(st,i));}
+  // mensal (renova todo mês) ou sem data de início: últimos meses até o próximo
+  let st=pl.inicio?ymOf(pl.inicio):ctl; if(st<ctl)st=ctl;
+  let from=ymAdd(hoje,-4); if(from<st)from=st;
+  const out=[];for(let ym=from;ym<=ymAdd(hoje,1)&&out.length<8;ym=ymAdd(ym,1))out.push(ym);
+  if(!out.length)out.push(st);
+  return out;
+}
+function mesesSq(s,pl,F,today){
+  const hoje=ymToday(),ctl=F.settings.inicioControle,meses=baixaMeses(pl,F);
+  let nPago=0,nAtr=0,cur=null,lastYear=null;
+  const sq=meses.map(ym=>{
+    const c=chargeFor(s,ym,F,today);
+    let cls="f",mark="";
+    if(!c){cls="o";}
+    else if(c.status==="pago"){cls="p";mark="✓";nPago++;}
+    else if(c.status==="bolsa"){cls="b";mark="★";}
+    else if(c.status==="encerrado"){cls="o";}
+    else if(ym<ctl){cls="o";}
+    else if(c.status==="atrasado"){cls="a";mark="!";nAtr++;}
+    else if(ym===hoje){cls="y";}
+    if(c&&c.parc&&ym===hoje)cur=c;
+    const yr=ym.slice(2,4),showYr=yr!==lastYear;lastYear=yr;
+    return `${showYr?`<span class="gAno">${yr}</span>`:""}<button type="button" class="gMes ${cls}" data-act="pay" data-id="${e(s.id)}" data-ym="${ym}" title="${e(ymLabel(ym))}${c&&c.parc?` · ${c.parc.n}/${c.parc.total}`:""}"><b>${MES_ABR[+ym.slice(5)-1]}</b><i>${mark||(c&&c.parc?c.parc.n:"")}</i></button>`;
+  }).join("");
+  if(!cur){const c=chargeFor(s,hoje,F,today);if(c&&c.parc)cur=c;}
+  return {sq,nPago,nAtr,cur};
+}
+function baixaRow(s,F,today){
+  const pl=F.plans[s.id];
+  if(!pl)return {s,sem:true,html:`<div class="gBx"><div class="gBxTop" data-act="plan" data-id="${e(s.id)}"><div><b>${e(s.name)}</b><small>${e(shortCat(s.category))} · sem plano</small></div><span class="gPill semplano">lançar plano</span></div></div>`};
+  const {sq,nPago,nAtr,cur}=mesesSq(s,pl,F,today);
+  const pi=priceInfo(pl,F),total=totalMeses(pl);
+  const info=`${e(shortCat(s.category))} · ${e(planNome(pl))} ${e(pl.freq)} · ${pi?(pi.bolsa?"bolsa":brl(pi.onTime)):"—"} · dia ${pl.venc||10}`;
+  const right=nAtr?`<span class="gPill atrasado">${nAtr} em atraso</span>`:total&&pl.inicio?`<span class="gPill ${nPago>=total?"pago":"n"}">${nPago}/${total} pagas</span>`:"";
+  return {s,atr:nAtr,html:`<div class="gBx"><div class="gBxTop" data-act="plan" data-id="${e(s.id)}"><div><b>${e(s.name)}${cur?parcTag(cur):""}</b><small>${info}${pl.inicio?"":" · sem data de início"}</small></div>${right}</div><div class="gMeses">${sq}</div></div>`};
+}
+function viewBaixa(){
+  const F=VIEW(),today=todayISO();
+  let rows=students().slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>baixaRow(s,F,today));
+  const n={todos:rows.length,atraso:rows.filter(r=>r.atr).length,emdia:rows.filter(r=>!r.sem&&!r.atr).length,semplano:rows.filter(r=>r.sem).length};
+  if(ui.bxFilter==="atraso")rows=rows.filter(r=>r.atr);
+  if(ui.bxFilter==="emdia")rows=rows.filter(r=>!r.sem&&!r.atr);
+  if(ui.bxFilter==="semplano")rows=rows.filter(r=>r.sem);
+  const q=normName(ui.search); if(q)rows=rows.filter(r=>normName(r.s.name).includes(q));
+  return `
+   <p class="gNote">Toque no mês para dar baixa. Toque no nome para ver o plano.</p>
+   <div class="gCard"><div class="gSearch"><input id="gSearch" type="search" placeholder="Buscar aluno" value="${e(ui.search)}" autocomplete="off"></div>
+    <div class="gFilters">${[["todos","Todos"],["atraso","Com atraso"],["emdia","Em dia"],["semplano","Sem plano"]].map(([k,l])=>`<button type="button" data-act="bxf" data-v="${k}" class="${(ui.bxFilter||"todos")===k?"on":""}">${l} <em>${n[k]}</em></button>`).join("")}</div>
+    <div class="gLegend"><span style="--c:#22c55e">pago</span><span style="--c:#ef4444">atrasado</span><span style="--c:#fbbf24">mês atual</span><span style="--c:rgba(255,255,255,.25)">próximos</span></div></div>
+   <div class="gCard gList gBxList">${rows.map(r=>r.html).join("")||`<p class="gNote">Nenhum aluno.</p>`}</div>`;
 }
 
 /* PLANOS */
@@ -343,7 +437,7 @@ function viewPlanos(){
    <div class="gFilters">${[["todos","Todos"],["semplano","Sem plano"],["vencendo","Vencendo"],["ok","Com plano"]].map(([k,l])=>`<button type="button" data-act="planf" data-v="${k}" class="${ui.planFilter===k?"on":""}">${l} <em>${n[k]}</em></button>`).join("")}</div></div>
    <div class="gCard gList">
      ${list.map(r=>`<div class="gRow" data-act="plan" data-id="${e(r.s.id)}"><div><b>${e(r.s.name)}</b><small>${e(shortCat(r.s.category))} · ${r.pl?e(planLine(r.pl,F)):"sem plano"}</small></div>
-       <div class="r">${r.pl?`<span class="gPill ${r.st.lvl||"n"}">${e(r.st.lvl===""?(r.pl.plano==="Mensal"?"mensal":"sem início"):r.st.lvl==="g"?"até "+brShort(r.st.end):r.st.lvl==="y"?"vence "+brShort(r.st.end):"vencido")}</span>`:`<span class="gPill semplano">lançar</span>`}</div></div>`).join("")||`<p class="gNote">Nenhum aluno.</p>`}
+       <div class="r">${r.pl?`<span class="gPill ${r.st.lvl||"n"}">${e(r.st.lvl===""?(r.pl.plano==="Mensal"?"mensal":"sem início"):r.st.lvl==="g"?"até "+brShort(r.st.end):r.st.lvl==="y"?"vence "+brShort(r.st.end):"acabou")}</span>`:`<span class="gPill semplano">lançar</span>`}</div></div>`).join("")||`<p class="gNote">Nenhum aluno.</p>`}
    </div>`;
 }
 
@@ -438,8 +532,8 @@ function ensureOverlay(){
   $("gSheet").addEventListener("input",onSheetInput);
   $("gSheet").addEventListener("change",onSheetInput);
 }
-function openSheet(html){ensureOverlay();$("gSheet").innerHTML=`<div class="grab"></div>`+html;$("gOv").classList.remove("hidden");document.body.classList.add("gNoScroll");}
-function closeSheet(){const ov=$("gOv");if(ov)ov.classList.add("hidden");document.body.classList.remove("gNoScroll");}
+function openSheet(html){ensureOverlay();const sh=$("gSheet");delete sh.dataset.payId;delete sh.dataset.payYm;$("gSheet").innerHTML=`<div class="grab"></div>`+html;$("gOv").classList.remove("hidden");document.body.classList.add("gNoScroll");}
+function closeSheet(){const ov=$("gOv");if(ov)ov.classList.add("hidden");const sh=$("gSheet");if(sh){delete sh.dataset.payId;delete sh.dataset.payYm;}document.body.classList.remove("gNoScroll");}
 
 /* valor da tabela que o aluno paga em dia (com pontualidade, se existir) */
 function tabelaOnTime(plano,freq,F){
@@ -450,11 +544,14 @@ function tabelaOnTime(plano,freq,F){
 function planFormHtml(pl,prefix){
   pl=pl||{};const F=VIEW();
   const opt=(arr,v)=>arr.map(x=>`<option ${String(x)===String(v)?"selected":""}>${x}</option>`).join("");
-  const plano=pl.plano||"Semestral",freq=pl.freq||"1x",tab=tabelaOnTime(plano,freq,F);
-  const valor=pl.plano?Math.max(0,tab-(+pl.desc||0)):tab;
+  const plano=pl.plano||"Semestral",freq=pl.freq||"1x",pers=plano==="Personalizado";
+  const tab=pers?"":tabelaOnTime(plano,freq,F);
+  const valor=pers?(+pl.valor||0):(pl.plano?Math.max(0,tab-(+pl.desc||0)):tab);
   return `
-   <div class="gTwo"><label>Plano<select id="${prefix}Plano">${opt(PLANOS,plano)}</select></label>
+   <div class="gTwo"><label>Plano<select id="${prefix}Plano">${opt(PLANO_OPCOES,plano)}</select></label>
    <label>Frequência<select id="${prefix}Freq">${opt(["1x","2x"],freq)}</select></label></div>
+   <div class="gTwo ${pers?"":"hidden"}" id="${prefix}PersBox"><label>Nº de mensalidades<input id="${prefix}Meses" type="number" inputmode="numeric" min="1" max="36" step="1" value="${pers?totalMeses(pl):4}"></label>
+   <label>Após vencimento (R$)<input id="${prefix}Atraso" type="number" inputmode="decimal" step="0.01" placeholder="igual" value="${pers&&pl.valorAtraso?pl.valorAtraso:""}"></label></div>
    <div class="gTwo"><label>Mensalidade (R$)<input id="${prefix}Valor" type="number" inputmode="decimal" step="0.01" value="${valor}" data-tab="${tab}"></label>
    <label>Vencimento<select id="${prefix}Venc"><option value="10" ${+pl.venc!==20?"selected":""}>Dia 10</option><option value="20" ${+pl.venc===20?"selected":""}>Dia 20</option></select></label></div>
    <div class="gTwo"><label>Início do plano<input id="${prefix}Inicio" type="date" value="${e(pl.inicio||"")}"></label>
@@ -466,38 +563,59 @@ function readPlanForm(prefix,old){
   const g=id=>$(prefix+id);
   if(!g("Plano"))return null;
   const F=VIEW();
-  const plano=g("Plano").value,freq=g("Freq").value,tab=tabelaOnTime(plano,freq,F);
-  const vRaw=g("Valor").value;
-  const valor=vRaw===""?tab:Math.max(0,+vRaw||0);
-  const desc=Math.round((tab-valor)*100)/100;            // desconto = tabela − mensalidade digitada
-  const pl={plano,freq,desc,venc:+g("Venc").value||10,inicio:g("Inicio").value||"",zap:(g("Zap").value||"").trim()};
+  const plano=g("Plano").value,freq=g("Freq").value,vRaw=g("Valor").value;
+  const base={venc:+g("Venc").value||10,inicio:g("Inicio").value||"",zap:(g("Zap").value||"").trim()};
+  let pl;
+  if(plano==="Personalizado"){
+    const meses=Math.max(1,Math.min(36,Math.round(+g("Meses").value||1)));
+    const valor=Math.max(0,+vRaw||0),at=+g("Atraso").value||0;
+    pl=Object.assign({plano,freq,meses,valor,valorAtraso:at>valor?at:null,desc:0},base);
+  }else{
+    const tab=tabelaOnTime(plano,freq,F);
+    const valor=vRaw===""?tab:Math.max(0,+vRaw||0);
+    pl=Object.assign({plano,freq,desc:Math.round((tab-valor)*100)/100},base);   // desconto = tabela − mensalidade digitada
+  }
   if(g("Mat").checked)pl.matricula=(old&&old.matricula)?old.matricula:{valor:+F.settings.uniforme||100,pagoEm:null};
   else pl.matricula=null;
   if(old&&old.obs)pl.obs=old.obs;
+  if(old&&Array.isArray(old.anteriores)&&old.anteriores.length)pl.anteriores=old.anteriores;
   return pl;
 }
 function planSummary(prefix){
   const box=$(prefix+"Sum"); if(!box)return;
   const pl=readPlanForm(prefix,null); if(!pl){box.innerHTML="";return;}
-  const pi=priceInfo(pl);const end=planEnd(pl);const tab=tabelaOnTime(pl.plano,pl.freq);
-  const dTxt=pi&&pi.bolsa?"Bolsa 100%":pl.desc>0?brl(pl.desc):pl.desc<0?"+ "+brl(-pl.desc):"Sem desconto";
-  box.innerHTML=pi?`<div><span>${pl.desc<0?"Acréscimo":"Desconto"}</span><b>${dTxt}</b><small>tabela ${brl(tab)}${pi.pont!=null&&pi.pont!==pi.full&&!pi.bolsa?` · após o dia ${pl.venc}: ${brl(pi.full)}`:` · vence dia ${pl.venc}`}</small></div>
-    <div><span>Plano vale até</span><b>${pl.plano==="Mensal"?"renova todo mês":end?brDate(end):"—"}</b><small>${pl.inicio?"início "+brDate(pl.inicio):"sem data de início"}</small></div>`:"";
+  const pi=priceInfo(pl);if(!pi){box.innerHTML="";return;}
+  const end=planEnd(pl),n=totalMeses(pl),ult=ultimaParcela(pl);
+  const fimTxt=pl.plano==="Mensal"?"renova todo mês":end?brDate(end):"—";
+  const fimSub=n?`${n} mensalidade${n>1?"s":""}${ult?" · última "+mesAbr(ult):""}`:(pl.inicio?"início "+brDate(pl.inicio):"sem data de início");
+  let left;
+  if(pl.plano==="Personalizado"){
+    left=`<div><span>Total do plano</span><b>${pi.bolsa?"Bolsa 100%":brl(pi.onTime*n)}</b><small>${n}x de ${brl(pi.onTime)}${pi.pont!=null?` · após o dia ${pl.venc}: ${brl(pi.full)}`:` · vence dia ${pl.venc}`}</small></div>`;
+  }else{
+    const tab=tabelaOnTime(pl.plano,pl.freq);
+    const dTxt=pi.bolsa?"Bolsa 100%":pl.desc>0?brl(pl.desc):pl.desc<0?"+ "+brl(-pl.desc):"Sem desconto";
+    left=`<div><span>${pl.desc<0?"Acréscimo":"Desconto"}</span><b>${dTxt}</b><small>tabela ${brl(tab)}${pi.pont!=null&&pi.pont!==pi.full&&!pi.bolsa?` · após o dia ${pl.venc}: ${brl(pi.full)}`:` · vence dia ${pl.venc}`}</small></div>`;
+  }
+  box.innerHTML=`${left}<div><span>Plano vale até</span><b>${fimTxt}</b><small>${fimSub}</small></div>`;
 }
-/* ao trocar plano/frequência, a mensalidade volta para o valor da tabela (aí é só ajustar) */
+/* ao trocar plano/frequência, a mensalidade volta para o valor da tabela (aí é só ajustar).
+   No Personalizado, o valor digitado continua. */
 function onPlanTypeChange(prefix){
-  const v=$(prefix+"Valor"),p=$(prefix+"Plano"),f=$(prefix+"Freq"); if(!v||!p||!f)return;
-  const tab=tabelaOnTime(p.value,f.value);
-  v.value=tab;v.dataset.tab=tab;
+  const v=$(prefix+"Valor"),p=$(prefix+"Plano"),f=$(prefix+"Freq"),box=$(prefix+"PersBox"); if(!v||!p||!f)return;
+  const pers=p.value==="Personalizado";
+  if(box)box.classList.toggle("hidden",!pers);
+  if(!pers){const tab=tabelaOnTime(p.value,f.value);v.value=tab;v.dataset.tab=tab;}
+  else v.dataset.tab="";
   planSummary(prefix);
 }
 function openPlan(id){
   const s=studentById(id); if(!s)return;
   const F=VIEW(),pl=F.plans[s.id]||null;
-  const hist=[-5,-4,-3,-2,-1,0].map(n=>ymAdd(ymToday(),n)).map(ym=>{const c=chargesFor(ym).find(x=>x.s.id===s.id);return c?`<span class="gPill ${c.status}" title="${e(ymLabel(ym))}">${MONTHS[+ym.slice(5)-1].slice(0,3)}</span>`:"";}).join("");
+  const hist=pl?mesesSq(s,pl,F,todayISO()).sq:"";
   const st=pl?planState(pl):null;
   openSheet(`<h3>${e(s.name)}</h3><p class="gNote">${e(s.category)} · ${studentScheds(s.id).map(e).join(" e ")||"sem horário na agenda de "+e(currentMonth)}</p>
-   ${pl?`<div class="gStatus"><span class="gPill ${st.lvl||"n"}">${e(st.txt)}</span>${hist?`<div class="gHist">${hist}</div>`:""}</div>`:`<div class="gAlert y"><b>Sem plano</b>Preencha e salve para começar a cobrar.</div>`}
+   ${pl?`<div class="gStatus"><span class="gPill ${st.lvl||"n"}">${e(st.txt)}</span></div>`:`<div class="gAlert y"><b>Sem plano</b>Preencha e salve para começar a cobrar.</div>`}
+   ${hist?`<p class="gNote">Mensalidades do plano · toque no mês para dar baixa</p><div class="gMeses">${hist}</div>`:""}
    ${planFormHtml(pl||{inicio:todayISO()},"gp")}
    ${pl&&pl.matricula?`<div class="gRow sm"><div><b>Uniforme/matrícula</b><small>${pl.matricula.pagoEm?"pago em "+brDate(pl.matricula.pagoEm):"a receber"}</small></div><div class="r"><button type="button" class="gBtn mini ${pl.matricula.pagoEm?"ghost":""}" data-act="matpay" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>${pl.matricula.pagoEm?"Desfazer":"Marcar pago"}</button></div></div>`:""}
    <button type="button" class="gBtn" data-act="plansave" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>Salvar plano</button>
@@ -509,44 +627,56 @@ function openPlan(id){
    ${canWrite()?"":`<p class="gNote">A Gestão não está conectada agora, então não dá para salvar.</p>`}`);
   planSummary("gp");
 }
-function openPay(id){
+function payTitle(c){return `${c.parc?`<b>Parcela ${c.parc.n}/${c.parc.total}</b> · `:""}${e(ymLabel(c.ym))} · ${e(planLine(c.per||c.pl))}`;}
+function openPay(id,ym){
+  ym=ym||ui.ym;
   const s=studentById(id); if(!s)return;
-  const c=chargesFor(ui.ym).find(x=>x.s.id===id);
-  if(!c||c.status==="semplano"){openPlan(id);return;}
+  const c=chargeFor(s,ym);
+  if(!c||c.status==="semplano"||c.status==="encerrado"){
+    if(!c&&FIN&&FIN.plans[id]){openSheet(`<h3>${e(s.name)}</h3><p class="gNote">O plano começa depois de ${e(ymLabel(ym))}.</p><button type="button" class="gBtn ghost" data-act="plan" data-id="${e(id)}">Ver plano</button><button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);return;}
+    openPlan(id);return;
+  }
   const zapBtn=c.pl.zap&&c.status!=="pago"&&c.status!=="bolsa"?`<a class="gBtn zap" target="_blank" rel="noopener" href="${zapLink(c)}">Cobrar no WhatsApp</a>`:"";
   if(c.status==="pago"){
-    openSheet(`<h3>${e(s.name)}</h3><p class="gNote">${e(ymLabel(ui.ym))} · ${e(planLine(c.pl))}</p>
-     <div class="gSum"><div><span>Pago em</span><b>${brDate(c.pay.pagoEm)}</b><small>${e(c.pay.forma||"")}</small></div><div><span>Valor</span><b>${brl(c.pay.valor)}</b><small>vencimento ${brShort(c.due)}</small></div></div>
-     <button type="button" class="gBtn danger" data-act="unpay" data-id="${e(id)}" ${canWrite()?"":"disabled"}>Desfazer pagamento</button>
+    openSheet(`<h3>${e(s.name)}</h3><p class="gNote">${payTitle(c)}</p>
+     <div class="gSum"><div><span>Pago em</span><b>${brDate(c.pay.pagoEm)}</b><small>${e(c.pay.forma||"")}${c.pay.pontualidade?" · com pontualidade":""}</small></div><div><span>Valor</span><b>${brl(c.pay.valor)}</b><small>vencimento ${brShort(c.due)}</small></div></div>
+     <button type="button" class="gBtn danger" data-act="unpay" data-id="${e(id)}" data-ym="${ym}" ${canWrite()?"":"disabled"}>Desfazer pagamento</button>
      <button type="button" class="gBtn ghost" data-act="plan" data-id="${e(id)}">Ver plano</button>
      <button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);
     return;
   }
-  const today=todayISO();
-  openSheet(`<h3>${e(s.name)}</h3><p class="gNote">${e(ymLabel(ui.ym))} · ${e(planLine(c.pl))}</p>
+  const today=todayISO(),temPont=c.pi.pont!=null&&c.pi.pont!==c.pi.full,emDia=today<=c.due;
+  openSheet(`<h3>${e(s.name)}</h3><p class="gNote">${payTitle(c)}</p>
    <div class="gStatus"><span class="gPill ${c.status}">${ST_LBL[c.status]}</span><span class="gNote">vencimento ${brDate(c.due)}</span></div>
    ${c.status==="bolsa"?`<p class="gNote">Aluno bolsista: nada a cobrar.</p>`:`
    <div class="gTwo"><label>Data do pagamento<input id="gpayDate" type="date" value="${today}"></label>
    <label>Forma<select id="gpayForma">${FORMAS.map(f=>`<option>${f}</option>`).join("")}</select></label></div>
-   <label>Valor recebido (R$)<input id="gpayValor" type="number" inputmode="decimal" value="${valorDevido(c.pi,c.due,today)}"></label>
+   ${temPont?`<label class="gCheck gPont"><input id="gpayPont" type="checkbox" ${emDia?"checked":""}> Desconto de pontualidade <em>${brl(c.pi.pont)} em vez de ${brl(c.pi.full)}</em></label>`:""}
+   <label>Valor recebido (R$)<input id="gpayValor" type="number" inputmode="decimal" step="0.01" value="${temPont&&emDia?c.pi.pont:c.pi.full}"></label>
    <p class="gNote" id="gpayHint"></p>
-   <button type="button" class="gBtn ok" data-act="paysave" data-id="${e(id)}" ${canWrite()?"":"disabled"}>Confirmar pagamento</button>`}
+   <button type="button" class="gBtn ok" data-act="paysave" data-id="${e(id)}" data-ym="${ym}" ${canWrite()?"":"disabled"}>Confirmar pagamento</button>`}
    ${zapBtn}
    <button type="button" class="gBtn ghost" data-act="plan" data-id="${e(id)}">Ver plano</button>
    <button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);
-  payHint(id);
+  $("gSheet").dataset.payId=id;$("gSheet").dataset.payYm=ym;
+  payHint();
 }
-function payHint(id){
-  const c=chargesFor(ui.ym).find(x=>x.s.id===id);const h=$("gpayHint");if(!c||!h||!c.pi)return;
-  const d=$("gpayDate").value||todayISO();
-  h.textContent=c.pi.pont!=null&&c.pi.pont!==c.pi.full?(d<=c.due?`Com pontualidade: ${brl(c.pi.pont)} (até ${brShort(c.due)}).`:`Após o vencimento: ${brl(c.pi.full)} (sem desconto de pontualidade).`):"";
+function payCtx(){const sh=$("gSheet");if(!sh||!sh.dataset.payId)return null;const s=studentById(sh.dataset.payId);return s?chargeFor(s,sh.dataset.payYm):null;}
+function payHint(){
+  const c=payCtx(),h=$("gpayHint");if(!c||!h||!c.pi)return;
+  const d=($("gpayDate")||{}).value||todayISO(),pont=$("gpayPont");
+  if(!pont){h.textContent="";return;}
+  h.textContent=pont.checked
+    ?(d<=c.due?`Pagando em dia: ${brl(c.pi.pont)}.`:`Pagou depois do vencimento, mas você está liberando o desconto: ${brl(c.pi.pont)}.`)
+    :`Sem desconto de pontualidade: ${brl(c.pi.full)}.`;
 }
 function zapLink(c){
   let n=String(c.pl.zap||"").replace(/\D/g,""); if(n.length<=11)n="55"+n;
   const first=String(c.s.name).split(" ")[0];
+  const parc=c.parc?` (parcela ${c.parc.n}/${c.parc.total})`:"";
   const msg=c.status==="atrasado"
-    ?`Olá! Tudo bem? A mensalidade de ${first} referente a ${ymLabel(ui.ym).toLowerCase()} (vencimento ${brDate(c.due)}) ainda está em aberto: ${brl(c.pi.full)}. Se já pagou, desconsidere. Obrigado! — Primo Soccer`
-    :`Olá! Tudo bem? Lembrete da mensalidade de ${first} de ${ymLabel(ui.ym).toLowerCase()}: ${brl(c.pi.onTime)} pagando até ${brDate(c.due)}. Obrigado! — Primo Soccer`;
+    ?`Olá! Tudo bem? A mensalidade de ${first}${parc} referente a ${ymLabel(c.ym).toLowerCase()} (vencimento ${brDate(c.due)}) ainda está em aberto: ${brl(c.pi.full)}. Se já pagou, desconsidere. Obrigado! — Primo Soccer`
+    :`Olá! Tudo bem? Lembrete da mensalidade de ${first}${parc} de ${ymLabel(c.ym).toLowerCase()}: ${brl(c.pi.onTime)} pagando até ${brDate(c.due)}. Obrigado! — Primo Soccer`;
   return "https://wa.me/"+n+"?text="+encodeURIComponent(msg);
 }
 
@@ -574,12 +704,13 @@ function onClick(ev){
     case "ym":ui.ym=ymAdd(ui.ym,+b.dataset.v);gRender();break;
     case "payf":ui.payFilter=b.dataset.v;gRender();break;
     case "planf":ui.planFilter=b.dataset.v;gRender();break;
+    case "bxf":ui.bxFilter=b.dataset.v;gRender();break;
     case "day":ui.day=b.dataset.v;gRender();break;
     case "sort":ui.sort=b.dataset.v;gRender();break;
     case "cell":ui.tab="agenda";ui.day=b.dataset.d;gRender();setTimeout(()=>{const el=$("gslot-"+b.dataset.h.replace(":",""));if(el)el.scrollIntoView({behavior:"smooth",block:"start"});},60);break;
     case "reload":finLoad(true);break;
     case "plan":openPlan(id);break;
-    case "pay":openPay(id);break;
+    case "pay":openPay(id,b.dataset.ym);break;
     case "close":closeSheet();break;
     case "plansave":if(savePlanFromSheet(id)){closeSheet();refresh();}break;
     case "plansavenext":{
@@ -604,21 +735,23 @@ function onClick(ev){
       delete FIN.lixeira;finChanged();refresh();break;}
     case "plandel":if(!canWrite()||!confirm("Remover o plano deste aluno? Os pagamentos já lançados continuam no histórico."))return;delete FIN.plans[id];finChanged();closeSheet();refresh();break;
     case "renew":{if(!canWrite())return;const pl=FIN.plans[id];const end=planEnd(pl);if(!end)return;
-      if(!confirm(`Renovar ${pl.plano} ${pl.freq} a partir de ${brDate(addDaysISO(end,1))}?`))return;
+      if(!confirm(`Renovar ${planNome(pl)} ${pl.freq} a partir de ${brDate(addDaysISO(end,1))}?\nAs mensalidades já pagas continuam no histórico.`))return;
+      const snap=Object.assign({},pl);delete snap.anteriores;
+      pl.anteriores=[snap].concat(pl.anteriores||[]).slice(0,12);
       pl.inicio=addDaysISO(end,1);finChanged();openPlan(id);refresh();break;}
     case "matpay":{if(!canWrite())return;const m=FIN.plans[id]&&FIN.plans[id].matricula;if(!m)return;m.pagoEm=m.pagoEm?null:todayISO();finChanged();openPlan(id);refresh();break;}
     case "paysave":{
       if(!canWrite())return;const d=$("gpayDate").value||todayISO();const v=+($("gpayValor").value||0);
       if(!(v>0)&&!confirm("Valor zerado. Confirmar mesmo assim?"))return;
-      setPayment(id,ui.ym,{valor:v,pagoEm:d,forma:$("gpayForma").value,lancadoEm:new Date().toISOString()});
+      setPayment(id,b.dataset.ym||ui.ym,{valor:v,pagoEm:d,forma:$("gpayForma").value,pontualidade:!!($("gpayPont")&&$("gpayPont").checked),lancadoEm:new Date().toISOString()});
       finChanged();closeSheet();refresh();break;}
     case "bulkpay":{
       if(!canWrite())return;const abertos=chargesFor(ui.ym).filter(c=>c.status==="avencer"||c.status==="atrasado");
       if(!abertos.length||!confirm(`Marcar ${abertos.length} mensalidade(s) de ${ymLabel(ui.ym)} como pagas no valor com pontualidade?\n\nUse isso só para acertar um mês que você já recebeu.`))return;
       const hoje=todayISO();
-      abertos.forEach(c=>setPayment(c.s.id,ui.ym,{valor:c.pi.onTime,pagoEm:c.due<hoje?c.due:hoje,forma:"Lote",lancadoEm:new Date().toISOString()}));
+      abertos.forEach(c=>setPayment(c.s.id,ui.ym,{valor:c.pi.onTime,pagoEm:c.due<hoje?c.due:hoje,forma:"Lote",pontualidade:c.pi.pont!=null,lancadoEm:new Date().toISOString()}));
       finChanged();refresh();break;}
-    case "unpay":if(!canWrite()||!confirm("Desfazer este pagamento?"))return;setPayment(id,ui.ym,null);finChanged();closeSheet();refresh();break;
+    case "unpay":if(!canWrite()||!confirm("Desfazer este pagamento?"))return;setPayment(id,b.dataset.ym||ui.ym,null);finChanged();closeSheet();refresh();break;
     case "repadd":if(!canWrite())return;FIN.settings.repasse.push({dia:"Sábado",hora:"12:00",pct:14});finChanged();gRender();break;
     case "repdel":if(!canWrite())return;FIN.settings.repasse.splice(+b.dataset.i,1);finChanged();gRender();break;
     case "export":exportFin();break;
@@ -628,7 +761,12 @@ function onSheetInput(ev){
   const t=ev.target;
   if((t.id==="gpPlano"||t.id==="gpFreq")&&ev.type==="change")onPlanTypeChange("gp");
   else if(t.id&&t.id.startsWith("gp")&&t.id!=="gpayDate")planSummary("gp");
-  if(t.id==="gpayDate"){const id=$("gSheet").querySelector("[data-act=paysave]");if(id){const c=chargesFor(ui.ym).find(x=>x.s.id===id.dataset.id);if(c&&c.pi)$("gpayValor").value=valorDevido(c.pi,c.due,t.value||todayISO());payHint(id.dataset.id);}}
+  if(t.id==="gpayDate"||t.id==="gpayPont"){
+    const c=payCtx();if(!c||!c.pi)return;const pont=$("gpayPont");
+    if(t.id==="gpayDate"&&pont)pont.checked=(t.value||todayISO())<=c.due;   // muda sozinho pela data; você pode marcar de novo
+    $("gpayValor").value=pont?(pont.checked?c.pi.pont:c.pi.full):c.pi.full;
+    payHint();
+  }
 }
 function onRootInput(ev){
   const t=ev.target;
