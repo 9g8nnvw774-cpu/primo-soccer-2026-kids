@@ -9,7 +9,7 @@
 "use strict";
 if(typeof window==="undefined")return;
 
-const G_VERSION="87";
+const G_VERSION="88";
 const FIN_TABLE="primo_finance";
 const PENDING_KEY="primo_gestao_pendente_v1";
 const DIAS=[["Segunda","SEG"],["Terça","TER"],["Quarta","QUA"],["Quinta","QUI"],["Sexta","SEX"],["Sábado","SÁB"],["Domingo","DOM"]];
@@ -338,14 +338,13 @@ function viewPlanos(){
   const q=normName(ui.search); if(q)list=list.filter(r=>normName(r.s.name).includes(q));
   list.sort((a,b)=>(!!a.pl-!!b.pl)||a.s.name.localeCompare(b.s.name));
   return `
+   <p class="gNote">Toque no aluno para lançar ou editar o plano. ${n.semplano?`<b>${n.semplano} sem plano.</b>`:"Todos têm plano ✅"}</p>
    <div class="gCard"><div class="gSearch"><input id="gSearch" type="search" placeholder="Buscar aluno" value="${e(ui.search)}" autocomplete="off"></div>
    <div class="gFilters">${[["todos","Todos"],["semplano","Sem plano"],["vencendo","Vencendo"],["ok","Com plano"]].map(([k,l])=>`<button type="button" data-act="planf" data-v="${k}" class="${ui.planFilter===k?"on":""}">${l} <em>${n[k]}</em></button>`).join("")}</div></div>
    <div class="gCard gList">
      ${list.map(r=>`<div class="gRow" data-act="plan" data-id="${e(r.s.id)}"><div><b>${e(r.s.name)}</b><small>${e(shortCat(r.s.category))} · ${r.pl?e(planLine(r.pl,F)):"sem plano"}</small></div>
        <div class="r">${r.pl?`<span class="gPill ${r.st.lvl||"n"}">${e(r.st.lvl===""?(r.pl.plano==="Mensal"?"mensal":"sem início"):r.st.lvl==="g"?"até "+brShort(r.st.end):r.st.lvl==="y"?"vence "+brShort(r.st.end):"vencido")}</span>`:`<span class="gPill semplano">lançar</span>`}</div></div>`).join("")||`<p class="gNote">Nenhum aluno.</p>`}
-   </div>
-   <div class="gCard"><h3>Importar da planilha</h3><p class="gNote">Cria os planos de uma vez a partir do arquivo <b>importar-gestao.json</b>. Não substitui planos já lançados.</p>
-     <label class="gBtn ghost">Escolher arquivo<input type="file" accept="application/json,.json" data-act="import" hidden></label></div>`;
+   </div>`;
 }
 
 /* AGENDA */
@@ -417,6 +416,11 @@ function viewAjustes(){
     ${S.repasse.map((r,i)=>`<div class="gRep"><select data-rep="${i}" data-k="dia" ${dis}>${DIAS.map(([d])=>`<option ${d===r.dia?"selected":""}>${d}</option>`).join("")}</select><input type="time" data-rep="${i}" data-k="hora" value="${e(r.hora)}" ${dis}><input type="number" inputmode="decimal" data-rep="${i}" data-k="pct" value="${r.pct}" ${dis}><button type="button" class="gX" data-act="repdel" data-i="${i}" ${dis} aria-label="Remover">✕</button></div>`).join("")}
     <button type="button" class="gBtn ghost" data-act="repadd" ${dis}>+ Adicionar horário do outro professor</button>
    </div>
+   <div class="gCard"><h3>Recomeçar do zero</h3>
+    <p class="gNote">Apaga <b>todos os planos (${Object.keys(F.plans).length})</b> e <b>pagamentos lançados (${Object.values(F.payments).reduce((t,m)=>t+Object.keys(m||{}).length,0)})</b>. Preços, % e horários do outro professor continuam. Dá para desfazer.</p>
+    <button type="button" class="gBtn danger" data-act="zerar" ${dis}>Apagar todos os planos e pagamentos</button>
+    ${F.lixeira?`<button type="button" class="gBtn ghost" data-act="desfazerzerar" ${dis}>Desfazer: restaurar o que foi apagado em ${e(new Date(F.lixeira.at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))}</button>`:""}
+   </div>
    <div class="gCard"><h3>Backup e segurança</h3>
     <button type="button" class="gBtn ghost" data-act="export" ${FIN?"":"disabled"}>Exportar backup da Gestão (.json)</button>
     <p class="gNote">Os valores ficam numa tabela separada que só o seu login acessa. O link dos pais não recebe nada desta aba. Ao tocar em "Sair Admin", os dados são apagados deste celular depois de sincronizar.</p>
@@ -437,13 +441,21 @@ function ensureOverlay(){
 function openSheet(html){ensureOverlay();$("gSheet").innerHTML=`<div class="grab"></div>`+html;$("gOv").classList.remove("hidden");document.body.classList.add("gNoScroll");}
 function closeSheet(){const ov=$("gOv");if(ov)ov.classList.add("hidden");document.body.classList.remove("gNoScroll");}
 
+/* valor da tabela que o aluno paga em dia (com pontualidade, se existir) */
+function tabelaOnTime(plano,freq,F){
+  F=F||VIEW();const t=F.settings.prices[plano];if(!t)return 0;
+  const p=t["pont"+freq];
+  return (p!==null&&p!==""&&p!==undefined&&!isNaN(+p))?+p:(+t[freq]||0);
+}
 function planFormHtml(pl,prefix){
   pl=pl||{};const F=VIEW();
   const opt=(arr,v)=>arr.map(x=>`<option ${String(x)===String(v)?"selected":""}>${x}</option>`).join("");
+  const plano=pl.plano||"Semestral",freq=pl.freq||"1x",tab=tabelaOnTime(plano,freq,F);
+  const valor=pl.plano?Math.max(0,tab-(+pl.desc||0)):tab;
   return `
-   <div class="gTwo"><label>Plano<select id="${prefix}Plano">${opt(PLANOS,pl.plano||"Semestral")}</select></label>
-   <label>Frequência<select id="${prefix}Freq">${opt(["1x","2x"],pl.freq||"1x")}</select></label></div>
-   <div class="gTwo"><label>Desconto (R$)<input id="${prefix}Desc" type="number" inputmode="decimal" value="${pl.desc??""}" placeholder="0"></label>
+   <div class="gTwo"><label>Plano<select id="${prefix}Plano">${opt(PLANOS,plano)}</select></label>
+   <label>Frequência<select id="${prefix}Freq">${opt(["1x","2x"],freq)}</select></label></div>
+   <div class="gTwo"><label>Mensalidade (R$)<input id="${prefix}Valor" type="number" inputmode="decimal" step="0.01" value="${valor}" data-tab="${tab}"></label>
    <label>Vencimento<select id="${prefix}Venc"><option value="10" ${+pl.venc!==20?"selected":""}>Dia 10</option><option value="20" ${+pl.venc===20?"selected":""}>Dia 20</option></select></label></div>
    <div class="gTwo"><label>Início do plano<input id="${prefix}Inicio" type="date" value="${e(pl.inicio||"")}"></label>
    <label>WhatsApp<input id="${prefix}Zap" type="tel" inputmode="tel" placeholder="do responsável" value="${e(pl.zap||"")}"></label></div>
@@ -454,7 +466,11 @@ function readPlanForm(prefix,old){
   const g=id=>$(prefix+id);
   if(!g("Plano"))return null;
   const F=VIEW();
-  const pl={plano:g("Plano").value,freq:g("Freq").value,desc:+(g("Desc").value||0)||0,venc:+g("Venc").value||10,inicio:g("Inicio").value||"",zap:(g("Zap").value||"").trim()};
+  const plano=g("Plano").value,freq=g("Freq").value,tab=tabelaOnTime(plano,freq,F);
+  const vRaw=g("Valor").value;
+  const valor=vRaw===""?tab:Math.max(0,+vRaw||0);
+  const desc=Math.round((tab-valor)*100)/100;            // desconto = tabela − mensalidade digitada
+  const pl={plano,freq,desc,venc:+g("Venc").value||10,inicio:g("Inicio").value||"",zap:(g("Zap").value||"").trim()};
   if(g("Mat").checked)pl.matricula=(old&&old.matricula)?old.matricula:{valor:+F.settings.uniforme||100,pagoEm:null};
   else pl.matricula=null;
   if(old&&old.obs)pl.obs=old.obs;
@@ -463,9 +479,17 @@ function readPlanForm(prefix,old){
 function planSummary(prefix){
   const box=$(prefix+"Sum"); if(!box)return;
   const pl=readPlanForm(prefix,null); if(!pl){box.innerHTML="";return;}
-  const pi=priceInfo(pl);const end=planEnd(pl);
-  box.innerHTML=pi?`<div><span>Mensalidade</span><b>${pi.bolsa?"Bolsa 100%":brl(pi.onTime)}</b>${pi.pont!=null&&pi.pont!==pi.full?`<small>pagando até o dia ${pl.venc} · depois ${brl(pi.full)}</small>`:`<small>vence todo dia ${pl.venc}</small>`}</div>
-    <div><span>Plano vale até</span><b>${pl.plano==="Mensal"?"renova todo mês":end?brDate(end):"—"}</b><small>tabela ${brl(pi.base)}${pl.desc?(pl.desc>0?" − "+brl(pl.desc):" + "+brl(-pl.desc)):""}</small></div>`:"";
+  const pi=priceInfo(pl);const end=planEnd(pl);const tab=tabelaOnTime(pl.plano,pl.freq);
+  const dTxt=pi&&pi.bolsa?"Bolsa 100%":pl.desc>0?brl(pl.desc):pl.desc<0?"+ "+brl(-pl.desc):"Sem desconto";
+  box.innerHTML=pi?`<div><span>${pl.desc<0?"Acréscimo":"Desconto"}</span><b>${dTxt}</b><small>tabela ${brl(tab)}${pi.pont!=null&&pi.pont!==pi.full&&!pi.bolsa?` · após o dia ${pl.venc}: ${brl(pi.full)}`:` · vence dia ${pl.venc}`}</small></div>
+    <div><span>Plano vale até</span><b>${pl.plano==="Mensal"?"renova todo mês":end?brDate(end):"—"}</b><small>${pl.inicio?"início "+brDate(pl.inicio):"sem data de início"}</small></div>`:"";
+}
+/* ao trocar plano/frequência, a mensalidade volta para o valor da tabela (aí é só ajustar) */
+function onPlanTypeChange(prefix){
+  const v=$(prefix+"Valor"),p=$(prefix+"Plano"),f=$(prefix+"Freq"); if(!v||!p||!f)return;
+  const tab=tabelaOnTime(p.value,f.value);
+  v.value=tab;v.dataset.tab=tab;
+  planSummary(prefix);
 }
 function openPlan(id){
   const s=studentById(id); if(!s)return;
@@ -477,6 +501,7 @@ function openPlan(id){
    ${planFormHtml(pl||{inicio:todayISO()},"gp")}
    ${pl&&pl.matricula?`<div class="gRow sm"><div><b>Uniforme/matrícula</b><small>${pl.matricula.pagoEm?"pago em "+brDate(pl.matricula.pagoEm):"a receber"}</small></div><div class="r"><button type="button" class="gBtn mini ${pl.matricula.pagoEm?"ghost":""}" data-act="matpay" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>${pl.matricula.pagoEm?"Desfazer":"Marcar pago"}</button></div></div>`:""}
    <button type="button" class="gBtn" data-act="plansave" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>Salvar plano</button>
+   ${!pl&&nextSemPlano(s.id)?`<button type="button" class="gBtn ok" data-act="plansavenext" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>Salvar e ir para o próximo sem plano</button>`:""}
    ${pl&&planEnd(pl)?`<button type="button" class="gBtn ghost" data-act="renew" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>Renovar plano (começa ${brDate(addDaysISO(planEnd(pl),1))})</button>`:""}
    ${pl?`<button type="button" class="gBtn ghost" data-act="pay" data-id="${e(s.id)}">Mensalidade de ${e(ymLabel(ui.ym))}</button>`:""}
    ${pl?`<button type="button" class="gBtn danger" data-act="plandel" data-id="${e(s.id)}" ${canWrite()?"":"disabled"}>Remover plano</button>`:""}
@@ -527,10 +552,22 @@ function zapLink(c){
 
 /* ---------- ações ---------- */
 function setPayment(id,ym,obj){if(!FIN.payments[ym])FIN.payments[ym]={};if(obj)FIN.payments[ym][id]=obj;else delete FIN.payments[ym][id];}
+/* próximo aluno sem plano (mesma ordem da lista de Planos) */
+function nextSemPlano(afterId){
+  const F=VIEW();const list=students().filter(s=>!F.plans[s.id]&&s.id!==afterId).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!list.length)return null;
+  const cur=studentById(afterId);
+  return (cur&&list.find(s=>s.name.localeCompare(cur.name)>0))||list[0];
+}
+function savePlanFromSheet(id){
+  if(!canWrite())return false;
+  const pl=readPlanForm("gp",FIN.plans[id]);
+  if(!pl.inicio&&!confirm("Salvar sem data de início? Sem ela o app não calcula quando o plano vence."))return false;
+  FIN.plans[id]=pl;finChanged();return true;
+}
 function onClick(ev){
   const b=ev.target.closest("[data-act]"); if(!b||b.disabled)return;
   const act=b.dataset.act,id=b.dataset.id;
-  if(act==="import")return;            // tratado no change
   switch(act){
     case "tab":ui.tab=b.dataset.v;gRender();window.scrollTo({top:($("page-gestao")||{}).offsetTop||0});break;
     case "goto":ui.tab=b.dataset.tab;if(ui.tab==="mensal")ui.payFilter=b.dataset.f||"todos";if(ui.tab==="planos")ui.planFilter=b.dataset.f||"todos";if(ui.tab==="agenda")ui.day=b.dataset.f||ui.day;gRender();break;
@@ -544,10 +581,27 @@ function onClick(ev){
     case "plan":openPlan(id);break;
     case "pay":openPay(id);break;
     case "close":closeSheet();break;
-    case "plansave":{
-      if(!canWrite())return;const pl=readPlanForm("gp",FIN.plans[id]);
-      if(!pl.inicio&&!confirm("Salvar sem data de início? Sem ela o app não calcula quando o plano vence."))return;
-      FIN.plans[id]=pl;finChanged();closeSheet();refresh();break;}
+    case "plansave":if(savePlanFromSheet(id)){closeSheet();refresh();}break;
+    case "plansavenext":{
+      if(!savePlanFromSheet(id))return;refresh();
+      const nx=nextSemPlano(id);
+      if(nx)openPlan(nx.id);else{closeSheet();alert("Pronto! Todos os alunos têm plano.");}
+      break;}
+    case "zerar":{
+      if(!canWrite())return;
+      const nP=Object.keys(FIN.plans).length,nG=Object.values(FIN.payments).reduce((t,m)=>t+Object.keys(m||{}).length,0);
+      const r=prompt(`Apagar ${nP} plano(s) e ${nG} pagamento(s) lançados?\nPreços e horários do outro professor continuam.\n\nPara confirmar, digite ZERAR`);
+      if(String(r||"").trim().toUpperCase()!=="ZERAR")return;
+      FIN.lixeira={at:new Date().toISOString(),plans:FIN.plans,payments:FIN.payments};
+      FIN.plans={};FIN.payments={};finChanged();refresh();
+      alert("Pronto: Gestão zerada. Agora é só lançar os planos em Planos (ou pelo Cadastro).");break;}
+    case "desfazerzerar":{
+      if(!canWrite()||!FIN.lixeira)return;
+      if(!confirm("Restaurar os planos e pagamentos que foram apagados?\nPlanos lançados depois disso continuam (não são substituídos)."))return;
+      const L=FIN.lixeira;
+      Object.entries(L.plans||{}).forEach(([k,v])=>{if(!FIN.plans[k])FIN.plans[k]=v;});
+      Object.entries(L.payments||{}).forEach(([ym,m])=>Object.entries(m||{}).forEach(([k,v])=>{if(!FIN.payments[ym])FIN.payments[ym]={};if(!FIN.payments[ym][k])FIN.payments[ym][k]=v;}));
+      delete FIN.lixeira;finChanged();refresh();break;}
     case "plandel":if(!canWrite()||!confirm("Remover o plano deste aluno? Os pagamentos já lançados continuam no histórico."))return;delete FIN.plans[id];finChanged();closeSheet();refresh();break;
     case "renew":{if(!canWrite())return;const pl=FIN.plans[id];const end=planEnd(pl);if(!end)return;
       if(!confirm(`Renovar ${pl.plano} ${pl.freq} a partir de ${brDate(addDaysISO(end,1))}?`))return;
@@ -572,7 +626,8 @@ function onClick(ev){
 }
 function onSheetInput(ev){
   const t=ev.target;
-  if(t.id&&t.id.startsWith("gp")&&t.id!=="gpayDate")planSummary("gp");
+  if((t.id==="gpPlano"||t.id==="gpFreq")&&ev.type==="change")onPlanTypeChange("gp");
+  else if(t.id&&t.id.startsWith("gp")&&t.id!=="gpayDate")planSummary("gp");
   if(t.id==="gpayDate"){const id=$("gSheet").querySelector("[data-act=paysave]");if(id){const c=chargesFor(ui.ym).find(x=>x.s.id===id.dataset.id);if(c&&c.pi)$("gpayValor").value=valorDevido(c.pi,c.due,t.value||todayISO());payHint(id.dataset.id);}}
 }
 function onRootInput(ev){
@@ -589,35 +644,9 @@ function onRootInput(ev){
     const r=FIN.settings.repasse[+t.dataset.rep];if(!r)return;
     r[t.dataset.k]=t.dataset.k==="pct"?(+t.value||0):t.value;finChanged();
   }
-  if(t.dataset.act==="import"&&ev.type==="change")importFile(t);
 }
 
-/* ---------- importação / exportação ---------- */
-function importFile(input){
-  const file=input.files&&input.files[0];input.value="";if(!file)return;
-  if(!canWrite())return alert("A Gestão precisa estar conectada para importar.");
-  const rd=new FileReader();
-  rd.onload=()=>{
-    let j;try{j=JSON.parse(rd.result);}catch(err){return alert("Arquivo inválido.");}
-    if(!j||j.tipo!=="primo-gestao-import"||!Array.isArray(j.alunos))return alert("Este arquivo não é a importação da Gestão.");
-    const byName={};students().forEach(s=>{const k=normName(s.name);(byName[k]=byName[k]||[]).push(s);});
-    const found=[],miss=[];let skip=0;
-    j.alunos.forEach(a=>{
-      const c=byName[normName(a.nome)]||[];
-      const s=c.find(x=>x.category===a.categoria)||c[0];
-      if(!s){miss.push(a);return;}
-      if(FIN.plans[s.id]){skip++;return;}
-      found.push({s,a});
-    });
-    if(!found.length){openSheet(`<h3>Importação</h3><p class="gNote">Nenhum plano novo para criar. ${skip} já tinham plano.</p>${missHtml(miss)}<button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);return;}
-    if(!confirm(`Criar ${found.length} plano(s)?\n${skip} aluno(s) já tinham plano (não mexo).\n${miss.length} nome(s) da planilha não achei no app.`))return;
-    found.forEach(({s,a})=>{FIN.plans[s.id]={plano:a.plano,freq:a.freq,desc:+a.desc||0,venc:+a.venc||10,inicio:a.inicio||"",zap:"",matricula:null,obs:"Importado da planilha"};});
-    finChanged();refresh();
-    openSheet(`<h3>Importação concluída</h3><p class="gNote">${found.length} plano(s) criados. Confira a <b>data de início</b> de cada um em Planos (sem ela o app não sabe quando o plano vence).</p>${missHtml(miss)}<button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);
-  };
-  rd.readAsText(file);
-}
-function missHtml(miss){return miss.length?`<div class="gAlert y"><b>Não achei no app (${miss.length})</b>${miss.map(a=>e(a.nome)).join(", ")}<br>Confira se o nome está igual no Cadastro e lance o plano manualmente.</div>`:"";}
+/* ---------- exportação ---------- */
 function exportFin(){
   if(!FIN)return;
   const blob=new Blob([JSON.stringify({app:"Primo Soccer Kids · Gestão",exportedAt:new Date().toISOString(),data:FIN},null,2)],{type:"application/json"});
@@ -631,6 +660,20 @@ function renderPlanFormState(){
   if(note)note.textContent=canWrite()?"":finStatus==="loading"?"Carregando a Gestão…":"A Gestão não está conectada: o aluno será cadastrado sem plano.";
   if(!$("cadPlano")&&box.dataset.ready!=="1"){box.dataset.ready="1";}
   planSummary("cad");
+  const txt=$("cadSemPlanoTxt");
+  if(txt){
+    if(!canWrite()){txt.textContent=finStatus==="loading"?"Carregando a Gestão…":"Abra a aba Gestão para conectar.";}
+    else{const n=students().filter(s=>!FIN.plans[s.id]).length;txt.innerHTML=n?`<b>${n}</b> aluno(s) já cadastrado(s) ainda sem plano.`:"Todos os alunos cadastrados têm plano ✅";}
+  }
+}
+function buildSemPlanoCard(){
+  if($("cadSemPlanoCard"))return;
+  const cards=document.querySelectorAll("#page-cadastro > .card");
+  if(cards.length<2)return;
+  const c=document.createElement("div");c.className="card";c.id="cadSemPlanoCard";
+  c.innerHTML=`<h2>Planos dos alunos</h2><p id="cadSemPlanoTxt" class="smallText"></p><button type="button" class="success" id="cadLancarPlanos">Lançar / editar planos dos alunos cadastrados</button>`;
+  cards[1].parentNode.insertBefore(c,cards[1]);
+  $("cadLancarPlanos").addEventListener("click",()=>{ui.tab="planos";ui.planFilter="semplano";ui.search="";showPage("gestao");});
 }
 function initCadastro(){
   const box=$("cadPlanBox"); if(!box||box.dataset.built==="1")return;
@@ -640,8 +683,12 @@ function initCadastro(){
    <div id="cadPlanFields">${planFormHtml({inicio:todayISO(),matricula:true},"cad")}</div>
    <p class="gNote" id="cadPlanNote"></p>`;
   box.addEventListener("input",()=>planSummary("cad"));
-  box.addEventListener("change",ev=>{if(ev.target.id==="cadTemPlano")$("cadPlanFields").classList.toggle("hidden",!ev.target.checked);planSummary("cad");});
+  box.addEventListener("change",ev=>{
+    if(ev.target.id==="cadTemPlano")$("cadPlanFields").classList.toggle("hidden",!ev.target.checked);
+    if(ev.target.id==="cadPlano"||ev.target.id==="cadFreq")onPlanTypeChange("cad");else planSummary("cad");
+  });
   planSummary("cad");
+  buildSemPlanoCard();
 }
 function resetCadastro(){const box=$("cadPlanBox");if(!box)return;box.dataset.built="";box.innerHTML="";initCadastro();renderPlanFormState();}
 
