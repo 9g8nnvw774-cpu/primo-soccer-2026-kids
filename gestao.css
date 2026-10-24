@@ -199,3 +199,7 @@ label.gBtn{cursor:pointer}
 .gRelBar b{font-family:"Arial Black",Arial,sans-serif;font-size:14px;letter-spacing:.5px}
 .gRelBar .gBtn.mini{padding:10px 14px!important}
 #gRelFrame{flex:1;width:100%;border:0;background:#fff}
+
+/* ===== V91 - vencimento no dia do início + tempo de atraso ===== */
+.gNegTxt{color:#fca5a5}
+.gBxTop .gPill.atrasado{white-space:normal;text-align:right;max-width:150px}
