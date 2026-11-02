@@ -263,3 +263,50 @@ label.gBtn{cursor:pointer}
   #gBody>.gBxList{grid-template-columns:repeat(3,1fr)}
   #gBody>.gList{grid-template-columns:repeat(3,1fr)}
 }
+
+/* ===== V93 - PATROCÍNIO + LANÇAMENTOS ===== */
+.gBtnRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.gBtnRow .gBtn{margin:0!important}
+.gLines .zero span,.gLines .zero b{opacity:.55}
+.gLines b.neg,.gRow b.neg{color:#fca5a5}.gRow b.pos{color:#86efac}
+.gRowL{display:flex;align-items:center;gap:10px;min-width:0}
+.gRowL>div{min-width:0}
+.gLogo{flex:0 0 auto;width:38px;height:38px;border-radius:10px;background:#fff;display:grid;place-items:center;overflow:hidden;color:#06117a;font-weight:900;font-size:13px;border:1px solid rgba(126,234,255,.4)}
+.gLogo img{width:100%;height:100%;object-fit:contain}
+.gIc{flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:17px}
+.gQuick{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;border-top:1px solid rgba(126,234,255,.12);margin-top:4px}
+.gQuick button{width:auto!important;min-height:0!important;border-radius:999px!important;padding:7px 11px!important;font-size:12px!important;font-weight:800!important;background:rgba(2,8,23,.7)!important;color:#dbeafe!important;border:1px solid rgba(126,234,255,.3)!important}
+.gPatHd{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.gPatHd .gLogo{width:54px;height:54px;border-radius:14px}
+.gPatHd .gNote{margin:2px 0 0}
+/* tabela anual (estilo planilha) */
+.gTblWrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px 4px}
+.gTbl{width:100%;min-width:860px;border-collapse:collapse;background:transparent;font-size:12px}
+.gTbl th{background:#0284c7;color:#fff;font-size:11px;padding:7px 5px;border:1px solid rgba(255,255,255,.18);text-transform:uppercase;white-space:nowrap}
+.gTbl td{padding:0;border:1px solid rgba(126,234,255,.14);font-weight:700;text-align:right;white-space:nowrap;background:rgba(2,8,23,.35)}
+.gTbl td.n{padding:7px 6px}
+.gTbl td.b{color:#7eeaff}
+.gTbl .stk{position:sticky;left:0;z-index:2;text-align:left;padding:7px 8px;background:#071c47!important;min-width:150px;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.gTbl .stk small{font-weight:400;opacity:.7}
+.gTbl td.c button{width:100%!important;min-height:32px!important;height:32px;padding:0 6px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff!important;font-size:12px!important;font-weight:800!important;text-align:right}
+.gTbl td.c.ok{background:rgba(34,197,94,.22)}
+.gTbl td.c.atr{background:rgba(239,68,68,.2)}.gTbl td.c.atr button{color:#fca5a5!important;text-align:center}
+.gTbl td.c.pend{background:rgba(251,191,36,.14)}
+.gTbl .cur{box-shadow:inset 0 0 0 2px #7eeaff}
+.gTbl tfoot td,.gTbl tr.tot td{background:#0369a1!important;color:#fff}
+.gTbl.cx{margin-top:12px}
+.gTbl.cx tr.ant td{background:rgba(74,222,128,.18)}
+.gTbl.cx tr.ent td{background:rgba(96,165,250,.16)}
+.gTbl.cx tr.sai td{background:rgba(251,146,60,.16);color:#fed7aa}
+.gLeg{display:inline-block;border-radius:4px;padding:0 5px;font-weight:900}
+.gLeg.ok{background:rgba(34,197,94,.3)}.gLeg.atr{background:rgba(239,68,68,.3);color:#fecaca}
+/* cadastro de patrocinadores */
+.gSpHead,.gSp{display:grid;grid-template-columns:1fr 100px 46px 40px;gap:6px;align-items:center}
+.gSpHead{font-size:11px;color:var(--gMut);font-weight:800;margin:12px 0 2px}
+.gSp{margin:6px 0}
+#page-gestao .gSp input{margin:0}
+#page-gestao .gSp input[type=checkbox]{justify-self:center}
+@media (min-width:900px){
+  .gBtnRow{max-width:620px}
+  .gTbl{font-size:13px}
+}

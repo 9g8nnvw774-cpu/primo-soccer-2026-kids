@@ -1,5 +1,5 @@
 /* =====================================================================
-   V92 - GESTÃO: planos, mensalidades (parcelas), baixa, fluxo de caixa, agenda/vagas e valores
+   V93 - GESTÃO (patrocínio e lançamentos): planos, mensalidades (parcelas), baixa, fluxo de caixa, agenda/vagas e valores
    - Os dados financeiros ficam na tabela primo_finance (separada).
      Só o login do dono lê/grava (RLS + função is_primo_admin).
    - Nada daqui vai para o link dos pais.
@@ -9,13 +9,30 @@
 "use strict";
 if(typeof window==="undefined")return;
 
-const G_VERSION="92";
+const G_VERSION="93";
 const FIN_TABLE="primo_finance";
 const PENDING_KEY="primo_gestao_pendente_v1";
 const DIAS=[["Segunda","SEG"],["Terça","TER"],["Quarta","QUA"],["Quinta","QUI"],["Sexta","SEX"],["Sábado","SÁB"],["Domingo","DOM"]];
 const PLANOS=["Anual","Semestral","Mensal"];
 const PLANO_MESES={Anual:12,Semestral:6,Mensal:1};
 const FORMAS=["Pix","Dinheiro","Cartão","Transferência"];
+/* patrocínio: os 9 patrocinadores da planilha (valor mensal do contrato) */
+const PATRO_PADRAO=[
+  ["Ademicon",0,"ademicon.jpg"],["Somafra",200,"somafra.jpg"],["Nei Motos",180,"nei-motos.jpg"],
+  ["Dullopes",0,"dulopes.jpg"],["Octo",120,"octo.jpg"],["São Silvestre",150,"sao-silvestre.jpg"],
+  ["Cervejaria dos Anjos",150,"dos-anjos.jpg"],["Ignição Contábil",120,"io-contabil.jpg"],["Clínica São Francisco",120,"sao-francisco.jpg"]
+];
+/* lançamentos avulsos: em qual caixa entram e se somam (+) ou subtraem (−) */
+const LANC_TIPOS={
+  avulsa:{lbl:"Aula avulsa",sinal:1,caixa:"mens",ic:"⚽",ph:"Nome do aluno"},
+  album:{lbl:"Álbum",sinal:1,caixa:"patro",ic:"📒",ph:"Ex.: venda de álbuns"},
+  camiseta:{lbl:"Camiseta de time",sinal:1,caixa:"patro",ic:"👕",ph:"Ex.: camisetas de clube"},
+  bolas:{lbl:"Bolas",sinal:1,caixa:"patro",ic:"⚽",ph:"Ex.: venda de bolas"},
+  despJP:{lbl:"Despesas JP",sinal:-1,caixa:"patro",ic:"🧾",ph:"Ex.: material, combustível"},
+  despPrimo:{lbl:"Despesas Primo",sinal:-1,caixa:"patro",ic:"🧾",ph:"Ex.: despesa da escola"},
+  aluguel:{lbl:"Aluguel",sinal:-1,caixa:"patro",ic:"🏠",ph:"Aluguel da quadra"},
+  retirada:{lbl:"Retirada",sinal:-1,caixa:"patro",ic:"💸",ph:"Quem retirou / motivo"}
+};
 const DEFAULT_SETTINGS={
   prices:{
     Anual:{"1x":160,"2x":270,pont1x:null,pont2x:250},
@@ -71,6 +88,15 @@ function finNorm(d){
   if(!f.plans||typeof f.plans!=="object")f.plans={};
   if(!f.payments||typeof f.payments!=="object")f.payments={};
   if(!/^\d{4}-\d{2}$/.test(f.settings.inicioControle||""))f.settings.inicioControle=ymToday();
+  if(!f.patro||typeof f.patro!=="object"){
+    // 1ª vez: patrocinadores da planilha; caixa começa em outubro/2026 com o saldo final de setembro da planilha
+    f.patro={patrocinadores:PATRO_PADRAO.map(([nome,contrato,logo],i)=>({id:"P"+(i+1),nome,contrato,logo,ativo:true})),
+             recebimentos:{},inicio:"2026-10",saldoInicial:756.26};
+  }
+  if(!Array.isArray(f.patro.patrocinadores))f.patro.patrocinadores=[];
+  if(!f.patro.recebimentos||typeof f.patro.recebimentos!=="object")f.patro.recebimentos={};
+  if(!/^\d{4}-\d{2}$/.test(f.patro.inicio||""))f.patro.inicio=ymToday();
+  if(!Array.isArray(f.lanc))f.lanc=[];
   return f;
 }
 const VIEW=()=>FIN||finNorm(null);   // leitura quando o financeiro ainda não carregou
@@ -292,12 +318,14 @@ function vagaTxt(free){return free<0?`${-free} acima`:free===0?"lotado":free===1
 function refresh(){if(gVisible())gRender();renderPlanFormState();}
 function gRender(){
   const root=$("gestaoRoot"); if(!root)return;
-  const tabs=[["resumo","Resumo"],["baixa","Baixa"],["fluxo","Fluxo"],["mensal","Mensalidades"],["planos","Planos"],["agenda","Agenda"],["valores","Valores"],["ajustes","Ajustes"]];
+  const tabs=[["resumo","Resumo"],["baixa","Baixa"],["fluxo","Fluxo"],["patro","Patrocínio"],["mensal","Mensalidades"],["planos","Planos"],["agenda","Agenda"],["valores","Valores"],["ajustes","Ajustes"]];
   root.innerHTML=`
-    <div class="gHead"><h2>Gestão</h2><p>Planos, mensalidades, vagas e valores · só você vê esta aba</p></div>
+    <div class="gHead"><h2>Gestão</h2><p>Planos, mensalidades, patrocínio e caixa · só você vê esta aba</p></div>
     ${statusCard()}
     <div class="gChips" role="tablist">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-v="${k}" class="${ui.tab===k?"on":""}">${l}</button>`).join("")}</div>
-    <div id="gBody">${({resumo:viewResumo,baixa:viewBaixa,fluxo:viewFluxo,mensal:viewMensal,planos:viewPlanos,agenda:viewAgenda,valores:viewValores,ajustes:viewAjustes}[ui.tab]||viewResumo)()}</div>`;
+    <div id="gBody">${({resumo:viewResumo,baixa:viewBaixa,fluxo:viewFluxo,patro:viewPatro,mensal:viewMensal,planos:viewPlanos,agenda:viewAgenda,valores:viewValores,ajustes:viewAjustes}[ui.tab]||viewResumo)()}</div>`;
+  // tabelas largas (celular): abre já mostrando o mês atual
+  root.querySelectorAll(".gTblWrap").forEach(w=>{const c=w.querySelector("th.cur"),s=w.querySelector("th.stk");if(c&&w.scrollWidth>w.clientWidth)w.scrollLeft=Math.max(0,c.offsetLeft-(s?s.offsetWidth:0)-c.offsetWidth*3);});
 }
 function statusCard(){
   if(finStatus==="ok")return "";
@@ -316,6 +344,8 @@ function viewResumo(){
   const alerts=[];
   if(d.atr.length)alerts.push(["r","⏰",`${d.atr.length} aluno(s) com mensalidade atrasada · ${brl(d.totAtr)}`,d.atr.slice(0,6).map(a=>a.s.name+(a.itens.length>1?` (${a.itens.length})`:"")).join(", ")+(d.atr.length>6?"…":""),"fluxo",""]);
   const enc=list.filter(c=>c.status==="encerrado");
+  const pp=patroAtivos(F).map(sp=>({sp,...patroStatus(sp,ui.ym,F)})).filter(x=>x.st==="pendente"||x.st==="atrasado");
+  if(pp.length)alerts.push(["y","🤝",`${pp.length} patrocínio(s) a receber em ${MONTHS[+ui.ym.slice(5)-1].toLowerCase()} · ${brl(pp.reduce((t,x)=>t+x.valor,0))}`,pp.map(x=>x.sp.nome).join(", "),"patro",""]);
   if(enc.length)alerts.push(["y","🔁",`${enc.length} plano(s) para renovar`,enc.slice(0,6).map(c=>c.s.name).join(", "),"mensal","encerrado"]);
   const venc=students().map(s=>({s,pl:F.plans[s.id]})).filter(x=>x.pl).map(x=>({...x,st:planState(x.pl)})).filter(x=>x.st.lvl==="y");
   if(venc.length)alerts.push(["y","📅",`${venc.length} plano(s) acabando nos próximos 30 dias`,venc.slice(0,6).map(x=>x.s.name).join(", ")+(venc.length>6?"…":""),"planos","vencendo"]);
@@ -366,6 +396,10 @@ function recebimentosDoMes(ym){
     const s=studentById(id);
     out.push({id,s,nome:s?s.name:"(aluno removido)",cat:s?s.category:"",comp:ym,pay:{pagoEm:m.pagoEm,forma:m.forma||""},valor:+m.valor||0,tipo:"matricula"});
   });
+  (F.lanc||[]).forEach(l=>{
+    if(l.tipo!=="avulsa"||ymOf(l.data)!==ym)return;
+    out.push({id:l.id,s:null,nome:l.desc||"Aula avulsa",cat:"",comp:ym,pay:{pagoEm:l.data,forma:l.forma||""},valor:+l.valor||0,tipo:"avulsa"});
+  });
   return out.sort((a,b)=>a.pay.pagoEm.localeCompare(b.pay.pagoEm)||a.nome.localeCompare(b.nome));
 }
 /* mensalidades atrasadas (situação de hoje) de todos os meses até ymLim */
@@ -383,8 +417,8 @@ function atrasosAte(ymLim){
 function fluxoDados(ym){
   const F=VIEW(),rec=recebimentosDoMes(ym),comp=chargesFor(ym),tc=totals(comp);
   const soma=f=>rec.filter(f).reduce((t,r)=>t+r.valor,0);
-  const caixa={mes:soma(r=>r.tipo==="mes"),atrasada:soma(r=>r.tipo==="atrasada"),adiantada:soma(r=>r.tipo==="adiantada"),matricula:soma(r=>r.tipo==="matricula")};
-  caixa.total=caixa.mes+caixa.atrasada+caixa.adiantada+caixa.matricula;
+  const caixa={mes:soma(r=>r.tipo==="mes"),atrasada:soma(r=>r.tipo==="atrasada"),adiantada:soma(r=>r.tipo==="adiantada"),matricula:soma(r=>r.tipo==="matricula"),avulsa:soma(r=>r.tipo==="avulsa")};
+  caixa.total=caixa.mes+caixa.atrasada+caixa.adiantada+caixa.matricula+caixa.avulsa;
   const formas={};rec.forEach(r=>{const k=r.pay.forma||"Sem forma informada";formas[k]=(formas[k]||0)+r.valor;});
   const dist={seu:0,desp:0,rep:0};rec.filter(r=>r.tipo!=="matricula").forEach(r=>{const x=splitValor(r.s,r.valor,F);dist.seu+=x.seu;dist.desp+=x.desp;dist.rep+=x.rep;});
   const abertos=comp.filter(c=>c.status==="avencer");
@@ -394,12 +428,12 @@ function fluxoDados(ym){
     totAtr:atr.reduce((t,a)=>t+a.total,0),
     nAtrMeses:atr.reduce((t,a)=>t+a.itens.length,0)};
 }
-const TIPO_LBL={mes:"do mês",atrasada:"atrasada",adiantada:"adiantada",matricula:"uniforme/matrícula"};
-function refTxt(r){return r.tipo==="matricula"?"Uniforme/matrícula":`${mesAbr(r.comp)}${r.parc?` · ${r.parc.n}/${r.parc.total}`:""}`;}
+const TIPO_LBL={mes:"do mês",atrasada:"atrasada",adiantada:"adiantada",matricula:"uniforme/matrícula",avulsa:"aula avulsa"};
+function refTxt(r){return r.tipo==="avulsa"?"Aula avulsa":r.tipo==="matricula"?"Uniforme/matrícula":`${mesAbr(r.comp)}${r.parc?` · ${r.parc.n}/${r.parc.total}`:""}`;}
 
 function viewFluxo(){
   const d=fluxoDados(ui.ym),c=d.caixa;
-  const recList=d.rec.map(r=>`<div class="gRow sm" ${r.tipo==="matricula"?`data-act="plan"`:`data-act="pay" data-ym="${r.comp}"`} data-id="${e(r.id)}">
+  const recList=d.rec.map(r=>`<div class="gRow sm" ${r.tipo==="avulsa"?`data-act="lanc"`:r.tipo==="matricula"?`data-act="plan"`:`data-act="pay" data-ym="${r.comp}"`} data-id="${e(r.id)}">
      <div><b>${e(r.nome)}${r.tipo!=="mes"?` <span class="gTag ${r.tipo==="atrasada"?"y":r.tipo==="adiantada"?"b":"p"}">${e(TIPO_LBL[r.tipo])}</span>`:""}</b><small>${brShort(r.pay.pagoEm)} · ${e(refTxt(r))} · ${e(r.pay.forma||"—")}${r.pay.pontualidade?" · c/ pontualidade":""}</small></div>
      <div class="r"><b>${brl(r.valor)}</b></div></div>`).join("");
   const atrList=d.atr.map(a=>`<div class="gBx"><div class="gBxTop" data-act="plan" data-id="${e(a.s.id)}"><div><b>${e(a.s.name)}</b><small>${e(shortCat(a.s.category))} · ${a.itens.length} mensalidade(s) · mais antiga: ${atrasoTxt(a.itens[0].due)}</small></div><b class="gNeg">${brl(a.total)}</b></div>
@@ -412,7 +446,7 @@ function viewFluxo(){
      <div class="bad"><span>Em atraso</span><b>${brl(d.totAtr)}</b></div>
      <div><span>Previsto do mês</span><b>${brl(d.tc.previsto)}</b></div>
    </div>
-   <button type="button" class="gBtn" data-act="relatorio">🖨️ Ver relatório para imprimir / PDF</button>
+   <div class="gBtnRow"><button type="button" class="gBtn" data-act="lancnovo" data-tipo="avulsa" ${canWrite()?"":"disabled"}>+ Lançar</button><button type="button" class="gBtn ghost" data-act="relatorio">🖨️ Relatório / PDF</button></div>
    <div class="gCols"><div class="gCol">
    <div class="gCard"><h3>Entrou no caixa <small>pela data do pagamento</small></h3>
      <div class="gLines">
@@ -420,6 +454,7 @@ function viewFluxo(){
        <div><span>Atrasadas de meses anteriores</span><b>${brl(c.atrasada)}</b></div>
        ${c.adiantada?`<div><span>Adiantadas (meses seguintes)</span><b>${brl(c.adiantada)}</b></div>`:""}
        <div><span>Uniformes / matrículas</span><b>${brl(c.matricula)}</b></div>
+       <div><span>Aulas avulsas</span><b>${brl(c.avulsa)}</b></div>
        <div class="tot"><span>Total</span><b>${brl(c.total)}</b></div>
      </div>
      ${Object.keys(d.formas).length?`<p class="gNote">${Object.entries(d.formas).map(([k,v])=>`${e(k)} ${brl(v)}`).join(" · ")}</p>`:""}
@@ -494,6 +529,7 @@ footer{margin-top:16px;padding-top:8px;border-top:1px solid #cbd5e1;font-size:9p
   <tr><td>Mensalidades atrasadas recebidas (meses anteriores)</td><td class="r">${brl(c.atrasada)}</td></tr>
   <tr><td>Mensalidades adiantadas</td><td class="r">${brl(c.adiantada)}</td></tr>
   <tr><td>Uniformes / matrículas</td><td class="r">${brl(c.matricula)}</td></tr>
+  <tr><td>Aulas avulsas</td><td class="r">${brl(c.avulsa)}</td></tr>
   <tr class="tot"><td>Total recebido</td><td class="r">${brl(c.total)}</td></tr></table></div>
  <div><h2>Formas de pagamento</h2><table>
   ${Object.entries(d.formas).map(([k,v])=>`<tr><td>${h(k)}</td><td class="r">${brl(v)}</td></tr>`).join("")||`<tr><td class="vazio">Sem recebimentos</td><td></td></tr>`}
@@ -518,7 +554,7 @@ ${at?`<tr class="tot"><td colspan="4">Total em atraso</td><td class="r neg">${br
 <footer>Fluxo de caixa = pagamentos pela data em que foram recebidos (uma mensalidade de setembro paga em outubro entra em outubro). Lucro estimado: ${F.settings.ownPct}% nos seus horários e ${(F.settings.repasse[0]||{}).pct??14}% nos horários de ${h(F.settings.profNome)}. Valores em atraso consideram o valor sem desconto de pontualidade.</footer>
 </body></html>`;
 }
-function openRelatorio(){
+function openRelatorio(html){
   let ov=$("gRelOv");
   if(!ov){
     ov=document.createElement("div");ov.id="gRelOv";ov.className="gRelOv";
@@ -528,8 +564,224 @@ function openRelatorio(){
     $("gRelPrint").onclick=()=>{const fr=$("gRelFrame");try{fr.contentWindow.focus();fr.contentWindow.print();}catch(err){alert("Não consegui abrir a impressão. Use o botão Compartilhar do navegador.");}};
   }
   const fr=$("gRelFrame"),doc=fr.contentWindow.document;
-  doc.open();doc.write(fluxoReportHtml(ui.ym));doc.close();
+  doc.open();doc.write(html||fluxoReportHtml(ui.ym));doc.close();
   ov.classList.remove("hidden");document.body.classList.add("gNoScroll");
+}
+
+/* ---------- PATROCÍNIO: patrocinadores + caixa (saldo anterior + entradas − saídas) ---------- */
+function fmtN(v){v=Math.round((+v||0)*100)/100;return v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function defDataMes(ym){const hoje=todayISO();if(ym===ymOf(hoje))return hoje;if(ym<ymOf(hoje))return addDaysISO(ymAdd(ym,1)+"-01",-1);return ym+"-01";}
+function patroAtivos(F){return (F||VIEW()).patro.patrocinadores.filter(p=>p.ativo!==false);}
+function patroById(id,F){return (F||VIEW()).patro.patrocinadores.find(p=>p.id===id)||null;}
+function patroLogo(sp){return sp&&sp.logo?`<span class="gLogo"><img src="${e(sp.logo)}" alt=""></span>`:`<span class="gLogo">${e(initials(sp?sp.nome:"?"))}</span>`;}
+function patroRecebidosNoMes(ym,F){   // pela DATA do recebimento (caixa)
+  F=F||VIEW();const out=[];
+  Object.entries(F.patro.recebimentos).forEach(([ref,m])=>Object.entries(m||{}).forEach(([sid,r])=>{
+    if(r&&r.pagoEm&&ymOf(r.pagoEm)===ym){const sp=patroById(sid,F);out.push({sid,ref,r,sp,nome:sp?sp.nome:"(patrocinador removido)",valor:+r.valor||0});}
+  }));
+  return out.sort((a,b)=>a.r.pagoEm.localeCompare(b.r.pagoEm)||a.nome.localeCompare(b.nome));
+}
+function patroStatus(sp,ym,F){
+  F=F||VIEW();const r=(F.patro.recebimentos[ym]||{})[sp.id]||null;
+  if(r&&r.pagoEm)return {st:"pago",r,valor:+r.valor||0};
+  if(ym<F.patro.inicio)return {st:"antes",valor:0};
+  if(!(+sp.contrato>0))return {st:"sem",valor:0};
+  return {st:ym<ymToday()?"atrasado":"pendente",valor:+sp.contrato};
+}
+const CAIXA_LINHAS=[["patro","Patrocínios recebidos",1],["album","Álbum",1],["camiseta","Camisetas de time",1],["bolas","Bolas",1],
+  ["despJP","Despesas JP",-1],["despPrimo","Despesas Primo",-1],["aluguel","Aluguel",-1],["retirada","Retiradas",-1]];
+function caixaPatro(ym,F){
+  F=F||VIEW();const P=F.patro;
+  if(!ym||ym<P.inicio)return null;
+  let ant=+P.saldoInicial||0,cur=P.inicio;
+  for(let guard=0;guard<600;guard++){
+    const v={ym:cur,anterior:ant,patro:patroRecebidosNoMes(cur,F).reduce((t,x)=>t+x.valor,0)};
+    ["album","camiseta","bolas","despJP","despPrimo","aluguel","retirada"].forEach(k=>v[k]=0);
+    F.lanc.forEach(l=>{if(ymOf(l.data)===cur&&v[l.tipo]!==undefined)v[l.tipo]+=+l.valor||0;});
+    v.entradas=v.patro+v.album+v.camiseta+v.bolas;
+    v.saidas=v.despJP+v.despPrimo+v.aluguel+v.retirada;
+    v.final=ant+v.entradas-v.saidas;
+    if(cur===ym)return v;
+    ant=v.final;cur=ymAdd(cur,1);
+  }
+  return null;
+}
+/* movimento do caixa do patrocínio no mês (recebimentos + lançamentos), em ordem de data */
+function movPatro(ym,F){
+  F=F||VIEW();
+  const a=patroRecebidosNoMes(ym,F).map(x=>({data:x.r.pagoEm,sinal:1,valor:x.valor,ic:"🤝",tit:x.nome,sub:"Patrocínio"+(x.ref!==ym?` · ref. ${mesAbr(x.ref)}`:""),act:`data-act="patro" data-id="${e(x.sid)}" data-ym="${x.ref}"`,forma:x.r.forma}));
+  const b=F.lanc.filter(l=>ymOf(l.data)===ym&&(LANC_TIPOS[l.tipo]||{}).caixa==="patro").map(l=>{const T=LANC_TIPOS[l.tipo];return {data:l.data,sinal:T.sinal,valor:+l.valor||0,ic:T.ic,tit:T.lbl,sub:l.desc||"",act:`data-act="lanc" data-id="${e(l.id)}"`,forma:l.forma,tipo:l.tipo};});
+  return a.concat(b).sort((x,y)=>x.data.localeCompare(y.data));
+}
+const PST_LBL={pago:"Recebido",pendente:"A receber",atrasado:"Atrasado",sem:"Lançar",antes:"—"};
+const PST_CLS={pago:"pago",pendente:"avencer",atrasado:"atrasado",sem:"n",antes:"n"};
+
+function viewPatro(){
+  const F=VIEW(),P=F.patro,ym=ui.ym,cx=caixaPatro(ym,F),dis=canWrite()?"":"disabled";
+  const sts=patroAtivos(F).map(sp=>({sp,...patroStatus(sp,ym,F)}));
+  const contratoTot=sts.reduce((t,x)=>t+(+x.sp.contrato||0),0),recRef=sts.filter(x=>x.st==="pago").reduce((t,x)=>t+x.valor,0);
+  const nPend=sts.filter(x=>x.st==="pendente"||x.st==="atrasado").length;
+  const mov=movPatro(ym,F);
+  const linhas=cx?CAIXA_LINHAS.map(([k,l,s])=>`<div class="${cx[k]?"":"zero"}"><span>${s>0?"+":"−"} ${l}</span><b class="${s<0&&cx[k]?"neg":""}">${s<0&&cx[k]?"− ":""}${brl(cx[k])}</b></div>`).join(""):"";
+  return `
+   ${monthNav()}
+   ${cx?`<div class="gTiles four">
+     <div><span>Saldo do mês anterior</span><b>${brl(cx.anterior)}</b></div>
+     <div class="ok"><span>Entradas</span><b>${brl(cx.entradas)}</b></div>
+     <div class="bad"><span>Saídas</span><b>${brl(cx.saidas)}</b></div>
+     <div class="${cx.final<0?"bad":"ok"}"><span>Saldo final</span><b>${brl(cx.final)}</b></div>
+   </div>`:`<div class="gAlert y"><b>O caixa do patrocínio começa em ${e(ymLabel(P.inicio))}</b>Dá para mudar no fim desta página, em "Patrocinadores e saldo inicial".</div>`}
+   <div class="gBtnRow"><button type="button" class="gBtn" data-act="lancnovo" ${dis}>+ Lançar</button><button type="button" class="gBtn ghost" data-act="relpatro">🖨️ Imprimir controle</button></div>
+   <div class="gCols"><div class="gCol">
+    ${cx?`<div class="gCard"><h3>Caixa do patrocínio <small>${e(ymLabel(ym))}</small></h3>
+      <div class="gLines"><div><span>Saldo do mês anterior</span><b>${brl(cx.anterior)}</b></div>${linhas}
+      <div class="tot"><span>= Saldo final</span><b class="${cx.final<0?"neg":""}">${brl(cx.final)}</b></div></div></div>`:""}
+    <div class="gCard gList"><h3 style="margin-top:10px">Patrocinadores · ${e(MONTHS[+ym.slice(5)-1])} <small>${nPend?`${nPend} a receber · `:""}${brl(recRef)} de ${brl(contratoTot)}</small></h3>
+      ${sts.map(x=>`<div class="gRow sm" data-act="patro" data-id="${e(x.sp.id)}" data-ym="${ym}"><div class="gRowL">${patroLogo(x.sp)}<div><b>${e(x.sp.nome)}</b><small>${+x.sp.contrato>0?`contrato ${brl(x.sp.contrato)}/mês`:"sem valor mensal fixo"}${x.st==="pago"?` · recebido ${brShort(x.r.pagoEm)}${x.r.forma?" · "+e(x.r.forma):""}`:""}</small></div></div>
+        <div class="r"><b>${x.st==="pago"||x.st==="pendente"||x.st==="atrasado"?brl(x.valor):"—"}</b><span class="gPill ${PST_CLS[x.st]}">${PST_LBL[x.st]}</span></div></div>`).join("")||`<p class="gNote">Nenhum patrocinador ativo.</p>`}
+    </div>
+   </div><div class="gCol">
+    <div class="gCard gList"><h3 style="margin-top:10px">Movimento do caixa <small>${mov.length} lançamento(s)</small></h3>
+      ${mov.map(m=>`<div class="gRow sm" ${m.act}><div class="gRowL"><span class="gIc">${m.ic}</span><div><b>${e(m.tit)}</b><small>${brShort(m.data)}${m.sub?" · "+e(m.sub):""}${m.forma&&m.sinal>0?" · "+e(m.forma):""}</small></div></div>
+        <div class="r"><b class="${m.sinal<0?"neg":"pos"}">${m.sinal<0?"− ":"+ "}${brl(m.valor)}</b></div></div>`).join("")||`<p class="gNote">Nada lançado neste mês. Use "+ Lançar" para álbum, camisetas, bolas, despesas, aluguel ou retirada.</p>`}
+      <div class="gQuick">${["album","camiseta","bolas","despJP","despPrimo","aluguel","retirada"].map(k=>`<button type="button" data-act="lancnovo" data-tipo="${k}" ${dis}>${LANC_TIPOS[k].ic} ${LANC_TIPOS[k].lbl}</button>`).join("")}</div>
+    </div>
+   </div></div>
+   ${patroAnualHtml(ym,F)}
+   ${patroAjustesHtml(F,dis)}`;
+}
+function patroAnualHtml(ym,F){
+  const P=F.patro,ano=ym.slice(0,4),meses=Array.from({length:12},(_,i)=>ano+"-"+pad(i+1)),hoje=ymToday();
+  const anoRef=sid=>meses.reduce((t,m)=>t+(+(((P.recebimentos[m]||{})[sid]||{}).valor)||0),0);
+  const sps=P.patrocinadores.filter(sp=>sp.ativo!==false||anoRef(sp.id)>0);
+  const head=`<tr><th class="stk">Patrocinador</th><th>Contrato</th>${meses.map(m=>`<th class="${m===ym?"cur":""}">${MES_ABR[+m.slice(5)-1]}</th>`).join("")}<th>Total</th></tr>`;
+  const rows=sps.map(sp=>`<tr><td class="stk">${e(sp.nome)}${sp.ativo===false?" <small>(inativo)</small>":""}</td><td class="n">${fmtN(sp.contrato)}</td>${meses.map(m=>{const s=patroStatus(sp,m,F);
+      const cls=s.st==="pago"?"ok":(s.st==="atrasado"&&m<=hoje)?"atr":s.st==="pendente"&&m===hoje?"pend":"";
+      return `<td class="c ${cls} ${m===ym?"cur":""}"><button type="button" data-act="patro" data-id="${e(sp.id)}" data-ym="${m}">${s.st==="pago"?fmtN(s.valor):s.st==="atrasado"&&m<=hoje?"!":""}</button></td>`;}).join("")}<td class="n b">${fmtN(anoRef(sp.id))}</td></tr>`).join("");
+  const totM=m=>sps.reduce((t,sp)=>t+(+(((P.recebimentos[m]||{})[sp.id]||{}).valor)||0),0);
+  const foot=`<tr class="tot"><td class="stk">TOTAL</td><td class="n">${fmtN(sps.filter(s=>s.ativo!==false).reduce((t,s)=>t+(+s.contrato||0),0))}</td>${meses.map(m=>`<td class="n ${m===ym?"cur":""}">${fmtN(totM(m))}</td>`).join("")}<td class="n">${fmtN(meses.reduce((t,m)=>t+totM(m),0))}</td></tr>`;
+  const cxs=meses.map(m=>m>hoje?null:caixaPatro(m,F));
+  const linha=(lbl,k,cls,sinal)=>`<tr class="${cls||""}"><td class="stk">${lbl}</td>${meses.map((m,i)=>{const v=cxs[i];return `<td class="n ${m===ym?"cur":""}">${v?(sinal<0&&v[k]?"−"+fmtN(v[k]):fmtN(v[k])):""}</td>`;}).join("")}</tr>`;
+  return `<div class="gCard"><h3>Controle anual · ${ano}</h3>
+    <div class="gTblWrap"><table class="gTbl"><thead>${head}</thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table></div>
+    <p class="gNote">Cada célula é o patrocínio <b>daquele mês</b>. Toque para dar baixa ou corrigir. <span class="gLeg ok">verde</span> recebido · <span class="gLeg atr">!</span> não recebido.</p>
+    <div class="gTblWrap"><table class="gTbl cx"><thead><tr><th class="stk">Caixa</th>${meses.map(m=>`<th class="${m===ym?"cur":""}">${MES_ABR[+m.slice(5)-1]}</th>`).join("")}</tr></thead><tbody>
+      ${linha("Saldo do mês anterior","anterior","ant")}
+      ${CAIXA_LINHAS.map(([k,l,s])=>linha(l,k,s>0?"ent":"sai",s)).join("")}
+      ${linha("SALDO FINAL","final","tot")}
+    </tbody></table></div>
+    <p class="gNote">O caixa conta pela <b>data</b> em que o dinheiro entrou ou saiu (patrocínio de outubro pago em novembro entra no caixa de novembro).</p></div>`;
+}
+function patroAjustesHtml(F,dis){
+  const P=F.patro;
+  return `<div class="gCard"><h3>Patrocinadores e saldo inicial</h3>
+    <div class="gTwo"><label>Caixa começa em<input type="month" data-pset="inicio" value="${e(P.inicio)}" ${dis}></label>
+    <label>Saldo no início (R$)<input type="number" inputmode="decimal" step="0.01" data-pset="saldoInicial" value="${P.saldoInicial??0}" ${dis}></label></div>
+    <p class="gNote">Saldo que sobrou no fim do mês anterior ao início (na sua planilha: saldo final de setembro = R$ 756,26).</p>
+    <div class="gSpHead"><span>Patrocinador</span><span>Contrato/mês</span><span>Ativo</span><span></span></div>
+    ${P.patrocinadores.map((sp,i)=>`<div class="gSp"><input type="text" data-sp="${i}" data-k="nome" value="${e(sp.nome)}" ${dis}><input type="number" inputmode="decimal" step="0.01" data-sp="${i}" data-k="contrato" value="${sp.contrato??0}" ${dis}><input type="checkbox" data-sp="${i}" data-k="ativo" ${sp.ativo!==false?"checked":""} ${dis}><button type="button" class="gX" data-act="spdel" data-i="${i}" ${dis} aria-label="Remover">✕</button></div>`).join("")}
+    <button type="button" class="gBtn ghost" data-act="spadd" ${dis}>+ Adicionar patrocinador</button>
+    <p class="gNote">Contrato 0 = sem valor fixo por mês (paga quando combinar). Desmarcar "Ativo" esconde o patrocinador sem apagar o histórico.</p></div>`;
+}
+
+/* folha: baixa de um patrocinador num mês */
+function openPatro(sid,ref){
+  const F=VIEW(),sp=patroById(sid,F);if(!sp)return;
+  const r=(F.patro.recebimentos[ref]||{})[sid]||null;
+  openSheet(`<div class="gPatHd">${patroLogo(sp)}<div><h3>${e(sp.nome)}</h3><p class="gNote">Patrocínio de <b>${e(ymLabel(ref))}</b> · ${+sp.contrato>0?`contrato ${brl(sp.contrato)}/mês`:"sem valor fixo"}</p></div></div>
+   ${r?`<div class="gStatus"><span class="gPill pago">Recebido</span><span class="gNote">em ${brDate(r.pagoEm)}${r.forma?" · "+e(r.forma):""}</span></div>`:""}
+   <div class="gTwo"><label>Data do recebimento<input id="gptDate" type="date" value="${r?e(r.pagoEm):todayISO()}"></label>
+   <label>Forma<select id="gptForma">${FORMAS.map(f=>`<option ${r&&r.forma===f?"selected":""}>${f}</option>`).join("")}</select></label></div>
+   <label>Valor recebido (R$)<input id="gptValor" type="number" inputmode="decimal" step="0.01" value="${r?r.valor:(+sp.contrato||"")}"></label>
+   <label>Observação<input id="gptObs" type="text" placeholder="opcional (ex.: referente a 3 meses)" value="${r?e(r.obs||""):""}"></label>
+   <button type="button" class="gBtn ok" data-act="patrosave" data-id="${e(sid)}" data-ym="${ref}" ${canWrite()?"":"disabled"}>${r?"Salvar alteração":"Confirmar recebimento"}</button>
+   ${r?`<button type="button" class="gBtn danger" data-act="patrodel" data-id="${e(sid)}" data-ym="${ref}" ${canWrite()?"":"disabled"}>Desfazer recebimento</button>`:""}
+   <button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);
+}
+/* folha: lançamento (aula avulsa, álbum, camiseta, bolas, patrocínio, despesas, aluguel, retirada) */
+function openLanc(id,tipoPre){
+  const F=VIEW(),l=id?F.lanc.find(x=>x.id===id):null;
+  if(id&&!l)return;
+  const tipo=l?l.tipo:(tipoPre||"album");
+  const opt=k=>`<option value="${k}" ${k===tipo?"selected":""}>${LANC_TIPOS[k].lbl}</option>`;
+  const sps=patroAtivos(F);
+  openSheet(`<h3>${l?"Editar lançamento":"Novo lançamento"}</h3>
+   <label>Tipo<select id="glTipo">
+     <optgroup label="Entradas">${l?"":`<option value="patrocinio" ${tipo==="patrocinio"?"selected":""}>Patrocínio</option>`}${["avulsa","album","camiseta","bolas"].map(opt).join("")}</optgroup>
+     <optgroup label="Saídas">${["despJP","despPrimo","aluguel","retirada"].map(opt).join("")}</optgroup></select></label>
+   <div class="gTwo hidden" id="glPatBox"><label>Patrocinador<select id="glSp">${sps.map(sp=>`<option value="${e(sp.id)}">${e(sp.nome)}</option>`).join("")}</select></label>
+     <label>Referente a<input id="glRef" type="month" value="${ui.ym}"></label></div>
+   <div class="gTwo"><label>Data<input id="glData" type="date" value="${l?e(l.data):defDataMes(ui.ym)}"></label>
+     <label>Valor (R$)<input id="glValor" type="number" inputmode="decimal" step="0.01" value="${l?l.valor:""}"></label></div>
+   <label id="glDescL">Descrição<input id="glDesc" type="text" list="glAlunos" value="${l?e(l.desc||""):""}"></label>
+   <datalist id="glAlunos">${tipo==="avulsa"||!l?students().map(s=>`<option value="${e(s.name)}">`).join(""):""}</datalist>
+   <label id="glFormaL">Forma<select id="glForma">${FORMAS.map(f=>`<option ${l&&l.forma===f?"selected":""}>${f}</option>`).join("")}</select></label>
+   <p class="gNote" id="glHint"></p>
+   <button type="button" class="gBtn ok" data-act="lancsave" data-id="${l?e(l.id):""}" ${canWrite()?"":"disabled"}>${l?"Salvar alteração":"Lançar"}</button>
+   ${l?`<button type="button" class="gBtn danger" data-act="lancdel" data-id="${e(l.id)}" ${canWrite()?"":"disabled"}>Excluir lançamento</button>`:""}
+   <button type="button" class="gBtn ghost" data-act="close">Fechar</button>`);
+  lancTipoChange(!l);
+}
+function ultimoValor(tipo){const F=VIEW();const xs=F.lanc.filter(l=>l.tipo===tipo).sort((a,b)=>b.data.localeCompare(a.data));return xs.length?+xs[0].valor:null;}
+function lancTipoChange(preencher){
+  const t=($("glTipo")||{}).value;if(!t)return;
+  const pat=t==="patrocinio",T=LANC_TIPOS[t]||{};
+  $("glPatBox").classList.toggle("hidden",!pat);
+  $("glFormaL").classList.toggle("hidden",!pat&&T.sinal<0);
+  $("glDesc").placeholder=pat?"Observação (opcional)":T.ph||"";
+  $("glDesc").setAttribute("list",t==="avulsa"?"glAlunos":"");
+  $("glDescL").firstChild.textContent=t==="avulsa"?"Aluno":pat?"Observação":"Descrição";
+  $("glHint").textContent=pat?"Entra no caixa do patrocínio e marca o patrocinador como recebido no mês escolhido.":
+    T.caixa==="mens"?"Entra no Fluxo de caixa (junto com as mensalidades).":T.sinal>0?"Entra no caixa do patrocínio.":"Sai do caixa do patrocínio.";
+  if(preencher){
+    const v=$("glValor");
+    if(pat){const sp=patroById($("glSp").value);v.value=sp&&+sp.contrato>0?sp.contrato:"";}
+    else if(t==="avulsa")v.value=VIEW().settings.avulsa||55;
+    else if(t==="aluguel")v.value=ultimoValor("aluguel")??800;
+    else v.value="";
+  }
+}
+function patroReportHtml(ym){
+  const F=VIEW(),P=F.patro,cx=caixaPatro(ym,F),mov=movPatro(ym,F),h=t=>String(t??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+  const agora=new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const base=location.origin+location.pathname.replace(/[^/]*$/,"");
+  const anual=patroAnualHtml(ym,F).replace(/<button[^>]*>/g,"").replace(/<\/button>/g,"").replace(/<p class="gNote">[\s\S]*?<\/p>/g,"").replace(/<div class="gCard"><h3>[^<]*<\/h3>/,"");
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controle de patrocínios ${h(ym.slice(0,4))} · Primo Soccer</title>
+<style>
+@page{size:A4 landscape;margin:10mm}
+*{box-sizing:border-box}html,body{background:#fff}
+body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;margin:0;padding:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{body{padding:0}}
+header{display:flex;align-items:center;gap:12px;border-bottom:3px solid #1557ff;padding-bottom:8px}
+header img{width:50px;height:50px;object-fit:contain}
+header h1{font-size:17px;margin:0}header .t{font-size:13px;font-weight:bold;color:#1557ff;margin-top:2px}header .e{font-size:9px;color:#64748b}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.kpi{border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px}.kpi span{display:block;font-size:8.5px;text-transform:uppercase;color:#64748b}.kpi b{display:block;font-size:15px;margin-top:2px}
+.kpi.g b{color:#15803d}.kpi.bad b{color:#b91c1c}
+h2{font-size:11.5px;margin:12px 0 5px;padding:4px 8px;background:#fef9c3;border-left:4px solid #eab308;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;margin-bottom:6px}
+th,td{border:1px solid #cbd5e1;padding:3px 4px;white-space:nowrap}
+th{background:#0ea5e9;color:#fff;font-size:9px}
+td.n,td.c{text-align:right}td.stk{text-align:left;font-weight:bold}
+td.c.ok{background:#ecfdf5}td.c.atr{background:#fee2e2;color:#b91c1c;text-align:center}td.c.pend{background:#fef3c7}
+tfoot td,tr.tot td{background:#0ea5e9;color:#fff;font-weight:bold}
+.cx tr.ant td{background:#bbf7d0}.cx tr.ent td{background:#dbeafe}.cx tr.sai td{background:#fed7aa}.cx tr.tot td{background:#0ea5e9;color:#fff}
+th.cur,td.cur{outline:2px solid #1557ff;outline-offset:-2px}
+small{font-weight:normal;color:#64748b}
+.mv td{white-space:normal}.mv .pos{color:#15803d}.mv .neg{color:#b91c1c}
+footer{margin-top:10px;padding-top:6px;border-top:1px solid #cbd5e1;font-size:8.5px;color:#64748b}
+</style></head><body>
+<header><img src="${base}primo-logo.png" alt=""><div><h1>PRIMO SOCCER EXCLUSIVE</h1><div class="t">Controle de patrocínios · ${h(ym.slice(0,4))}</div><div class="e">Emitido em ${h(agora)} · mês em destaque: ${h(ymLabel(ym))}</div></div></header>
+${cx?`<div class="kpis"><div class="kpi"><span>Saldo do mês anterior (${h(MES_ABR[+ym.slice(5)-1])})</span><b>${brl(cx.anterior)}</b></div><div class="kpi g"><span>Entradas</span><b>${brl(cx.entradas)}</b></div><div class="kpi bad"><span>Saídas</span><b>${brl(cx.saidas)}</b></div><div class="kpi ${cx.final<0?"bad":"g"}"><span>Saldo final</span><b>${brl(cx.final)}</b></div></div>`:""}
+<h2>Controle de patrocínios e caixa · ${h(ym.slice(0,4))}</h2>
+${anual}
+<h2>Movimento do caixa · ${h(ymLabel(ym))}</h2>
+<table class="mv"><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Entrada</th><th>Saída</th></tr></thead><tbody>
+${mov.map(m=>`<tr><td>${brDate(m.data)}</td><td>${h(m.tit)}</td><td>${h(m.sub||"")}</td><td class="n pos">${m.sinal>0?brl(m.valor):""}</td><td class="n neg">${m.sinal<0?brl(m.valor):""}</td></tr>`).join("")||`<tr><td colspan="5">Nada lançado neste mês.</td></tr>`}
+</tbody></table>
+<footer>Saldo final = saldo do mês anterior + patrocínios + álbum + camisetas de time + bolas − despesas JP − despesas Primo − aluguel − retiradas. O caixa conta pela data do recebimento/pagamento. Caixa iniciado em ${h(ymLabel(P.inicio))} com saldo de ${brl(P.saldoInicial)}.</footer>
+</body></html>`;
 }
 
 /* MENSALIDADES */
@@ -963,11 +1215,58 @@ function onClick(ev){
     case "repadd":if(!canWrite())return;FIN.settings.repasse.push({dia:"Sábado",hora:"12:00",pct:14});finChanged();gRender();break;
     case "repdel":if(!canWrite())return;FIN.settings.repasse.splice(+b.dataset.i,1);finChanged();gRender();break;
     case "export":exportFin();break;
-    case "relatorio":openRelatorio();break;
+    case "relatorio":openRelatorio(fluxoReportHtml(ui.ym));break;
+    case "relpatro":openRelatorio(patroReportHtml(ui.ym));break;
+    case "lancnovo":openLanc(null,b.dataset.tipo);break;
+    case "lanc":openLanc(id);break;
+    case "patro":openPatro(id,b.dataset.ym);break;
+    case "patrosave":{
+      if(!canWrite())return;const v=+($("gptValor").value||0),d=$("gptDate").value||todayISO(),ref=b.dataset.ym;
+      if(!(v>0))return alert("Digite o valor recebido.");
+      const R=FIN.patro.recebimentos;if(!R[ref])R[ref]={};
+      R[ref][id]={valor:v,pagoEm:d,forma:$("gptForma").value,obs:($("gptObs").value||"").trim(),lancadoEm:new Date().toISOString()};
+      finChanged();closeSheet();refresh();break;}
+    case "patrodel":{
+      if(!canWrite()||!confirm("Desfazer este recebimento?"))return;const R=FIN.patro.recebimentos[b.dataset.ym];
+      if(R){delete R[id];if(!Object.keys(R).length)delete FIN.patro.recebimentos[b.dataset.ym];}
+      finChanged();closeSheet();refresh();break;}
+    case "lancsave":{
+      if(!canWrite())return;
+      const tipo=$("glTipo").value,data=$("glData").value,valor=+($("glValor").value||0),desc=($("glDesc").value||"").trim(),forma=$("glForma").value;
+      if(!data)return alert("Escolha a data.");
+      if(!(valor>0))return alert("Digite o valor.");
+      if(tipo==="patrocinio"){
+        const sid=$("glSp").value,ref=$("glRef").value||ui.ym,R=FIN.patro.recebimentos;
+        if(!sid)return alert("Escolha o patrocinador.");
+        if(R[ref]&&R[ref][sid]&&!confirm(`Já tem ${brl(R[ref][sid].valor)} lançado para ${ymLabel(ref)}. Substituir?`))return;
+        if(!R[ref])R[ref]={};
+        R[ref][sid]={valor,pagoEm:data,forma,obs:desc,lancadoEm:new Date().toISOString()};
+      }else if(id){
+        const l=FIN.lanc.find(x=>x.id===id);if(!l)return;
+        Object.assign(l,{tipo,data,valor,desc,forma:LANC_TIPOS[tipo].sinal>0?forma:"",editadoEm:new Date().toISOString()});
+      }else{
+        FIN.lanc.push({id:"L"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),tipo,data,valor,desc,forma:LANC_TIPOS[tipo].sinal>0?forma:"",criadoEm:new Date().toISOString()});
+      }
+      finChanged();closeSheet();refresh();break;}
+    case "lancdel":{
+      if(!canWrite()||!confirm("Excluir este lançamento?"))return;
+      FIN.lanc=FIN.lanc.filter(x=>x.id!==id);finChanged();closeSheet();refresh();break;}
+    case "spadd":{
+      if(!canWrite())return;const P=FIN.patro;
+      P.patrocinadores.push({id:"P"+Date.now().toString(36),nome:"Novo patrocinador",contrato:0,logo:"",ativo:true});
+      finChanged();gRender();break;}
+    case "spdel":{
+      if(!canWrite())return;const P=FIN.patro,sp=P.patrocinadores[+b.dataset.i];if(!sp)return;
+      const tem=Object.values(P.recebimentos).some(m=>m&&m[sp.id]);
+      if(tem){if(!confirm(`${sp.nome} tem recebimentos lançados. Vou só desativar (o histórico continua). Ok?`))return;sp.ativo=false;}
+      else{if(!confirm(`Remover ${sp.nome}?`))return;P.patrocinadores.splice(+b.dataset.i,1);}
+      finChanged();gRender();break;}
   }
 }
 function onSheetInput(ev){
   const t=ev.target;
+  if(t.id==="glTipo"&&ev.type==="change"){lancTipoChange(true);return;}
+  if(t.id==="glSp"&&ev.type==="change"){const sp=patroById(t.value);if(sp&&+sp.contrato>0)$("glValor").value=sp.contrato;return;}
   if((t.id==="gpPlano"||t.id==="gpFreq")&&ev.type==="change")onPlanTypeChange("gp");
   else if(t.id&&t.id.startsWith("gp")&&t.id!=="gpayDate")planSummary("gp");
   if(t.id==="gpayDate"||t.id==="gpayPont"){
@@ -986,6 +1285,17 @@ function onRootInput(ev){
     const k=path[path.length-1];
     o[k]=t.type==="number"?(t.value===""?null:+t.value):t.value;
     finChanged();
+  }
+  if(t.dataset.pset&&ev.type==="change"){
+    const k=t.dataset.pset;
+    if(k==="inicio"){if(/^\d{4}-\d{2}$/.test(t.value))FIN.patro.inicio=t.value;}
+    else FIN.patro.saldoInicial=+t.value||0;
+    finChanged();gRender();return;
+  }
+  if(t.dataset.sp!=null&&ev.type==="change"){
+    const sp=FIN.patro.patrocinadores[+t.dataset.sp];if(!sp)return;const k=t.dataset.k;
+    if(k==="ativo")sp.ativo=t.checked;else if(k==="contrato")sp.contrato=+t.value||0;else sp.nome=t.value.trim()||sp.nome;
+    finChanged();gRender();return;
   }
   if(t.dataset.rep!=null&&ev.type==="change"){
     const r=FIN.settings.repasse[+t.dataset.rep];if(!r)return;
