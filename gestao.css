@@ -203,3 +203,63 @@ label.gBtn{cursor:pointer}
 /* ===== V91 - vencimento no dia do início + tempo de atraso ===== */
 .gNegTxt{color:#fca5a5}
 .gBxTop .gPill.atrasado{white-space:normal;text-align:right;max-width:150px}
+
+/* ===== V92 - GESTÃO NO COMPUTADOR: tela inteira ===== */
+.gCols,.gCol{display:block}
+@media (min-width:900px){
+  /* menu do app numa linha só (tela larga) */
+  body:not(.parentMode) .tabs{grid-template-columns:none!important;grid-auto-flow:column!important;grid-auto-columns:1fr!important}
+  body:not(.parentMode) .tabs button{min-height:62px!important;font-size:17px!important;padding:8px 4px!important}
+  .gChips{position:static;background:none}
+  #gestaoRoot{max-width:1500px;padding:0 8px}
+  #page-gestao .gHead{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  #page-gestao .gHead h2{font-size:34px}
+  #page-gestao .gHead p{font-size:14px}
+  .gChips{flex-wrap:wrap;overflow:visible;gap:8px;padding:10px 0}
+  .gChips button{padding:12px 20px!important;font-size:13px!important}
+  .gMonth{max-width:520px;margin:8px auto}
+  .gMonth b{font-size:22px}
+  /* Resumo */
+  .gKpis{grid-template-columns:repeat(4,1fr);gap:12px}
+  .gKpi{padding:14px 16px}
+  .gKpi b{font-size:24px}
+  .gKpi.big{grid-column:span 2}
+  .gKpi.big b{font-size:40px}
+  .gAlerts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;align-items:start}
+  .gAlerts>h3,.gAlerts>p{grid-column:1/-1}
+  .gAlerts .gAlertRow{margin:0!important;height:100%}
+  /* blocos em colunas */
+  .gCols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .gCols.gAgenda{grid-template-columns:minmax(520px,1.25fr) 1fr}
+  .gCols.gAgenda>.gCol:first-child{position:sticky;top:12px}
+  .gGrid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;align-items:start}
+  .gTiles{gap:12px}
+  .gTiles.four{grid-template-columns:repeat(4,1fr)}
+  .gTiles b{font-size:20px}
+  .gTiles>div{padding:12px 14px}
+  /* listas em 2 colunas */
+  #gBody>.gList,.gCol .gList:not(.gBxList){display:grid;grid-template-columns:1fr 1fr;column-gap:28px;align-items:start}
+  .gCol .gList:not(.gBxList){grid-template-columns:1fr}
+  #gBody>.gList>h3,#gBody>.gList>p,#gBody>.gList>.gNote{grid-column:1/-1}
+  #gBody>.gList .gRow:nth-child(2){border-top:0}
+  /* Baixa: cartões em grade */
+  #gBody>.gBxList{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;background:transparent;border:0;box-shadow:none;padding:0}
+  #gBody>.gBxList>.gBx{background:linear-gradient(180deg,rgba(8,45,164,.82),rgba(3,10,43,.95));border:1px solid var(--gLine)!important;border-radius:16px;padding:12px 14px}
+  #gBody>.gBxList>p{grid-column:1/-1}
+  .gCol .gBxList .gBx+.gBx{border-top:1px solid rgba(126,234,255,.12)}
+  /* Agenda */
+  .gHeat .cell{min-height:46px!important}
+  .gHeat .cell b{font-size:14px}
+  .gHeat .cell small{font-size:10px}
+  .gHeat .tm{font-size:13px}
+  /* Fichas: janela no centro */
+  .gOv{align-items:center}
+  .gSheet{border-radius:22px;border-bottom:1px solid var(--gLine);max-width:620px;max-height:88vh;padding-bottom:24px}
+  .gSheet .grab{display:none}
+  /* busca + filtros na mesma linha */
+  #gestaoRoot .gCard>.gSearch{max-width:420px}
+}
+@media (min-width:1300px){
+  #gBody>.gBxList{grid-template-columns:repeat(3,1fr)}
+  #gBody>.gList{grid-template-columns:repeat(3,1fr)}
+}

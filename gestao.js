@@ -1,5 +1,5 @@
 /* =====================================================================
-   V91 - GESTÃO: planos, mensalidades (parcelas), baixa, fluxo de caixa, agenda/vagas e valores
+   V92 - GESTÃO: planos, mensalidades (parcelas), baixa, fluxo de caixa, agenda/vagas e valores
    - Os dados financeiros ficam na tabela primo_finance (separada).
      Só o login do dono lê/grava (RLS + função is_primo_admin).
    - Nada daqui vai para o link dos pais.
@@ -9,7 +9,7 @@
 "use strict";
 if(typeof window==="undefined")return;
 
-const G_VERSION="91";
+const G_VERSION="92";
 const FIN_TABLE="primo_finance";
 const PENDING_KEY="primo_gestao_pendente_v1";
 const DIAS=[["Segunda","SEG"],["Terça","TER"],["Quarta","QUA"],["Quinta","QUI"],["Sexta","SEX"],["Sábado","SÁB"],["Domingo","DOM"]];
@@ -337,7 +337,7 @@ function viewResumo(){
        <div class="gKpi"><span>Vagas livres</span><b>${freeT}</b><small>${nT} de ${capT} ocupadas</small></div>
      </div>
    </div>
-   <div class="gCard"><h3>Pontos de atenção</h3>
+   <div class="gCard gAlerts"><h3>Pontos de atenção</h3>
      ${alerts.map(a=>`<button type="button" class="gAlertRow ${a[0]}" data-act="goto" data-tab="${a[4]}" data-f="${e(a[5])}"><span class="ic">${a[1]}</span><span><b>${e(a[2])}</b>${e(a[3])}</span></button>`).join("")||`<p class="gNote">Tudo em dia. 👏</p>`}
    </div>`;
 }
@@ -413,6 +413,7 @@ function viewFluxo(){
      <div><span>Previsto do mês</span><b>${brl(d.tc.previsto)}</b></div>
    </div>
    <button type="button" class="gBtn" data-act="relatorio">🖨️ Ver relatório para imprimir / PDF</button>
+   <div class="gCols"><div class="gCol">
    <div class="gCard"><h3>Entrou no caixa <small>pela data do pagamento</small></h3>
      <div class="gLines">
        <div><span>Mensalidades de ${e(MONTHS[+ui.ym.slice(5)-1].toLowerCase())}</span><b>${brl(c.mes)}</b></div>
@@ -428,11 +429,13 @@ function viewFluxo(){
        ${d.dist.rep?`<div><span>Repasse a ${e(d.F.settings.profNome)}</span><b>${brl(d.dist.rep)}</b></div>`:""}
      </div>
    </div>
-   <div class="gCard gList"><h3 style="margin-top:10px">Recebimentos <small>${d.rec.length}</small></h3>${recList||`<p class="gNote">Nenhum pagamento com data neste mês.</p>`}</div>
    <div class="gCard gList"><h3 style="margin-top:10px">Em aberto · ${e(ymLabel(ui.ym))} <small>${d.abertos.length} · ${brl(d.totAberto)}</small></h3>
      ${d.abertos.map(x=>`<div class="gRow sm" data-act="pay" data-id="${e(x.s.id)}" data-ym="${x.ym}"><div><b>${e(x.s.name)}${parcTag(x)}</b><small>${e(shortCat(x.s.category))} · vence ${brShort(x.due)}</small></div><div class="r"><b>${brl(x.valor)}</b></div></div>`).join("")||`<p class="gNote">Nada em aberto.</p>`}</div>
+   </div><div class="gCol">
+   <div class="gCard gList"><h3 style="margin-top:10px">Recebimentos <small>${d.rec.length}</small></h3>${recList||`<p class="gNote">Nenhum pagamento com data neste mês.</p>`}</div>
    <div class="gCard gList gBxList"><h3 style="margin-top:10px">Em atraso <small>${d.nAtrMeses} mensalidade(s) · ${brl(d.totAtr)}</small></h3>${atrList||`<p class="gNote">Nenhum atraso. 👏</p>`}
-     <p class="gNote">Situação de hoje, somando todos os meses desde ${e(ymLabel(d.F.settings.inicioControle))}. Toque no mês para dar baixa.</p></div>`;
+     <p class="gNote">Situação de hoje, somando todos os meses desde ${e(ymLabel(d.F.settings.inicioControle))}. Toque no mês para dar baixa.</p></div>
+   </div></div>`;
 }
 
 /* ---------- relatório para imprimir ---------- */
@@ -657,11 +660,14 @@ function viewAgenda(){
   const dayCells=Object.values(cells).filter(c=>c.dia===ui.day).sort((a,b)=>a.hora.localeCompare(b.hora));
   const dayRec=dayCells.reduce((t,c)=>t+c.rec,0),dayL=dayCells.reduce((t,c)=>t+c.lucro,0);
   return `
+   <div class="gCols gAgenda"><div class="gCol">
    <div class="gCard"><h3>Mapa de vagas <small>agenda de ${e(currentMonth)}</small></h3>${heat}
      <div class="gLegend"><span style="--c:#34d399">3+ vagas</span><span style="--c:#fbbf24">1–2 vagas</span><span style="--c:#f87171">lotado</span><span style="--c:#c084fc">outro professor</span></div></div>
+   </div><div class="gCol">
    <div class="gDays">${days.map(d=>`<button type="button" data-act="day" data-v="${e(d)}" class="${ui.day===d?"on":""}">${diaShort(d)}</button>`).join("")}</div>
    <p class="gNote">${dayCells.length} horário(s) · ${brl(dayRec)}/mês · seu lucro ${brl(dayL)}</p>
-   ${dayCells.map(cellCard).join("")||`<p class="gNote">Nenhum horário neste dia.</p>`}`;
+   ${dayCells.map(cellCard).join("")||`<p class="gNote">Nenhum horário neste dia.</p>`}
+   </div></div>`;
 }
 function cellCard(c){
   return `<div class="gCard gSlot" id="gslot-${c.hora.replace(":","")}">
@@ -691,7 +697,7 @@ function viewValores(){
 function viewAjustes(){
   const F=VIEW(),S=F.settings,dis=canWrite()?"":"disabled";
   const num=(path,v,ph)=>`<input type="number" inputmode="decimal" data-set="${path}" value="${v==null?"":v}" placeholder="${ph||""}" ${dis}>`;
-  return `
+  return `<div class="gGrid2">
    <div class="gCard"><h3>Tabela de preços</h3>
     <div class="gPriceGrid"><span></span><span>1x</span><span>2x</span><span>1x pont.</span><span>2x pont.</span>
       ${PLANOS.map(p=>`<b>${p}</b>${num("prices."+p+".1x",S.prices[p]["1x"])}${num("prices."+p+".2x",S.prices[p]["2x"])}${num("prices."+p+".pont1x",S.prices[p].pont1x,"—")}${num("prices."+p+".pont2x",S.prices[p].pont2x,"—")}`).join("")}
@@ -717,6 +723,7 @@ function viewAjustes(){
    <div class="gCard"><h3>Backup e segurança</h3>
     <button type="button" class="gBtn ghost" data-act="export" ${FIN?"":"disabled"}>Exportar backup da Gestão (.json)</button>
     <p class="gNote">Os valores ficam numa tabela separada que só o seu login acessa. O link dos pais não recebe nada desta aba. Ao tocar em "Sair Admin", os dados são apagados deste celular depois de sincronizar.</p>
+   </div>
    </div>`;
 }
 
