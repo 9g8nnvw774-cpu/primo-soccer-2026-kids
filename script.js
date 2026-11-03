@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="86";
+const APP_VERSION="88";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -800,6 +800,131 @@ function updateConfigLabels(){
   const v=document.getElementById("appVersionLabel"); if(v)v.textContent="Versão "+APP_VERSION;
   const b=document.getElementById("lastDailyBackup"); if(b)b.textContent=localStorage.getItem(LAST_DAILY_KEY)||"ainda não feito hoje";
 }
+/* ===== V87 - PROTEÇÃO: um aparelho não apaga o que outro salvou =====
+   O app guarda a última versão que veio do banco (base). Antes de salvar,
+   confere se outro aparelho salvou algo mais novo; se sim, JUNTA as duas
+   versões (vale o que cada aparelho mudou) em vez de substituir tudo. */
+const CLOUD_BASE_KEY="primo_kids_cloud_base_v1";
+let _cloudBase=null,_cloudStamp=null;
+try{const b=JSON.parse(localStorage.getItem(CLOUD_BASE_KEY)||"null");if(b&&b.data){_cloudBase=b.data;_cloudStamp=b.stamp||null;}}catch(e){}
+function _clone(o){return o===undefined?undefined:JSON.parse(JSON.stringify(o))}
+function _stab(x){if(x===undefined)return "\u0000u";return JSON.stringify(x,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.keys(v).sort().reduce((o,kk)=>(o[kk]=v[kk],o),{}):v)}
+function _eq(a,b){return _stab(a)===_stab(b)}
+function _isObj(x){return x&&typeof x==="object"&&!Array.isArray(x)}
+function _merge3(base,local,remote){
+  if(_eq(local,base))return _clone(remote);      // este aparelho não mexeu: vale o banco
+  if(_eq(remote,base))return _clone(local);      // o banco não mudou: vale este aparelho
+  if(_eq(local,remote))return _clone(local);
+  if(_isObj(local)&&_isObj(remote)){
+    const b=_isObj(base)?base:{},out={};
+    new Set([...Object.keys(remote),...Object.keys(local)]).forEach(k=>{const v=_merge3(b[k],local[k],remote[k]);if(v!==undefined)out[k]=v;});
+    return out;
+  }
+  if(Array.isArray(local)&&Array.isArray(remote)){
+    const hasId=a=>a.length>0&&a.every(x=>_isObj(x)&&x.id);
+    if(hasId(local)||hasId(remote)){              // ex.: lista de alunos -> junta pelo id
+      const map=a=>{const m=new Map();(Array.isArray(a)?a:[]).forEach(x=>{if(_isObj(x)&&x.id)m.set(x.id,x)});return m};
+      const B=map(base),L=map(local),R=map(remote),out=[];
+      const ids=[...R.keys(),...[...L.keys()].filter(id=>!R.has(id))];
+      ids.forEach(id=>{const v=_merge3(B.get(id),L.get(id),R.get(id));if(v!==undefined)out.push(v);});
+      return out;
+    }
+    if(local.every(x=>x==null||typeof x==="object")&&remote.every(x=>x==null||typeof x==="object")){ // ex.: semanas
+      const b=Array.isArray(base)?base:[],n=Math.max(local.length,remote.length),out=[];
+      for(let i=0;i<n;i++){const v=_merge3(b[i],local[i],remote[i]);out.push(v===undefined?{}:v);}
+      return out;
+    }
+  }
+  return _clone(local);                           // conflito no mesmo campo: vale este aparelho
+}
+function _setCloudBase(data,stamp){
+  _cloudBase=_clone(data);_cloudStamp=stamp||new Date().toISOString();
+  try{localStorage.setItem(CLOUD_BASE_KEY,JSON.stringify({stamp:_cloudStamp,data:_cloudBase}))}catch(e){}
+}
+async function _cloudHeadStamp(){
+  const url=cloudUrl()+"/rest/v1/primo_app_state?select=updated_at&app_id=eq."+encodeURIComponent(APP_ID)+"&limit=1";
+  const r=await authedFetch(url,{method:"GET",headers:{"Accept":"application/json"}});
+  if(!r.ok)throw new Error("REST head "+r.status);
+  const j=await r.json();const row=Array.isArray(j)?j[0]:j;return row?row.updated_at:null;
+}
+// Se o banco tiver uma versão mais nova que a deste aparelho, junta as duas no "state".
+async function _reconcileWithCloud(){
+  const head=await _cloudHeadStamp();
+  if(!head)return false;
+  if(_cloudStamp&&new Date(head).getTime()===new Date(_cloudStamp).getTime())return false; // ninguém salvou depois de mim
+  const row=await loadCloudRest();const remote=row&&row.data;
+  if(!remote||!Object.keys(remote).length)return false;
+  const cm=currentMonth;
+  if(_cloudBase){state=_merge3(_cloudBase,state,remote);}
+  else{_saveRescueIfLosing(state,remote);state=_clone(remote);} // sem base conhecida: o banco manda (cópia de resgate guardada)
+  norm();currentMonth=cm;_setCloudBase(remote,row.updated_at);saveLocal();
+  setSync("🔄 Outro aparelho tinha salvo dados mais novos. Juntei com os deste aparelho.","warn");
+  return true;
+}
+/* ===== V88 - CÓPIA DE RESGATE DO APARELHO =====
+   Antes de o banco substituir os dados deste aparelho, se aqui houver pontos
+   que o banco NÃO tem, guarda uma cópia (Config → Recuperar pontos deste aparelho). */
+const RESCUE_KEY="primo_kids_rescue_v1";
+function _cellsLost(localMonths,remoteMonths){
+  let n=0;
+  Object.entries(localMonths||{}).forEach(([mo,M])=>{Object.entries((M&&M.participants)||{}).forEach(([pid,P])=>{
+    (P&&P.weeks||[]).forEach((w,wi)=>{Object.entries(w||{}).forEach(([sch,sc])=>{
+      const lp=scoreTotal(sc||{}); if(lp<=0)return;
+      const r=remoteMonths&&remoteMonths[mo]&&remoteMonths[mo].participants&&remoteMonths[mo].participants[pid];
+      const rsc=r&&r.weeks&&r.weeks[wi]&&r.weeks[wi][sch];
+      if(!rsc||scoreTotal(rsc)!==lp)n++;
+    });});
+  });});
+  return n;
+}
+function _saveRescueIfLosing(local,remote){
+  try{
+    const lost=_cellsLost(local&&local.months,remote&&remote.months);
+    if(lost>0){localStorage.setItem(RESCUE_KEY,JSON.stringify({at:new Date().toISOString(),lost,months:local.months}));}
+  }catch(e){console.warn("Cópia de resgate não coube no aparelho:",e);}
+}
+function _readRescue(){try{return JSON.parse(localStorage.getItem(RESCUE_KEY)||"null")}catch(e){return null}}
+// lista o que dá para recuperar: só treinos com pontos na cópia que estão vazios/zerados no app agora
+function _rescueItems(){
+  const r=_readRescue(); if(!r||!r.months)return {r,items:[]};
+  const items=[];
+  Object.entries(r.months).forEach(([mo,M])=>{Object.entries((M&&M.participants)||{}).forEach(([pid,P])=>{
+    if(!state.students.some(s=>s.id===pid))return;
+    (P&&P.weeks||[]).forEach((w,wi)=>{Object.entries(w||{}).forEach(([sch,sc])=>{
+      if(scoreTotal(sc||{})<=0)return;
+      const cur=monthObj(mo).participants[pid];const csc=cur&&cur.weeks&&cur.weeks[wi]&&cur.weeks[wi][sch];
+      if(!csc||scoreTotal(csc)===0)items.push({mo,pid,wi,sch,sc,schedules:(P.schedules||[])});
+    });});
+  });});
+  return {r,items};
+}
+function checkRescue(){
+  if(!requireAdmin())return;
+  const {r,items}=_rescueItems();
+  const box=document.getElementById("rescueInfo");
+  if(!r){if(box)box.innerHTML="Nenhuma cópia de resgate neste aparelho.";alert("Este aparelho não tem cópia de resgate. Os pontos dele já estavam iguais ao banco.");return;}
+  const when=new Date(r.at).toLocaleString("pt-BR");
+  if(!items.length){if(box)box.innerHTML=`Cópia de ${when}: nada a recuperar (o app já tem todos esses pontos).`;alert("A cópia deste aparelho não tem nada que esteja faltando no app.");return;}
+  const by={};items.forEach(it=>{const k=it.mo+" • Semana "+(it.wi+1);by[k]=(by[k]||0)+1;});
+  const resumo=Object.entries(by).map(([k,v])=>`${k}: ${v} treino(s)`).join("\n");
+  if(box)box.innerHTML=`Cópia de ${when}:<br>`+esc(resumo).replace(/\n/g,"<br>");
+  if(!confirm(`Encontrei pontos neste aparelho que estão faltando no app:\n\n${resumo}\n\nRecuperar agora? (Só preenche treinos que estão vazios; não apaga nada.)`))return;
+  items.forEach(it=>{
+    const P=participant(it.pid,true,it.mo);
+    if(!P.schedules||!P.schedules.length)P.schedules=(it.schedules||[]).slice();
+    if(!Array.isArray(P.weeks))P.weeks=Array.from({length:5},()=>({}));
+    while(P.weeks.length<5)P.weeks.push({});
+    P.weeks[it.wi]=P.weeks[it.wi]||{};
+    P.weeks[it.wi][it.sch]=JSON.parse(JSON.stringify(it.sc));
+  });
+  scheduleSave(100);renderAll();
+  alert(`✅ Recuperei ${items.length} treino(s). Já estou salvando no banco online.`);
+}
+function downloadRescue(){
+  const r=_readRescue(); if(!r){alert("Este aparelho não tem cópia de resgate.");return;}
+  const blob=new Blob([JSON.stringify(r,null,1)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="primo-resgate-"+r.at.slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
 async function initCloud(){
   // MODO PAIS: lê SOMENTE a tabela pública (ranking, sem dados sensíveis).
   if(isParentMode()){
@@ -826,9 +951,15 @@ async function initCloud(){
     // V28: usa REST direto. Evita travar por CDN/cache do Supabase Client no iPhone/PWA.
     const data=await loadCloudRest();
     if(data&&data.data&&Object.keys(data.data).length){
-      state=data.data; norm(); currentMonth=state.currentMonth||currentMonth; saveLocal();
+      // V87: se este aparelho tinha mudanças ainda não enviadas, junta com o banco em vez de perder
+      _saveRescueIfLosing(state,data.data); // V88: guarda o que este aparelho tem e o banco não
+      const pending=_cloudBase&&!_eq(state,_cloudBase);
+      if(pending){state=_merge3(_cloudBase,state,data.data);}else{state=data.data;}
+      norm(); currentMonth=state.currentMonth||currentMonth;
+      _setCloudBase(data.data,data.updated_at); saveLocal();
+      if(pending&&!_eq(state,data.data)){setTimeout(()=>{if(isAdminAuthenticated())saveCloud();},600);}
     }else{
-      await saveCloudRest();
+      await saveCloudRest(); _setCloudBase(state,new Date().toISOString());
     }
     // Atualiza o espelho público (ranking) para o link dos pais.
     try{await savePublicStateRest();}catch(e){console.warn("Espelho público não atualizou agora:",e);}
@@ -849,8 +980,11 @@ async function saveCloud(){
   if(!isAdminAuthenticated())return false; // só o admin logado grava no banco
   const stamp=new Date().toISOString();
   try{
+    try{ if(await _reconcileWithCloud()) renderAll(); }catch(e){ console.warn("Conferência com o banco falhou:",e); throw e; }
     state.updatedAt=stamp;norm();
-    await saveCloudRest();
+    const sent=_clone(state);
+    const res=await saveCloudRest();
+    _setCloudBase(sent,(Array.isArray(res)&&res[0]&&res[0].updated_at)||new Date().toISOString());
     await savePublicStateRest();
     syncStudentsTable(); // atualiza a tabela "um aluno por linha" (não trava se falhar)
     localStorage.setItem("primo_kids_last_cloud_ok",stamp);
@@ -866,6 +1000,13 @@ async function saveCloud(){
   }
 }
 let _retrySaveTimer=null;
+// V87: ao voltar para o app (estava em segundo plano), busca a versão mais nova antes de qualquer coisa
+if(typeof document!=="undefined"){document.addEventListener("visibilitychange",async()=>{
+  if(document.visibilityState!=="visible")return;
+  try{ if(typeof isParentMode==="function"&&isParentMode())return; if(!cloudReady()||!isAdminAuthenticated())return;
+    if(await _reconcileWithCloud()){ renderAll(); if(!_eq(state,_cloudBase))scheduleSave(300); }
+  }catch(e){console.warn("Atualização ao voltar falhou:",e);}
+});}
 // quando a internet voltar, tenta sincronizar na hora
 if(typeof window!=="undefined"){window.addEventListener("online",()=>{ if(typeof isAdminAuthenticated==="function"&&isAdminAuthenticated())saveCloud(); });}
 function saveDbConfigFromScreen(){

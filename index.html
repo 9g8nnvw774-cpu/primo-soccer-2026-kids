@@ -26,7 +26,6 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
 <link rel="manifest" href="manifest.json?v=2">
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="gestao.css?v=93">
 <style>
 /* ===== V77 - MATA-MATA no Link dos Pais (categoria Adulto) ===== */
 .mmCard .neonCatTitle{color:#ffd54a!important;text-shadow:0 0 14px rgba(255,213,74,.45)}
@@ -137,7 +136,6 @@ body.parentMode #appHero .heroChev svg{height:.55em}
   <button id="tab-ranking" onclick="showPage('ranking')">Ranking</button>
   <button id="tab-imprimir" onclick="showPage('imprimir')">Imprimir</button>
   <button id="tab-config" onclick="showPage('config')">Config</button>
-  <button id="tab-gestao" onclick="showPage('gestao')">Gestão</button>
 <button id="adminLogoutBtn" class="adminLogoutBtn hidden" onclick="adminLogout()">Sair Admin</button>
 </nav>
 
@@ -170,7 +168,6 @@ body.parentMode #appHero .heroChev svg{height:.55em}
       <input id="studentPhoto" type="file" accept="image/*,.heic,.heif" title="Foto do aluno" onchange="onPickStudentPhoto(event)">
       <div id="studentPhotoPreview" class="studentPhotoPreview"></div>
       <select id="studentCategory"></select>
-      <div id="cadPlanBox"></div>
       <button onclick="addStudent()" class="success">Cadastrar</button>
     </div>
   </div>
@@ -338,10 +335,6 @@ body.parentMode #appHero .heroChev svg{height:.55em}
   <div id="parentRankingArea"></div>
 </section>
 
-<section id="page-gestao" class="page hidden">
-  <div id="gestaoRoot"></div>
-</section>
-
 <section id="page-config" class="page hidden">
   <div class="card">
     <h2>Configurações</h2>
@@ -390,6 +383,12 @@ body.parentMode #appHero .heroChev svg{height:.55em}
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
     <hr class="softLine">
+    <h3>Recuperar pontos deste aparelho</h3>
+    <p class="smallText">Se este celular tinha pontos que não chegaram ao banco (ex.: internet caiu no treino) ou que outro aparelho apagou, o app guardou uma cópia aqui. Toque para conferir e devolver ao app. Só preenche treinos vazios; não apaga nada.</p>
+    <p class="smallText" id="rescueInfo"></p>
+    <button onclick="checkRescue()" class="success">Verificar e recuperar pontos deste aparelho</button>
+    <button onclick="downloadRescue()" class="secondary">Baixar cópia de resgate (arquivo)</button>
+    <hr class="softLine">
     <h3>Backup automático diário</h3>
     <p class="smallText">Todo dia, ao entrar como administrador, o app guarda uma cópia dos dados no banco online (mantém os últimos 30 dias). Isso é além do backup a cada salvamento.</p>
     <p class="smallText"><strong>Último backup diário:</strong> <span id="lastDailyBackup">—</span></p>
@@ -401,9 +400,8 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 </main>
 
-<script src="supabase-config.js?v=86"></script>
-<script src="script.js?v=86"></script>
-<script src="gestao.js?v=93"></script>
+<script src="supabase-config.js?v=88"></script>
+<script src="script.js?v=88"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
