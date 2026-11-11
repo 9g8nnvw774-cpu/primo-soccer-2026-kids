@@ -119,6 +119,14 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 .v91RevInputs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .v91RevInputs label{display:flex;flex-direction:column;font-size:11px;color:#7eeaff;font-weight:900;text-align:center}
 .v91RevInputs input{min-height:38px!important;padding:4px!important;text-align:center;font-size:16px!important}
+
+/* ===== V92 - agenda do aluno / pontuação em outra categoria ===== */
+.v92Ag{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:12px;font-weight:700;color:#dbeafe;text-align:left;line-height:1.35}
+.v92Ag b{color:#7eeaff}
+.v92Btn{width:auto!important;min-height:34px!important;padding:6px 10px!important;font-size:12px!important;border-radius:10px!important}
+.v92Tag{display:inline-block;background:rgba(253,224,71,.18);border:1px solid rgba(253,224,71,.5);color:#fde047;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800}
+.v92Row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(126,234,255,.2);border-radius:12px;padding:8px 10px;margin:6px 0;font-weight:800}
+.v92Row small{color:#9fc4ef}
 </style>
 </head>
 <body>
@@ -216,6 +224,7 @@ body.parentMode #appHero .heroChev svg{height:.55em}
     <div class="form agendaForm">
       <select id="studentPicker"></select>
       <select id="schedulePicker"></select>
+      <select id="rankCatPicker" title="Em qual categoria a pontuação conta"></select>
       <button onclick="addToSchedule()" class="success">Adicionar no horário</button>
     </div>
     <div class="form agendaForm">
@@ -435,8 +444,8 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 </main>
 
-<script src="supabase-config.js?v=91"></script>
-<script src="script.js?v=91"></script>
+<script src="supabase-config.js?v=92"></script>
+<script src="script.js?v=92"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>

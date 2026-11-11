@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="91";
+const APP_VERSION="92";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -51,11 +51,14 @@ function weekPoints(w,cat,scheduleFilter){
 /* V85 - valor de cada bônus: no Adulto o uniforme vale 7; nas demais categorias, 2 */
 function bonusPoints(cat,field){return (cat==="Adulto"&&field==="uniforme")?7:2}
 function studentCat(id){const s=state.students.find(x=>x.id===id);return s?s.category:""}
-function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if(!p)return 0;const cat=studentCat(id);return(p.weeks||[]).reduce((a,w)=>a+weekPoints(w,cat,"all"),0)}
-function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthObj(m).participants||{}).filter(([id,p])=>p.schedules&&p.schedules.length).map(([id])=>id));return state.students.filter(s=>s.active!==false&&ids.has(s.id))}
+function totalStudent(id,m=currentMonth){const p=monthObj(m).participants[id];if(!p)return 0;const cat=rankCatOfId(id,m);return(p.weeks||[]).reduce((a,w)=>a+weekPoints(w,cat,"all"),0)}
+function activeStudents(m=currentMonth){const ids=new Set(Object.entries(monthObj(m).participants||{}).filter(([id,p])=>(p.schedules&&p.schedules.length)||(p.weeks||[]).some(w=>Object.values(w||{}).some(sc=>scoreTotal(sc||{})>0))).map(([id])=>id));return state.students.filter(s=>s.active!==false&&ids.has(s.id))}
+/* V92 - categoria em que a pontuação do aluno CONTA no ranking (por mês). Padrão = categoria do cadastro */
+function rankCatOf(s,m=currentMonth){const P=s&&state.months&&state.months[m]&&state.months[m].participants&&state.months[m].participants[s.id];return (P&&P.rankCategory)||(s&&s.category)||"";}
+function rankCatOfId(id,m=currentMonth){return rankCatOf(studentById(id),m)}
 function activeByCategory(cat=activeCategory){return activeStudents().filter(s=>s.category===cat)}
-function ranked(cat=null){return activeStudents().filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
-function rankedByMonth(cat=null,m=currentMonth){return activeStudents(m).filter(s=>!cat||s.category===cat).map(s=>({...s,total:totalStudent(s.id,m)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
+function ranked(cat=null){return activeStudents().filter(s=>!cat||rankCatOf(s,currentMonth)===cat).map(s=>({...s,total:totalStudent(s.id)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
+function rankedByMonth(cat=null,m=currentMonth){return activeStudents(m).filter(s=>!cat||rankCatOf(s,m)===cat).map(s=>({...s,total:totalStudent(s.id,m)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 const photoUrlCache={}; // id do aluno -> URL para mostrar na hora (não é salva no banco)
 function photoPublicUrl(path){ return path ? (cloudUrl()+"/storage/v1/object/public/fotos-alunos/"+path) : ""; }
 function photoSrc(s){ if(!s)return ""; if(photoUrlCache[s.id])return photoUrlCache[s.id]; if(s.photoPath)return photoPublicUrl(s.photoPath); return s.photo||""; }
@@ -400,7 +403,7 @@ function renderSelectors(){
   document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");
   ["agendaCategory","disputeCategory"].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");el.value=activeCategory});
   const sp=document.getElementById("studentPicker");
-  if(sp){sp.innerHTML=state.students.filter(s=>s.active!==false&&s.category===activeCategory).map(s=>`<option value="${s.id}">${esc(studentOptionLabel(s))}</option>`).join("")||`<option value="">Cadastre alunos nesta categoria</option>`;restoreSelectValue("studentPicker",currentStudent)}
+  if(sp){const own=state.students.filter(s=>s.active!==false&&s.category===activeCategory),others=state.students.filter(s=>s.active!==false&&s.category!==activeCategory).sort((a,b)=>(a.category+a.name).localeCompare(b.category+b.name));sp.innerHTML=(own.length?`<optgroup label="${esc(activeCategory)}">${own.map(s=>`<option value="${s.id}">${esc(studentOptionLabel(s))}</option>`).join("")}</optgroup>`:`<option value="">Cadastre alunos nesta categoria</option>`)+(others.length?`<optgroup label="Alunos de outras categorias">${others.map(s=>`<option value="${s.id}">${esc(s.name)} — ${esc(s.category)}</option>`).join("")}</optgroup>`:"");restoreSelectValue("studentPicker",currentStudent);if(typeof renderRankCatPicker==="function")renderRankCatPicker();}
   const sch=schedulesFor(activeCategory);
   const ap=document.getElementById("schedulePicker");if(ap){ap.innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");restoreSelectValue("schedulePicker",currentSchedule)}
   const daySel=document.getElementById("scoreDay");
@@ -578,7 +581,7 @@ function renderStudents(){
       <td>${i+1}</td>
       <td><code class="studentIdCode">${esc(s.studentCode||s.id)}</code></td>
       <td>${photoPickerHtml(s)}</td>
-      <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)"></td>
+      <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)">${agendaSummary(s)}</td>
       <td><input type="date" value="${s.birth||""}" oninput="editStudent('${s.id}','birth',this.value)"></td>
       <td>${ageFromBirth(s.birth)} anos</td>
       <td><select onchange="editStudent('${s.id}','category',this.value)">
@@ -646,15 +649,16 @@ function addToSchedule(){
   const p=participant(id);const maxSchedules=canHaveTwoSchedules(student.category)?2:1;
   if(p.schedules.includes(sch))return alert("Esse aluno já está nesse horário.");
   if(p.schedules.length>=maxSchedules)return alert(canHaveTwoSchedules(student.category)?"Esse aluno já está em 2 horários nesta semana.":"Essa categoria permite apenas 1 horário por aluno.");
-  const cap=slotCapacity(activeCategory,sch);const studentsInSlot=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));if(studentsInSlot.length>=cap)return alert("Esse horário já está com "+cap+" vagas preenchidas.");
+  const cap=slotCapacity(activeCategory,sch);const studentsInSlot=studentsInSchedule(sch);if(studentsInSlot.length>=cap)return alert("Esse horário já está com "+cap+" vagas preenchidas.");
+  const rc=document.getElementById("rankCatPicker")?.value||"";if(rc&&rc!==student.category)p.rankCategory=rc;else if(rc===student.category)delete p.rankCategory;
   p.schedules.push(sch);carryPrevWeek5(id,currentMonth);scheduleSave();renderAll();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
 }
 function renderAgenda(){
   const schList=schedulesFor(activeCategory);
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
     const cap=slotCapacity(activeCategory,sch);
-    const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
-    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="secondary compactGo" onclick='openEditSchedule(${JSON.stringify(sch)})'>✏️ Editar / mover horário</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
+    const list=studentsInSchedule(sch);
+    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="secondary compactGo" onclick='openEditSchedule(${JSON.stringify(sch)})'>✏️ Editar / mover horário</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}${guestTag(s)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
   }).join("");
 }
 /* V68 - apagar qualquer horário da agenda (default ou extra) */
@@ -694,7 +698,7 @@ function renderScore(){
   const finished=isTrainingFinished(activeCategory,week,sch);
   const finishBox=document.getElementById("finishStatus");
   if(finishBox)finishBox.innerHTML=finished?`✅ Treino finalizado e salvo no banco online.`:`Treino em andamento. Ao terminar, toque em <strong>Finalizar treino</strong> para gravar no banco online.`;
-  const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
+  const list=studentsInSchedule(sch);
   const table=document.getElementById("scoreTable");
   const cards=document.getElementById("scoreCards");
   if(cards)cards.innerHTML=list.map((s,i)=>scoreCardHtml(s,i,week,sch,getScore(s.id,week,sch))).join("")||`<div class="emptyScoreNotice">Nenhum aluno neste dia/horário. Vá em Agenda e adicione alunos neste horário.</div>`;
@@ -713,8 +717,8 @@ function renderRankings(){
   if(all){all.innerHTML=CATEGORIES.map(c=>{const monthly=ranked(c[0]),annual=rankedAnnual(c[0]);return`<div class="catCard cat-${c[1]}"><h2>${c[0]}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthly.map(rankRow).join("")||"<p>Nenhum aluno ativo no mês.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${annual.map(rankRow).join("")||"<p>Nenhuma pontuação anual.</p>"}</div>`}).join("")}
 }
 function renderCopyMonthPicker(){const picker=document.getElementById("copyMonthPicker");const available=MONTHS.filter(m=>m!==currentMonth&&Object.values(state.months?.[m]?.participants||{}).some(p=>p.schedules&&p.schedules.some(s=>(schedulesFor(activeCategory)).includes(s))));picker.innerHTML=available.map(m=>`<option value="${m}">${m}</option>`).join("")||`<option value="">Nenhum mês com agenda</option>`}
-function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");if(!confirm("Copiar a agenda de "+source+" para "+currentMonth+"? Isso substitui a agenda atual desta categoria.\n\nA 1ª semana de "+currentMonth+" de cada atleta vem com a pontuação da 5ª semana de "+(prevMonthOf(currentMonth)||"mês anterior")+". As demais semanas começam zeradas."))return;const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});let nC=0;entries.forEach(([id])=>{if(carryPrevWeek5(id,currentMonth))nC++;});scheduleSave();renderAll();alert("Agenda da categoria copiada.\n"+nC+" atleta(s) já começam a 1ª semana com os pontos da 5ª semana de "+(prevMonthOf(currentMonth)||"mês anterior")+".")}
-function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
+function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");if(!confirm("Copiar a agenda de "+source+" para "+currentMonth+"? Isso substitui a agenda atual desta categoria.\n\nA 1ª semana de "+currentMonth+" de cada atleta vem com a pontuação da 5ª semana de "+(prevMonthOf(currentMonth)||"mês anterior")+". As demais semanas começam zeradas."))return;const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.active!==false&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{const T=targetMo.participants[id];const mine=p.schedules.filter(s=>schList.includes(s));if(T){T.schedules=[...new Set([...(T.schedules||[]).filter(s=>!schList.includes(s)),...mine])];if(p.rankCategory&&!T.rankCategory)T.rankCategory=p.rankCategory;}else{targetMo.participants[id]={studentId:id,schedules:mine,weeks:Array.from({length:5},()=>({})),...(p.rankCategory?{rankCategory:p.rankCategory}:{})};}});let nC=0;entries.forEach(([id])=>{if(carryPrevWeek5(id,currentMonth))nC++;});scheduleSave();renderAll();alert("Agenda da categoria copiada.\n"+nC+" atleta(s) já começam a 1ª semana com os pontos da 5ª semana de "+(prevMonthOf(currentMonth)||"mês anterior")+".")}
+function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);state.students.forEach(s=>{const p=participant(s.id,false);if(p&&p.schedules)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
 function withTimeout(promise,ms,msg){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(msg||"Tempo de conexão esgotado")),ms))])}
@@ -1560,6 +1564,72 @@ async function rejectTeacherScores(id){
   setInterval(()=>{if(document.visibilityState==="visible")loadTeacherPending();},120000);
 })();
 
+/* =====================================================================
+   V92 - AGENDA DO ALUNO NO CADASTRO + ALUNO DE OUTRA CATEGORIA NO HORÁRIO
+   • Os pontos ficam sempre com o aluno: tirar ou trocar de horário não apaga nada.
+   • "Pontuação conta em": escolha em qual categoria do ranking o aluno soma (por mês).
+   ===================================================================== */
+function studentsInSchedule(sch,m=currentMonth){
+  return state.students.filter(s=>s.active!==false&&(participant(s.id,false,m)?.schedules||[]).includes(sch))
+    .sort((a,b)=>(a.category===activeCategory?0:1)-(b.category===activeCategory?0:1)||a.name.localeCompare(b.name));
+}
+function guestTag(s){
+  const rc=rankCatOf(s);const other=s.category!==activeCategory;
+  if(!other&&rc===s.category)return "";
+  return ` <small class="v92Tag">${other?"de "+esc(s.category)+" • ":""}conta em ${esc(rc)}</small>`;
+}
+function renderRankCatPicker(){
+  const el=document.getElementById("rankCatPicker");if(!el)return;const v=el.value;
+  el.innerHTML=`<option value="">Pontuação conta na categoria do aluno</option>`+CATEGORIES.map(c=>`<option value="${esc(c[0])}">Pontuação conta em: ${esc(c[0])}</option>`).join("");
+  if(v)el.value=v;
+}
+function _studentSchedules(id,m=currentMonth){return (participant(id,false,m)?.schedules||[]).slice();}
+function agendaSummary(s){
+  const sch=_studentSchedules(s.id),rc=rankCatOf(s),pts=totalStudent(s.id);
+  return `<div class="v92Ag"><span>📅 ${esc(currentMonth)}: ${sch.length?sch.map(x=>`<b>${esc(x)}</b>`).join(" • "):"<i>fora da agenda</i>"}${rc!==s.category?` <small class="v92Tag">conta em ${esc(rc)}</small>`:""} • ${pts} pts</span>
+    <button class="secondary v92Btn" onclick="openStudentAgenda('${s.id}')">📅 Agenda / categoria</button></div>`;
+}
+function openStudentAgenda(id){
+  if(!requireAdmin())return;
+  const s=studentById(id);if(!s)return;
+  const mine=_studentSchedules(id),rc=rankCatOf(s);
+  const groups=CATEGORIES.map(c=>{const opts=schedulesFor(c[0]).filter(x=>!mine.includes(x));return opts.length?`<optgroup label="${esc(c[0])}">${opts.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")}</optgroup>`:"";}).join("");
+  _modal(`<h2>${esc(s.name)}</h2>
+    <p class="smallText">Cadastro: <strong>${esc(s.category)}</strong> • ${esc(currentMonth)} • <strong>${totalStudent(id)} pts</strong></p>
+    <label class="v91Lbl">Pontuação conta na categoria (ranking de ${esc(currentMonth)})</label>
+    <select id="v92Rank" onchange="setRankCat('${id}',this.value)">${CATEGORIES.map(c=>`<option value="${esc(c[0])}" ${c[0]===rc?"selected":""}>${esc(c[0])}${c[0]===s.category?" (categoria do aluno)":""}</option>`).join("")}</select>
+    <label class="v91Lbl">Horários na agenda</label>
+    ${mine.length?mine.map(x=>`<div class="v92Row"><span>${esc(x)}<br><small>${esc(_catOfSchedule(x)||"")}</small></span><button class="danger v92Btn" onclick='removeStudentSchedule(${esc(JSON.stringify(id))},${esc(JSON.stringify(x))})'>Tirar</button></div>`).join(""):`<p class="smallText"><i>Fora da agenda neste mês.</i></p>`}
+    <label class="v91Lbl">Colocar em um horário</label>
+    <select id="v92Add">${groups||"<option value=''>Sem horários disponíveis</option>"}</select>
+    <button class="success" style="margin-top:8px" onclick="addStudentSchedule('${id}')">Adicionar neste horário</button>
+    <p class="smallText">Os pontos ficam sempre com o aluno. Tirar ou trocar de horário <strong>não apaga</strong> a pontuação.</p>
+    <div class="v91Btns" style="grid-template-columns:1fr"><button class="secondary" onclick="closeV91Modal()">Fechar</button></div>`);
+}
+function setRankCat(id,cat){
+  const s=studentById(id);if(!s)return;
+  const P=participant(id,true,currentMonth);
+  if(!cat||cat===s.category)delete P.rankCategory;else P.rankCategory=cat;
+  scheduleSave();renderAll();openStudentAgenda(id);
+}
+function removeStudentSchedule(id,sch){
+  const P=participant(id,false,currentMonth);if(!P)return;
+  if(!confirm(`Tirar do horário "${sch}"?\n\nA pontuação do aluno continua valendo.`))return;
+  P.schedules=(P.schedules||[]).filter(x=>x!==sch);
+  scheduleSave();renderAll();openStudentAgenda(id);
+}
+function addStudentSchedule(id){
+  const s=studentById(id);const sch=document.getElementById("v92Add")?.value;if(!s||!sch)return;
+  const P=participant(id,true,currentMonth);P.schedules=P.schedules||[];
+  if(P.schedules.includes(sch))return alert("O aluno já está nesse horário.");
+  const max=canHaveTwoSchedules(s.category)?2:1;
+  if(P.schedules.length>=max)return alert(max===2?"Esse aluno já está em 2 horários. Tire um antes de adicionar outro.":"Essa categoria permite apenas 1 horário por aluno. Tire o atual antes.");
+  const cat=_catOfSchedule(sch)||activeCategory,cap=slotCapacity(cat,sch);
+  if(studentsInSchedule(sch).length>=cap)return alert("Esse horário já está com "+cap+" vagas preenchidas.");
+  P.schedules.push(sch);carryPrevWeek5(id,currentMonth);
+  scheduleSave();renderAll();openStudentAgenda(id);
+}
+
 window.addEventListener("beforeunload",()=>{try{saveLocal()}catch(e){}});
 if(typeof isParentMode==="function" && isParentMode()){
   document.body.classList.add("parentMode");
@@ -1670,8 +1740,8 @@ function syncScoreScroll(){
 const finishTrainingV32Base = finishTraining;
 finishTraining = async function(){if(!requireAdmin())return;const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(sch){activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch)).forEach(s=>{if(!getPresence(s.id,week,sch))setPresence(s.id,week,sch,true)});}return finishTrainingV32Base();};
 
-function totalStudentFiltered(id,m=currentMonth,weekFilter="all",scheduleFilter="all"){const p=monthObj(m).participants[id];if(!p)return 0;const cat=studentCat(id);const weeks=p.weeks||[];return weeks.reduce((sum,w,i)=>{if(weekFilter!=="all"&&String(i)!==String(weekFilter))return sum;return sum+weekPoints(w,cat,scheduleFilter)},0)}
-function rankedFiltered(cat,m,weekFilter,scheduleFilter){return activeStudents(m).filter(s=>!cat||cat==="all"||s.category===cat).map(s=>({...s,total:totalStudentFiltered(s.id,m,weekFilter,scheduleFilter)})).filter(s=>s.total>0||presenceCount(s.id,m)>0).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
+function totalStudentFiltered(id,m=currentMonth,weekFilter="all",scheduleFilter="all"){const p=monthObj(m).participants[id];if(!p)return 0;const cat=rankCatOfId(id,m);const weeks=p.weeks||[];return weeks.reduce((sum,w,i)=>{if(weekFilter!=="all"&&String(i)!==String(weekFilter))return sum;return sum+weekPoints(w,cat,scheduleFilter)},0)}
+function rankedFiltered(cat,m,weekFilter,scheduleFilter){return activeStudents(m).filter(s=>!cat||cat==="all"||rankCatOf(s,m)===cat).map(s=>({...s,total:totalStudentFiltered(s.id,m,weekFilter,scheduleFilter)})).filter(s=>s.total>0||presenceCount(s.id,m)>0).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
 function fillRankingFilters(){const m=document.getElementById("rankingMonthFilter"),c=document.getElementById("rankingCategoryFilter"),sch=document.getElementById("rankingScheduleFilter");if(m&&!m.dataset.ready){m.innerHTML=MONTHS.map(x=>`<option value="${x}">${x}</option>`).join("");m.dataset.ready="1"}if(m)m.value=m.value||currentMonth;if(c&&!c.dataset.ready){c.innerHTML=`<option value="all">Todas as categorias</option>`+CATEGORIES.map(x=>`<option value="${x[0]}">${x[0]}</option>`).join("");c.dataset.ready="1"}if(sch){const cat=c?.value||"all";const all=[...new Set((cat==="all"?CATEGORIES.flatMap(x=>schedulesFor(x[0])):schedulesFor(cat)))];const old=sch.value;sch.innerHTML=`<option value="all">Todos os horários</option>`+all.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");if([...sch.options].some(o=>o.value===old))sch.value=old}}
 renderRankings = function(){
   fillRankingFilters();
@@ -2067,7 +2137,7 @@ async function downloadAllClassifications(){
 /* ===== V71 - MATA-MATA ADULTO (chave eliminatória) ===== */
 function mmScore(id,m){ return totalStudentFiltered(id,m,"0","all")+totalStudentFiltered(id,m,"1","all"); }
 function mataMataSeeds(m=currentMonth){
-  return state.students.filter(s=>s.active!==false&&s.category==="Adulto")
+  return state.students.filter(s=>s.active!==false&&rankCatOf(s,m)==="Adulto")
     .map(s=>({id:s.id,name:s.name,photo:photoSrc(s),pts:mmScore(s.id,m)}))
     .filter(s=>s.pts>0)
     .sort((a,b)=>b.pts-a.pts||a.name.localeCompare(b.name))
