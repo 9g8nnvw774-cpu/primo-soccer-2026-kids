@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="88";
+const APP_VERSION="90";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -592,6 +592,54 @@ function renderStudents(){
 }
 function editStudent(id,field,value){const s=studentById(id);if(s){s[field]=value;scheduleSave();renderAll()}}
 function deleteStudent(id){if(!confirm("Excluir aluno e todos os pontos dele?"))return;state.students=state.students.filter(s=>s.id!==id);Object.values(state.months||{}).forEach(m=>{if(m.participants)delete m.participants[id]});scheduleSave();renderAll()}
+/* V90 - MÊS NOVO: a 1ª semana do atleta = a 5ª semana do mês anterior
+   - vale ao copiar a agenda do mês passado e ao adicionar atleta na agenda do mês novo
+   - fica "ligada": se você corrigir a 5ª semana do mês anterior, a 1ª semana do novo acompanha
+   - se você editar a 1ª semana direto no mês novo, ela deixa de acompanhar (vale o que você lançou)
+   - se a 1ª semana do mês novo já tinha pontos próprios, não mexe */
+function prevMonthOf(m){const i=MONTHS.indexOf(m);return i>0?MONTHS[i-1]:null}
+function _hasPts(w){return Object.values(w||{}).some(sc=>scoreTotal(sc||{})>0)}
+function _w5Mapped(P,w5){
+  const out={},free=(P.schedules||[]).filter(s=>!(s in w5));
+  Object.entries(w5||{}).forEach(([sch,sc])=>{
+    if(scoreTotal(sc||{})<=0)return;
+    const key=P.schedules.includes(sch)?sch:(free.length?free.shift():sch); // horário mudou: vai para o horário do mês novo
+    out[key]=JSON.parse(JSON.stringify(sc));
+  });
+  return out;
+}
+function carryPrevWeek5(id,m){
+  const prev=prevMonthOf(m); if(!prev||!state.months||!state.months[prev])return false;
+  const P=state.months[m]&&state.months[m].participants&&state.months[m].participants[id];
+  if(!P||!Array.isArray(P.schedules)||!P.schedules.length)return false;
+  if(P.week1FromPrev&&P.week1FromPrev!==prev)return false;           // ex.: já tinha pontos próprios
+  const src=state.months[prev].participants&&state.months[prev].participants[id];
+  const w5=(src&&Array.isArray(src.weeks)&&src.weeks[4])||{};
+  if(!Array.isArray(P.weeks))P.weeks=Array.from({length:5},()=>({}));
+  const cur=P.weeks[0]||{};
+  if(P.week1FromPrev===prev){                                          // já copiado antes: mantém em dia
+    if(_stab(cur)!==P.week1CopySig)return false;                       // você editou aqui -> não mexe mais
+    const out=_w5Mapped(P,w5),sig=_stab(out);
+    if(sig===P.week1CopySig)return false;
+    P.weeks[0]=out;P.week1CopySig=sig;return true;
+  }
+  if(!_hasPts(w5))return false;                                        // ainda não há pontos para trazer
+  if(_hasPts(cur)){P.week1FromPrev="ja_tinha_pontos";return false;}
+  const out=_w5Mapped(P,w5);P.weeks[0]=out;P.week1FromPrev=prev;P.week1CopySig=_stab(out);return true;
+}
+// passa por todos os atletas dos meses em disputa (mês atual do calendário em diante)
+function carryPass(){
+  let changed=false;
+  try{
+    const nowIdx=new Date().getMonth();
+    MONTHS.forEach((m,i)=>{
+      if(i<nowIdx||i===0)return;
+      const M=state.months&&state.months[m]; if(!M||!M.participants)return;
+      Object.keys(M.participants).forEach(id=>{if(carryPrevWeek5(id,m))changed=true;});
+    });
+  }catch(e){console.warn("V90",e);}
+  return changed;
+}
 function addToSchedule(){
   const id=document.getElementById("studentPicker").value,sch=document.getElementById("schedulePicker").value;if(!id||!sch)return;
   const student=studentById(id);if(!student)return;
@@ -599,7 +647,7 @@ function addToSchedule(){
   if(p.schedules.includes(sch))return alert("Esse aluno já está nesse horário.");
   if(p.schedules.length>=maxSchedules)return alert(canHaveTwoSchedules(student.category)?"Esse aluno já está em 2 horários nesta semana.":"Essa categoria permite apenas 1 horário por aluno.");
   const cap=slotCapacity(activeCategory,sch);const studentsInSlot=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));if(studentsInSlot.length>=cap)return alert("Esse horário já está com "+cap+" vagas preenchidas.");
-  p.schedules.push(sch);scheduleSave();renderAll();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
+  p.schedules.push(sch);carryPrevWeek5(id,currentMonth);scheduleSave();renderAll();const picker=document.getElementById("studentPicker");if(picker)picker.value=id;
 }
 function renderAgenda(){
   const schList=schedulesFor(activeCategory);
@@ -665,7 +713,7 @@ function renderRankings(){
   if(all){all.innerHTML=CATEGORIES.map(c=>{const monthly=ranked(c[0]),annual=rankedAnnual(c[0]);return`<div class="catCard cat-${c[1]}"><h2>${c[0]}</h2><h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthly.map(rankRow).join("")||"<p>Nenhum aluno ativo no mês.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${annual.map(rankRow).join("")||"<p>Nenhuma pontuação anual.</p>"}</div>`}).join("")}
 }
 function renderCopyMonthPicker(){const picker=document.getElementById("copyMonthPicker");const available=MONTHS.filter(m=>m!==currentMonth&&Object.values(state.months?.[m]?.participants||{}).some(p=>p.schedules&&p.schedules.some(s=>(schedulesFor(activeCategory)).includes(s))));picker.innerHTML=available.map(m=>`<option value="${m}">${m}</option>`).join("")||`<option value="">Nenhum mês com agenda</option>`}
-function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");if(!confirm("Copiar a agenda de "+source+" para "+currentMonth+"? Isso substitui a agenda atual desta categoria (a pontuação vem zerada)."))return;const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});scheduleSave();renderAll();alert("Agenda da categoria copiada com pontuação zerada.")}
+function copyAgendaFromMonth(){const source=document.getElementById("copyMonthPicker").value;if(!source)return alert("Nenhum mês com agenda para copiar.");if(!confirm("Copiar a agenda de "+source+" para "+currentMonth+"? Isso substitui a agenda atual desta categoria.\n\nA 1ª semana de "+currentMonth+" de cada atleta vem com a pontuação da 5ª semana de "+(prevMonthOf(currentMonth)||"mês anterior")+". As demais semanas começam zeradas."))return;const sourceMo=monthObj(source),targetMo=monthObj(currentMonth),schList=schedulesFor(activeCategory);const entries=Object.entries(sourceMo.participants||{}).filter(([id,p])=>{const st=studentById(id);return st&&st.category===activeCategory&&p.schedules&&p.schedules.some(s=>schList.includes(s))});if(!entries.length)return alert("Esse mês não possui agenda nessa categoria.");entries.forEach(([id,p])=>{targetMo.participants[id]={studentId:id,schedules:p.schedules.filter(s=>schList.includes(s)),weeks:Array.from({length:5},()=>({}))}});let nC=0;entries.forEach(([id])=>{if(carryPrevWeek5(id,currentMonth))nC++;});scheduleSave();renderAll();alert("Agenda da categoria copiada.\n"+nC+" atleta(s) já começam a 1ª semana com os pontos da 5ª semana de "+(prevMonthOf(currentMonth)||"mês anterior")+".")}
 function clearCategoryAgenda(){if(!confirm("Limpar agenda desta categoria no mês atual?"))return;const schList=schedulesFor(activeCategory);activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p)p.schedules=p.schedules.filter(x=>!schList.includes(x))});scheduleSave();renderAll()}
 function renderPrintSelect(){const el=document.getElementById("printCategory");if(el)el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("")}
 function preparePrint(type){const cat=document.getElementById("printCategory").value;const list=type==="general"?ranked():ranked(cat);const title=type==="general"?"RANKING GERAL DO MÊS":cat;document.getElementById("printArea").innerHTML=`<div class="printCard"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title} • ${currentMonth}</h2>${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div>`}
@@ -1920,6 +1968,19 @@ async function downloadMataMata(){
         (p.weeks||[]).forEach(w=>Object.values(w||{}).forEach(sc=>{if(sc&&(+sc.uniforme||0)>0&&+sc.uniforme!==7)sc.uniforme=7;}));
       });});
     }catch(e){}
+  };
+})();
+
+/* V90 - mantém a 1ª semana do mês novo em dia com a 5ª do mês anterior */
+(function(){
+  var _renderAllV90=renderAll;
+  renderAll=function(){
+    try{
+      if(!(typeof isParentMode==="function"&&isParentMode())&&typeof isAdminAuthenticated==="function"&&isAdminAuthenticated()){
+        if(carryPass())scheduleSave();
+      }
+    }catch(e){console.warn("V90",e);}
+    return _renderAllV90.apply(this,arguments);
   };
 })();
 (function(){
