@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="90";
+const APP_VERSION="91";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -654,7 +654,7 @@ function renderAgenda(){
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
     const cap=slotCapacity(activeCategory,sch);
     const list=activeByCategory().filter(s=>(participant(s.id,false)?.schedules||[]).includes(sch));
-    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
+    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="secondary compactGo" onclick='openEditSchedule(${JSON.stringify(sch)})'>✏️ Editar / mover horário</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
   }).join("");
 }
 /* V68 - apagar qualquer horário da agenda (default ou extra) */
@@ -1326,6 +1326,239 @@ preparePrint = function(type){
   const title=type==="annual"?`RANKING ANUAL • ${cat}`:`${cat} • ${currentMonth}`;
   document.getElementById("printArea").innerHTML=`<div class="printCard printOnlyCard print-${color}"><img src="primo-logo.png" class="printLogo"><h1>${APP_TITLE_HTML}</h1><h2>${title}</h2><div class="printTableOnly">${list.map((s,i)=>`<div class="printRow"><span>${i+1}º</span><span class="printPhoto">${photoSrc(s)?`<img src="${photoSrc(s)}" onclick="openPhoto('${photoSrc(s)}')">`:initials(s.name)}</span><span>${esc(s.name)}</span><strong>${s.total} pts</strong></div>`).join("")||"<p>Nenhum aluno.</p>"}</div></div>`;
 };
+
+/* =====================================================================
+   V91 - (1) EDITAR / MOVER HORÁRIO DE CATEGORIA
+         (2) LINK DO PROFESSOR (link + PIN) e APROVAÇÃO DOS PONTOS
+   ===================================================================== */
+
+/* ---------- janela simples (modal) ---------- */
+function _modal(html){
+  let ov=document.getElementById("v91Modal");
+  if(!ov){ov=document.createElement("div");ov.id="v91Modal";ov.className="v91Overlay";document.body.appendChild(ov);}
+  ov.innerHTML=`<div class="v91Box">${html}</div>`;ov.classList.remove("hidden");
+  return ov;
+}
+function closeV91Modal(){const ov=document.getElementById("v91Modal");if(ov)ov.classList.add("hidden");}
+
+/* ---------- (1) editar / mover horário ---------- */
+function _catOfSchedule(sch){const c=CATEGORIES.find(c=>schedulesFor(c[0]).includes(sch));return c?c[0]:null;}
+function _suggestName(oldName,newCat){
+  // troca a parte "• Categoria" mantendo o "(Professor)" do final
+  const prof=(String(oldName).match(/\(([^)]+)\)\s*$/)||[])[0]||"";
+  const head=String(oldName).split("•")[0].trim();
+  const label=String(newCat).replace(/\s*anos?\s*$/i," anos").replace(/^Adulto anos$/,"Adulto");
+  return (head+" • "+label+(prof?" "+prof:"")).replace(/\s+/g," ").trim();
+}
+function openEditSchedule(sch){
+  if(!requireAdmin())return;
+  const cat=_catOfSchedule(sch)||activeCategory;
+  const opts=CATEGORIES.map(c=>`<option ${c[0]===cat?"selected":""}>${esc(c[0])}</option>`).join("");
+  _modal(`<h2>Editar horário</h2>
+    <p class="smallText">Agora em: <strong>${esc(cat)}</strong></p>
+    <label class="v91Lbl">Categoria</label>
+    <select id="v91Cat" onchange="document.getElementById('v91Name').value=_suggestName(${esc(JSON.stringify(sch))},this.value)">${opts}</select>
+    <label class="v91Lbl">Nome do horário (dia, hora e turma)</label>
+    <input id="v91Name" value="${esc(sch)}">
+    <p class="smallText">Se mudar de categoria, os alunos da categoria antiga <strong>saem deste horário</strong> (deste mês em diante), mas <strong>os pontos continuam com cada aluno</strong>. Quando você colocar o aluno na nova categoria e neste horário, os pontos aparecem de novo.</p>
+    <div class="v91Btns"><button class="secondary" onclick="closeV91Modal()">Cancelar</button>
+    <button class="success" onclick='saveEditSchedule(${esc(JSON.stringify(sch))},${esc(JSON.stringify(cat))})'>Salvar</button></div>`);
+}
+function saveEditSchedule(oldName,oldCat){
+  if(!requireAdmin())return;
+  const newCat=document.getElementById("v91Cat").value;
+  const newName=String(document.getElementById("v91Name").value||"").trim();
+  if(!newName)return alert("Digite o nome do horário.");
+  if(newCat===oldCat&&newName===oldName){closeV91Modal();return;}
+  if(schedulesFor(newCat).includes(newName))return alert("Já existe um horário com esse nome nessa categoria.");
+  const anyOther=CATEGORIES.some(c=>c[0]!==oldCat&&schedulesFor(c[0]).includes(newName));
+  if(anyOther&&newName!==oldName)return alert("Esse nome já é usado em outra categoria. Use outro nome.");
+  state.settings=state.settings||{};
+  const cs=state.settings.customSchedules=state.settings.customSchedules||{};
+  const rs=state.settings.removedSchedules=state.settings.removedSchedules||{};
+  // tira da categoria antiga
+  if((cs[oldCat]||[]).includes(oldName))cs[oldCat]=cs[oldCat].filter(x=>x!==oldName);
+  else{rs[oldCat]=rs[oldCat]||[];if(!rs[oldCat].includes(oldName))rs[oldCat].push(oldName);}
+  // coloca na nova
+  if((DEFAULT_SCHEDULES[newCat]||[]).includes(newName)){rs[newCat]=(rs[newCat]||[]).filter(x=>x!==newName);}
+  else{cs[newCat]=cs[newCat]||[];if(!cs[newCat].includes(newName))cs[newCat].push(newName);}
+  // renomeia em todos os meses (pontos acompanham)
+  const startIdx=Math.max(0,MONTHS.indexOf(currentMonth));let removed=0;
+  Object.entries(state.months||{}).forEach(([mo,M])=>{
+    Object.entries((M&&M.participants)||{}).forEach(([id,P])=>{
+      if(Array.isArray(P.schedules))P.schedules=P.schedules.map(x=>x===oldName?newName:x);
+      (P.weeks||[]).forEach(w=>{if(w&&oldName!==newName&&Object.prototype.hasOwnProperty.call(w,oldName)){w[newName]=Object.assign({},w[newName]||{},w[oldName]);delete w[oldName];}});
+      // mudou de categoria: aluno da categoria antiga sai do horário (deste mês em diante). Pontos ficam.
+      if(newCat!==oldCat&&MONTHS.indexOf(mo)>=startIdx&&(P.schedules||[]).includes(newName)){
+        const st=studentById(id);
+        if(st&&st.category!==newCat){P.schedules=P.schedules.filter(x=>x!==newName);removed++;}
+      }
+    });
+    const F=M&&M.finishedTrainings;
+    if(F)Object.keys(F).forEach(k=>{const m=k.match(/^(.*)__S(\d)__(.*)$/);if(m&&m[3]===oldName&&m[1]===oldCat){const nk=`${newCat}__S${m[2]}__${newName}`;F[nk]=Object.assign({},F[k],{category:newCat,schedule:newName});delete F[k];}});
+  });
+  // link do professor acompanha o novo nome
+  const T=state.settings.teacher;if(T&&Array.isArray(T.schedules))T.schedules=T.schedules.map(x=>x===oldName?newName:x);
+  closeV91Modal();scheduleSave();renderAll();
+  alert(`Horário salvo em ${newCat}: "${newName}".`+(removed?`\n\n${removed} aluno(s) de ${oldCat} saíram deste horário. Os pontos deles continuam valendo.\nPara colocar um aluno na nova categoria: Cadastro → mude a categoria → Agenda → adicione neste horário.`:""));
+}
+
+/* ---------- (2) link do professor ---------- */
+function _teacher(){state.settings=state.settings||{};return state.settings.teacher||null;}
+function teacherLink(){const T=_teacher();return T&&T.token?location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/?$/,"/")+"professor.html?t="+T.token:"";}
+function _rndToken(){const a=new Uint8Array(16);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,"0")).join("");}
+function _allSchedules(){return CATEGORIES.flatMap(c=>schedulesFor(c[0]).map(s=>({cat:c[0],sch:s})));}
+function renderTeacherConfig(){
+  const box=document.getElementById("teacherSlots");if(!box)return;
+  const T=_teacher();const chosen=T&&Array.isArray(T.schedules)?T.schedules:_allSchedules().filter(x=>/\(capi\)/i.test(x.sch)).map(x=>x.sch);
+  if(!box.dataset.touched)box.innerHTML=_allSchedules().map(x=>`<label class="v91Chk"><input type="checkbox" value="${esc(x.sch)}" ${chosen.includes(x.sch)?"checked":""} onchange="this.closest('#teacherSlots').dataset.touched=1"> <span><strong>${esc(x.sch)}</strong><br><small>${esc(x.cat)}</small></span></label>`).join("");
+  const nm=document.getElementById("teacherName");if(nm&&document.activeElement!==nm&&!nm.dataset.touched)nm.value=(T&&T.name)||"Capi";
+  const en=document.getElementById("teacherEnabled");if(en&&!en.dataset.touched)en.checked=!T||T.enabled!==false;
+  const lt=document.getElementById("teacherLinkText");if(lt)lt.innerHTML=T&&T.token?`<strong>Link:</strong> ${esc(teacherLink())}`:"Ainda não criado. Preencha o PIN e toque em Salvar.";
+}
+async function _rpc(name,body){
+  const r=await authedFetch(cloudUrl()+"/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(body)});
+  const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}
+  if(!r.ok)throw new Error((j&&(j.message||j.hint))||("erro "+r.status));
+  return j;
+}
+async function saveTeacherAccess(regen){
+  if(!requireAdmin())return;
+  if(!cloudReady())return alert("Sem conexão com o banco agora. Tente de novo.");
+  const T=_teacher()||{};
+  const name=String(document.getElementById("teacherName")?.value||"").trim()||"Professor";
+  const pin=String(document.getElementById("teacherPin")?.value||"").trim();
+  const schedules=[...document.querySelectorAll("#teacherSlots input[type=checkbox]:checked")].map(i=>i.value);
+  const enabled=!!document.getElementById("teacherEnabled")?.checked;
+  if(!T.token&&!pin)return alert("Crie um PIN de 4 a 6 números para o professor.");
+  if(pin&&!/^\d{4,6}$/.test(pin))return alert("O PIN deve ter de 4 a 6 números.");
+  if(!schedules.length)return alert("Marque pelo menos um horário do professor.");
+  if(regen&&!confirm("Trocar o link? O link antigo para de funcionar e você terá que mandar o novo para o professor."))return;
+  const token=(!T.token||regen)?_rndToken():T.token;
+  try{
+    setSync("Salvando acesso do professor...","warn");
+    const res=await _rpc("primo_teacher_admin_set",{p_app:APP_ID,p_token:token,p_pin:pin||null,p_name:name,p_enabled:enabled});
+    if(!res||!res.ok)throw new Error(res&&res.error||"falha");
+    state.settings.teacher={name,token,enabled,schedules};
+    const p=document.getElementById("teacherPin");if(p)p.value="";
+    const box=document.getElementById("teacherSlots");if(box)delete box.dataset.touched;
+    scheduleSave(100);_lastRosterSig="";await pushTeacherRoster();renderTeacherConfig();
+    setSync("✅ Acesso do professor salvo.","ok");
+    alert("Pronto! Link do professor "+(regen?"trocado":"salvo")+".\n\nToque em \"Copiar link\" e mande para ele junto com o PIN.");
+  }catch(e){
+    setSync("Erro ao salvar acesso do professor.","error");
+    alert("Não consegui salvar no banco.\nVocê já rodou o arquivo SUPABASE_PROFESSOR.sql no Supabase?\n\nDetalhe: "+(e.message||e));
+  }
+}
+async function copyTeacherLink(){
+  const l=teacherLink();if(!l)return alert("Crie o link primeiro (preencha o PIN e toque em Salvar).");
+  try{await navigator.clipboard.writeText(l);alert("Link copiado! Mande para o professor (o PIN mande separado).");}
+  catch(e){prompt("Copie o link do professor:",l);}
+}
+/* lista de alunos que o professor vê (só nome e foto pública dos horários dele) */
+let _lastRosterSig="";
+function buildTeacherRoster(){
+  const T=_teacher();if(!T||!T.token)return null;
+  const month=MONTHS[new Date().getMonth()];
+  const M=state.months&&state.months[month];
+  const slots=(T.schedules||[]).map(sch=>{
+    const cat=_catOfSchedule(sch);if(!cat)return null;
+    const students=Object.entries((M&&M.participants)||{}).filter(([id,P])=>(P.schedules||[]).includes(sch)).map(([id])=>{
+      const s=studentById(id);if(!s)return null;
+      let ph=publicPhotoFor(s);if(ph&&String(ph).startsWith("data:"))ph=null;
+      return {id,name:s.name,photo:ph||null};
+    }).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+    return {schedule:sch,category:cat,bonus:bonusFieldsFor(cat).map(f=>({field:f,points:bonusPoints(cat,f)})),students};
+  }).filter(Boolean);
+  return {month,slots};
+}
+async function pushTeacherRoster(){
+  const roster=buildTeacherRoster();if(!roster)return;
+  const sig=_stab(roster);if(sig===_lastRosterSig)return;
+  const r=await authedFetch(cloudUrl()+"/rest/v1/primo_teacher_access?app_id=eq."+encodeURIComponent(APP_ID),{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({roster,updated_at:new Date().toISOString()})});
+  if(r.ok)_lastRosterSig=sig;
+}
+
+/* ---------- aprovação das pontuações do professor (Início) ---------- */
+let _teacherPending=[],_teacherOpen=null;
+async function loadTeacherPending(){
+  try{
+    if(!cloudReady()||!isAdminAuthenticated()||(typeof isParentMode==="function"&&isParentMode()))return;
+    const r=await authedFetch(cloudUrl()+"/rest/v1/primo_teacher_scores?select=*&app_id=eq."+encodeURIComponent(APP_ID)+"&status=eq.pendente&order=updated_at.asc",{method:"GET",headers:{"Accept":"application/json"}});
+    if(!r.ok)return;               // tabela ainda não criada: não mostra nada
+    _teacherPending=await r.json()||[];renderTeacherPending();
+  }catch(e){console.warn("Pendentes do professor:",e);}
+}
+function _cellPts(sc){return scoreTotal(sc||{})}
+function renderTeacherPending(){
+  const box=document.getElementById("teacherPending");if(!box)return;
+  if(!_teacherPending.length){box.classList.add("hidden");box.innerHTML="";return;}
+  box.classList.remove("hidden");
+  box.innerHTML=`<h2>📲 Pontuações do professor (${_teacherPending.length})</h2><p class="smallText">Só entram no campeonato depois que você aprovar.</p>`+
+  _teacherPending.map(row=>{
+    const open=_teacherOpen===row.id, ids=Object.keys(row.scores||{});
+    const when=new Date(row.updated_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+    let body="";
+    if(open){
+      const fields=bonusFieldsFor(row.category||"");
+      body=`<div class="v91Rev">`+ids.map(id=>{
+        const s=studentById(id),sc=row.scores[id]||{};
+        const cur=state.months&&state.months[row.month]&&state.months[row.month].participants&&state.months[row.month].participants[id];
+        const curC=cur&&cur.weeks&&cur.weeks[row.week]&&cur.weeks[row.week][row.schedule];
+        const inp=(f,lbl)=>`<label>${lbl}<input type="number" inputmode="numeric" min="0" data-sid="${esc(id)}" data-f="${f}" value="${+sc[f]||0}"></label>`;
+        return `<div class="v91RevRow"><div class="v91RevName">${esc(s?s.name:"(aluno removido)")}${curC&&_cellPts(curC)>0?`<small>No app agora: ${_cellPts(curC)} pts (será substituído)</small>`:""}</div>
+          <div class="v91RevInputs">${inp("pd","P/D")}${inp("pe","P/E")}${fields.map(f=>inp(f,f==="uniforme"?"👕":f==="fruta"?"🍎":"😇")).join("")}</div></div>`;
+      }).join("")+`<div class="v91Btns"><button class="danger" onclick="rejectTeacherScores(${row.id})">❌ Recusar</button><button class="success" onclick="approveTeacherScores(${row.id})">✅ Aprovar e somar</button></div></div>`;
+    }
+    return `<div class="v91Pend"><div class="v91PendHead" onclick="_teacherOpen=${open?"null":row.id};renderTeacherPending()">
+      <span><strong>${esc(row.schedule)}</strong><br><small>${esc(row.month)} • Semana ${row.week+1} • ${ids.length} aluno(s) • ${esc(row.teacher_name||"Professor")} • ${when}</small></span>
+      <span class="badge">${open?"Fechar":"Revisar"}</span></div>${body}</div>`;
+  }).join("")+`<button class="secondary" onclick="loadTeacherPending()">Atualizar</button>`;
+}
+async function _patchTeacherRow(id,body){
+  const r=await authedFetch(cloudUrl()+"/rest/v1/primo_teacher_scores?id=eq."+id,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(Object.assign({reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()},body))});
+  if(!r.ok)throw new Error("erro "+r.status);
+}
+async function approveTeacherScores(id){
+  if(!requireAdmin())return;
+  const row=_teacherPending.find(x=>x.id===id);if(!row)return;
+  const edited={};
+  document.querySelectorAll(`#teacherPending input[data-sid]`).forEach(i=>{const sid=i.dataset.sid;edited[sid]=edited[sid]||{pd:0,pe:0,uniforme:0,fruta:0,comportamento:0};edited[sid][i.dataset.f]=Math.max(0,+i.value||0);});
+  const ids=Object.keys(edited);if(!ids.length)return;
+  if(!confirm(`Somar ${ids.length} aluno(s) no ${row.month}, Semana ${row.week+1}, horário "${row.schedule}"?`))return;
+  ids.forEach(sid=>{
+    if(!studentById(sid))return;
+    const P=participant(sid,true,row.month);
+    if(!Array.isArray(P.weeks))P.weeks=Array.from({length:5},()=>({}));
+    while(P.weeks.length<5)P.weeks.push({});
+    P.weeks[row.week]=P.weeks[row.week]||{};
+    P.weeks[row.week][row.schedule]=edited[sid];
+  });
+  const mo=monthObj(row.month);mo.finishedTrainings=mo.finishedTrainings||{};
+  const cat=row.category||_catOfSchedule(row.schedule)||"";
+  mo.finishedTrainings[trainingKey(cat,row.week,row.schedule)]={category:cat,week:row.week+1,schedule:row.schedule,month:row.month,finishedAt:new Date().toISOString(),by:row.teacher_name||"professor"};
+  saveLocal();
+  const ok=await saveCloudNow();
+  if(!ok){alert("Não consegui salvar no banco agora. Os pontos ficaram neste celular; tente aprovar de novo quando tiver internet.");return;}
+  try{await _patchTeacherRow(id,{status:"aprovado",scores:edited});}catch(e){console.warn(e);}
+  _teacherPending=_teacherPending.filter(x=>x.id!==id);_teacherOpen=null;renderAll();
+  alert("✅ Pontos aprovados e somados na disputa!");
+}
+async function rejectTeacherScores(id){
+  if(!requireAdmin())return;
+  if(!confirm("Recusar esta pontuação? Ela não entra no campeonato (o professor vê como recusada e pode reenviar)."))return;
+  try{await _patchTeacherRow(id,{status:"recusado"});}catch(e){return alert("Não consegui recusar agora: "+(e.message||e));}
+  _teacherPending=_teacherPending.filter(x=>x.id!==id);_teacherOpen=null;renderTeacherPending();
+}
+
+/* ---------- ganchos ---------- */
+(function(){
+  var _ic=initCloud; initCloud=async function(){const r=await _ic.apply(this,arguments);loadTeacherPending();return r;};
+  var _sp=savePublicStateRest; savePublicStateRest=async function(){const r=await _sp.apply(this,arguments);try{await pushTeacherRoster();}catch(e){console.warn("Lista do professor:",e);}return r;};
+  var _ra=renderAll; renderAll=function(){const r=_ra.apply(this,arguments);try{renderTeacherConfig();renderTeacherPending();}catch(e){}return r;};
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadTeacherPending();});
+  setInterval(()=>{if(document.visibilityState==="visible")loadTeacherPending();},120000);
+})();
 
 window.addEventListener("beforeunload",()=>{try{saveLocal()}catch(e){}});
 if(typeof isParentMode==="function" && isParentMode()){

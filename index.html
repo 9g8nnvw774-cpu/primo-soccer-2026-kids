@@ -97,6 +97,28 @@ body.parentMode #appHero .htCats{font-size:clamp(13px,3.9vw,22px)!important;marg
 body.parentMode #appHero .officialMonth{font-size:clamp(24px,7.4vw,46px)!important;margin-top:14px!important;white-space:nowrap!important;flex-wrap:nowrap!important}
 body.parentMode #appHero .heroMes{white-space:nowrap!important}
 body.parentMode #appHero .heroChev svg{height:.55em}
+
+/* ===== V91 - editar horário, link do professor, aprovação ===== */
+.v91Overlay{position:fixed;inset:0;z-index:99998;background:rgba(0,4,16,.78);display:flex;align-items:center;justify-content:center;padding:16px}
+.v91Overlay.hidden{display:none!important}
+.v91Box{width:min(520px,100%);max-height:92vh;overflow:auto;background:linear-gradient(180deg,#0b2a6e,#04112e);border:1px solid rgba(126,234,255,.45);border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.v91Box h2{margin:0 0 6px;font-size:22px}
+.v91Box .smallText,#teacherPending .smallText{word-break:normal!important}
+.v91Lbl{display:block;margin:12px 0 6px;color:#7eeaff;font-weight:900;font-size:13px;text-transform:uppercase}
+.v91Btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.v91Slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px;margin:6px 0 10px}
+.v91Chk{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(126,234,255,.2);border-radius:12px;padding:8px 10px;font-weight:800}
+.v91Chk input{width:22px!important;min-height:22px!important;height:22px;flex:0 0 22px}
+.v91Chk small{color:#9fc4ef;font-weight:700}
+.v91Pend{background:rgba(2,8,23,.55);border:1px solid rgba(253,224,71,.45);border-radius:14px;margin:8px 0;overflow:hidden}
+.v91PendHead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}
+.v91PendHead small{color:#cfe3ff}
+.v91Rev{padding:8px 10px 12px;border-top:1px solid rgba(253,224,71,.25)}
+.v91RevRow{display:grid;grid-template-columns:1fr;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.v91RevName{font-weight:900}.v91RevName small{display:block;color:#fca5a5;font-weight:700}
+.v91RevInputs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.v91RevInputs label{display:flex;flex-direction:column;font-size:11px;color:#7eeaff;font-weight:900;text-align:center}
+.v91RevInputs input{min-height:38px!important;padding:4px!important;text-align:center;font-size:16px!important}
 </style>
 </head>
 <body>
@@ -142,6 +164,7 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 <div id="syncStatus" class="sync">Conectando ao banco online...</div>
 
 <section id="page-dashboard" class="page">
+  <div id="teacherPending" class="card pendingCard hidden"></div>
   <div id="pendingTrainings" class="card pendingCard hidden"></div>
   <div class="card">
     <h2>Escolha a categoria</h2>
@@ -383,6 +406,18 @@ body.parentMode #appHero .heroChev svg{height:.55em}
       <input id="coverUpload" type="file" accept="image/*" onchange="uploadCover(event)">
       <button onclick="clearCover()" class="danger">Remover capa personalizada</button><p id="parentLinkText" class="smallText"></p>
     <hr class="softLine">
+    <h3>Link do professor (lançar pontos)</h3>
+    <p class="smallText">O professor abre o link, digita o PIN e lança os pontos só dos horários marcados abaixo. Nada entra no campeonato até você aprovar em <strong>Início → Pontuações do professor</strong>. Antes de usar pela primeira vez, rode o arquivo <strong>SUPABASE_PROFESSOR.sql</strong> no Supabase.</p>
+    <input id="teacherName" placeholder="Nome do professor" oninput="this.dataset.touched=1">
+    <input id="teacherPin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN do professor (4 a 6 números) — deixe vazio para manter o atual">
+    <p class="smallText"><strong>Horários do professor:</strong></p>
+    <div id="teacherSlots" class="v91Slots"></div>
+    <label class="v91Chk"><input type="checkbox" id="teacherEnabled" onchange="this.dataset.touched=1" checked> <span>Link ativo</span></label>
+    <button onclick="saveTeacherAccess(false)" class="success">Salvar acesso do professor</button>
+    <button onclick="copyTeacherLink()" class="secondary">Copiar link do professor</button>
+    <button onclick="saveTeacherAccess(true)" class="danger">Trocar link (o antigo para de funcionar)</button>
+    <p class="smallText" id="teacherLinkText" style="word-break:break-all"></p>
+    <hr class="softLine">
     <h3>Recuperar pontos deste aparelho</h3>
     <p class="smallText">Se este celular tinha pontos que não chegaram ao banco (ex.: internet caiu no treino) ou que outro aparelho apagou, o app guardou uma cópia aqui. Toque para conferir e devolver ao app. Só preenche treinos vazios; não apaga nada.</p>
     <p class="smallText" id="rescueInfo"></p>
@@ -400,8 +435,8 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 </main>
 
-<script src="supabase-config.js?v=90"></script>
-<script src="script.js?v=90"></script>
+<script src="supabase-config.js?v=91"></script>
+<script src="script.js?v=91"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>

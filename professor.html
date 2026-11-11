@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#06117a">
+<title>Primo Soccer • Lançar pontos</title>
+<link rel="icon" href="icon-192.png?v=2">
+<style>
+@font-face{font-family:"PSMont";src:url("montserrat-700.woff2?v=1") format("woff2");font-weight:700}
+@font-face{font-family:"PSMont";src:url("montserrat-800.woff2?v=1") format("woff2");font-weight:800}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;color:#fff;font-family:"PSMont",Arial,Helvetica,sans-serif;font-weight:700;
+  background:radial-gradient(circle at top,#0b52ff 0,#06117a 40%,#020817 100%) fixed}
+.wrap{max-width:760px;margin:auto;padding:14px 12px 120px}
+header{text-align:center;padding:10px 0 6px}
+header img{width:92px;height:92px;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.8))}
+header h1{margin:4px 0 0;font-size:24px;font-weight:800;letter-spacing:.5px}
+header h2{margin:2px 0 0;font-size:14px;color:#7eeaff;font-weight:800;text-transform:uppercase}
+.card{background:linear-gradient(180deg,rgba(8,45,164,.85),rgba(3,10,43,.95));border:1px solid rgba(126,234,255,.3);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+label.lbl{display:block;color:#7eeaff;font-size:12px;text-transform:uppercase;margin:8px 0 6px;font-weight:800}
+input,select,button{width:100%;min-height:50px;border-radius:14px;border:1px solid rgba(126,234,255,.45);background:#0b1d40;color:#fff;font:800 17px "PSMont",Arial,sans-serif;padding:10px 12px}
+select option{color:#111}
+button{border:0;cursor:pointer}
+.btnMain{background:linear-gradient(180deg,#22c55e,#15803d);color:#fff}
+.btnSec{background:#dbeafe;color:#071629}
+.row2{display:grid;grid-template-columns:1fr;gap:4px}
+.err{color:#fca5a5;min-height:20px;margin-top:8px;font-size:14px}
+.status{border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px;line-height:1.35}
+.st-none{background:rgba(255,255,255,.08)}
+.st-pendente{background:rgba(253,224,71,.16);border:1px solid rgba(253,224,71,.5)}
+.st-aprovado{background:rgba(34,197,94,.18);border:1px solid rgba(134,239,172,.55)}
+.st-recusado{background:rgba(239,68,68,.18);border:1px solid rgba(252,165,165,.55)}
+.player{background:rgba(2,8,23,.6);border:1px solid rgba(126,234,255,.25);border-radius:16px;padding:10px;margin:8px 0}
+.pTop{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center}
+.av{width:48px;height:48px;border-radius:50%;border:2px solid #7eeaff;background:#061334;display:grid;place-items:center;overflow:hidden;color:#7eeaff;font-weight:800}
+.av img{width:100%;height:100%;object-fit:cover}
+.pName{font-size:16px;line-height:1.15}
+.tot{background:#fde047;color:#020817;border-radius:12px;padding:6px 10px;text-align:center;font-weight:800;min-width:62px}
+.tot b{display:block;font-size:22px;line-height:1}.tot small{font-size:10px}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.field{background:rgba(255,255,255,.06);border-radius:12px;padding:6px;text-align:center}
+.field span{display:block;color:#7eeaff;font-size:12px;margin-bottom:4px}
+.qs{display:grid;grid-template-columns:48px 1fr 48px;gap:6px;align-items:center}
+.qs button{min-height:46px;font-size:26px;padding:0;color:#fff}
+.minus{background:linear-gradient(180deg,#ff5252,#991b1b)}.plus{background:linear-gradient(180deg,#22c55e,#14532d)}
+.qs output{font-size:22px;font-weight:800}
+.bon{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.bon button{min-height:44px;font-size:13px;background:#172554;color:#dbeafe;border:1px solid rgba(126,234,255,.25)}
+.bon button.on{background:linear-gradient(180deg,#22c55e,#14532d);color:#fff;border-color:#86efac}
+.sendBar{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(2,8,23,.96);border-top:1px solid rgba(126,234,255,.3)}
+.sendBar div{max-width:760px;margin:auto}
+.hidden{display:none!important}
+.empty{padding:14px;border-radius:12px;background:rgba(0,0,0,.25);border:1px dashed rgba(126,234,255,.4);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="primo-logo-blue.png?v=1" alt="Primo Soccer">
+    <h1>PRIMO SOCCER</h1>
+    <h2 id="hdrSub">Lançamento de pontos do professor</h2>
+  </header>
+
+  <!-- PIN -->
+  <div id="pinCard" class="card">
+    <label class="lbl" for="pin">Digite seu PIN</label>
+    <input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••">
+    <button class="btnMain" style="margin-top:10px" onclick="enter()">Entrar</button>
+    <div id="pinErr" class="err"></div>
+  </div>
+
+  <!-- LANÇAMENTO -->
+  <div id="main" class="hidden">
+    <div class="card">
+      <div class="row2">
+        <div><label class="lbl">Horário</label><select id="slot" onchange="loadForm()"></select></div>
+        <div><label class="lbl">Semana</label><select id="week" onchange="loadForm()"></select></div>
+      </div>
+      <div id="status" class="status st-none"></div>
+    </div>
+    <div id="players"></div>
+  </div>
+</div>
+<div id="sendBar" class="sendBar hidden"><div><button class="btnMain" id="sendBtn" onclick="send()">Enviar para aprovação</button></div></div>
+
+<script src="supabase-config.js?v=91"></script>
+<script>
+const CFG=window.PRIMO_SUPABASE_CONFIG||{};
+const URL0=String(CFG.url||"").replace(/\/$/,""), KEY=CFG.anonKey||CFG.key||"", APP=CFG.appId||"primo_soccer_kids_league_2026";
+const TOKEN=new URLSearchParams(location.search).get("t")||"";
+const PINKEY="primo_prof_pin_"+TOKEN.slice(0,8);
+let PIN="", DATA=null, FORM={};
+const LBL={uniforme:"👕 Uniforme",fruta:"🍎 Fruta",comportamento:"😇 Comport."};
+function esc(t){return String(t??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function ini(n){return String(n||"?").split(/\s+/).map(w=>w[0]||"").slice(0,2).join("").toUpperCase()}
+async function rpc(name,body){
+  const r=await fetch(URL0+"/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+KEY},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>null);
+  if(!r.ok)throw new Error((j&&j.message)||("erro "+r.status));
+  return j;
+}
+async function enter(){
+  const e=document.getElementById("pinErr");e.textContent="";
+  PIN=String(document.getElementById("pin").value||"").trim();
+  if(!TOKEN){e.textContent="Link incompleto. Peça o link de novo.";return;}
+  if(!/^\d{4,6}$/.test(PIN)){e.textContent="O PIN tem de 4 a 6 números.";return;}
+  try{
+    const j=await rpc("primo_teacher_get",{p_app:APP,p_token:TOKEN,p_pin:PIN});
+    if(!j||!j.ok){e.textContent=j&&j.error==="bloqueado"?"Muitas tentativas erradas. Aguarde 15 minutos.":"PIN ou link incorreto.";sessionStorage.removeItem(PINKEY);return;}
+    sessionStorage.setItem(PINKEY,PIN);DATA=j;start();
+  }catch(err){e.textContent="Sem conexão. Verifique a internet e tente de novo.";}
+}
+function start(){
+  document.getElementById("pinCard").classList.add("hidden");
+  document.getElementById("main").classList.remove("hidden");
+  const R=DATA.roster||{};const slots=R.slots||[];
+  document.getElementById("hdrSub").textContent=(DATA.name?"Prof. "+DATA.name+" • ":"")+(R.month||"");
+  const ss=document.getElementById("slot"),prev=ss.value;
+  ss.innerHTML=slots.map((s,i)=>`<option value="${i}">${esc(s.schedule)}</option>`).join("")||"<option>Nenhum horário liberado</option>";
+  if(prev&&slots[prev])ss.value=prev;
+  const ws=document.getElementById("week");
+  if(!ws.options.length){ws.innerHTML=[0,1,2,3,4].map(i=>`<option value="${i}">Semana ${i+1}</option>`).join("");ws.value=String(Math.min(4,Math.floor((new Date().getDate()-1)/7)));}
+  loadForm();
+}
+function cur(){const R=DATA.roster||{};return {R,slot:(R.slots||[])[+document.getElementById("slot").value],week:+document.getElementById("week").value};}
+function sentFor(slot,week){return (DATA.sent||[]).filter(x=>x.schedule===slot.schedule&&x.week===week&&x.month===DATA.roster.month).sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0]||null;}
+function loadForm(){
+  const {slot,week}=cur();const box=document.getElementById("players"),st=document.getElementById("status");
+  if(!slot){box.innerHTML='<div class="empty">Nenhum horário liberado para você. Fale com o João.</div>';st.className="status st-none";st.textContent="";document.getElementById("sendBar").classList.add("hidden");return;}
+  const last=sentFor(slot,week);FORM={};
+  slot.students.forEach(s=>{const v=(last&&last.status!=="recusado"&&last.scores&&last.scores[s.id])||{};FORM[s.id]={pd:+v.pd||0,pe:+v.pe||0,uniforme:+v.uniforme||0,fruta:+v.fruta||0,comportamento:+v.comportamento||0};});
+  const when=last?new Date(last.updated_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
+  const locked=last&&last.status==="aprovado";
+  st.className="status st-"+(last?last.status:"none");
+  st.innerHTML=!last?"Ainda não enviado. Lance os pontos e toque em <b>Enviar para aprovação</b>."
+    :last.status==="pendente"?`⏳ Enviado em ${when}. Aguardando aprovação do João. Você ainda pode corrigir e enviar de novo.`
+    :last.status==="aprovado"?`✅ Aprovado e somado no campeonato (${when}). Para mudar, fale com o João.`
+    :`❌ Recusado (${when}). Corrija e envie de novo.`;
+  if(!slot.students.length){box.innerHTML='<div class="empty">Ainda não há alunos neste horário.</div>';document.getElementById("sendBar").classList.add("hidden");return;}
+  box.innerHTML=slot.students.map(s=>playerHTML(s,slot,locked)).join("");
+  document.getElementById("sendBar").classList.toggle("hidden",!!locked);
+}
+function total(id,slot){const f=FORM[id];return f.pd+f.pe+(slot.bonus||[]).reduce((a,b)=>a+(+f[b.field]||0),0);}
+function playerHTML(s,slot,locked){
+  const f=FORM[s.id],dis=locked?"disabled":"";
+  const qs=(k,l)=>`<div class="field"><span>${l}</span><div class="qs"><button class="minus" ${dis} onclick="step('${s.id}','${k}',-5)">−</button><output id="v_${s.id}_${k}">${f[k]}</output><button class="plus" ${dis} onclick="step('${s.id}','${k}',5)">+</button></div></div>`;
+  return `<div class="player"><div class="pTop"><div class="av">${s.photo?`<img src="${esc(s.photo)}" alt="">`:esc(ini(s.name))}</div><div class="pName">${esc(s.name)}</div><div class="tot"><b id="t_${s.id}">${total(s.id,slot)}</b><small>PTS</small></div></div>
+    <div class="ctl">${qs("pd","P/D")}${qs("pe","P/E")}</div>
+    <div class="bon">${(slot.bonus||[]).map(b=>`<button id="b_${s.id}_${b.field}" class="${f[b.field]>0?"on":""}" ${dis} onclick="tog('${s.id}','${b.field}',${b.points})">${LBL[b.field]||b.field} +${b.points}</button>`).join("")}</div></div>`;
+}
+function step(id,k,d){const {slot}=cur();FORM[id][k]=Math.max(0,FORM[id][k]+d);document.getElementById(`v_${id}_${k}`).textContent=FORM[id][k];document.getElementById(`t_${id}`).textContent=total(id,slot);}
+function tog(id,k,pts){const {slot}=cur();FORM[id][k]=FORM[id][k]>0?0:pts;document.getElementById(`b_${id}_${k}`).classList.toggle("on",FORM[id][k]>0);document.getElementById(`t_${id}`).textContent=total(id,slot);}
+async function send(){
+  const {R,slot,week}=cur();if(!slot)return;
+  const filled=Object.entries(FORM).filter(([id,f])=>f.pd+f.pe+f.uniforme+f.fruta+f.comportamento>0);
+  if(!filled.length)return alert("Lance pontos para pelo menos um aluno.");
+  if(!confirm(`Enviar a Semana ${week+1} do horário\n"${slot.schedule}"\npara o João aprovar?`))return;
+  const b=document.getElementById("sendBtn");b.disabled=true;b.textContent="Enviando...";
+  try{
+    const scores=Object.fromEntries(filled); // só quem tem pontos (não zera nada no app)
+    const j=await rpc("primo_teacher_submit",{p_app:APP,p_token:TOKEN,p_pin:PIN,p_month:R.month,p_week:week,p_schedule:slot.schedule,p_scores:scores});
+    if(!j||!j.ok){alert(j&&j.error==="mes"?"O mês do campeonato mudou. Toque em OK para atualizar a lista.":"Não foi possível enviar ("+(j&&j.error||"erro")+").");await refresh();return;}
+    await refresh();alert("✅ Enviado! Agora é só o João aprovar.");
+  }catch(e){alert("Sem conexão. Seus pontos continuam na tela; tente enviar de novo.");}
+  finally{b.disabled=false;b.textContent="Enviar para aprovação";}
+}
+async function refresh(){
+  const keep={slot:document.getElementById("slot").value,week:document.getElementById("week").value};
+  const j=await rpc("primo_teacher_get",{p_app:APP,p_token:TOKEN,p_pin:PIN});
+  if(!j||!j.ok){location.reload();return;}
+  DATA=j;start();document.getElementById("slot").value=keep.slot;document.getElementById("week").value=keep.week;loadForm();
+}
+document.getElementById("pin").addEventListener("keydown",e=>{if(e.key==="Enter")enter();});
+(function(){const p=sessionStorage.getItem(PINKEY);if(p){document.getElementById("pin").value=p;enter();}})();
+</script>
+</body>
+</html>
