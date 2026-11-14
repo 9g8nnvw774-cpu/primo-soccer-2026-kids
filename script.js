@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="95";
+const APP_VERSION="96";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1667,6 +1667,72 @@ function addStudentSchedule(id){
   P.schedules.push(sch);carryPrevWeek5(id,currentMonth);
   scheduleSave();renderAll();openStudentAgenda(id);
 }
+
+/* =====================================================================
+   V96 - IMPRIMIR AGENDA: todos os horários, alunos e vagas livres
+   ===================================================================== */
+const _DAYS=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
+function _schSortKey(sch){
+  const d=_DAYS.indexOf(scheduleDay(sch));const t=(String(sch).match(/(\d{1,2}):(\d{2})/)||[0,99,99]);
+  return (d<0?9:d)*10000+(+t[1])*100+(+t[2]);
+}
+function _agendaRows(cat,m){
+  return schedulesFor(cat).map(sch=>{
+    const cap=slotCapacity(cat,sch);
+    const list=state.students.filter(s=>s.active!==false&&(participant(s.id,false,m)?.schedules||[]).includes(sch)).sort((a,b)=>a.name.localeCompare(b.name));
+    return {cat,sch,cap,list,free:Math.max(0,cap-list.length)};
+  });
+}
+function renderAgendaPrintControls(){
+  const c=document.getElementById("agPrintCat"),mo=document.getElementById("agPrintMonth");
+  if(c&&!c.dataset.ready){c.innerHTML=`<option value="all">Todas as categorias</option>`+CATEGORIES.map(x=>`<option value="${esc(x[0])}">${esc(x[0])}</option>`).join("");c.dataset.ready="1";}
+  if(mo){const v=mo.value;mo.innerHTML=MONTHS.map(x=>`<option value="${x}">${x}</option>`).join("");mo.value=v&&MONTHS.includes(v)?v:currentMonth;}
+}
+function openAgendaPrint(catArg){
+  if(!requireAdmin())return;
+  const cat=catArg||document.getElementById("agPrintCat")?.value||"all";
+  const m=document.getElementById("agPrintMonth")?.value||currentMonth;
+  const mode=document.getElementById("agPrintMode")?.value||"cat";
+  const blanks=document.getElementById("agPrintBlank")?document.getElementById("agPrintBlank").checked:true;
+  const cats=cat==="all"?CATEGORIES.map(c=>c[0]):[cat];
+  let rows=cats.flatMap(c=>_agendaRows(c,m));
+  const tot={sch:rows.length,alunos:new Set(rows.flatMap(r=>r.list.map(s=>s.id))).size,vagas:rows.reduce((a,r)=>a+r.cap,0),ocup:rows.reduce((a,r)=>a+Math.min(r.cap,r.list.length),0)};
+  const slotHTML=r=>{
+    const status=r.free===0?`<span class="apFull">LOTADO</span>`:`<span class="apFree">${r.free} vaga${r.free>1?"s":""} livre${r.free>1?"s":""}</span>`;
+    const lines=r.list.map((s,i)=>{
+      const age=ageFromBirth(s.birth);const notes=[];
+      if(s.category!==r.cat)notes.push(s.category);
+      const rc=rankCatOf(s,m);if(rc!==s.category)notes.push("pontua em "+rc);
+      if(dupNameSet().has(_nk(s.name)))notes.push("#"+shortId(s));
+      const two=(participant(s.id,false,m)?.schedules||[]).length>1?" 🔁":"";
+      return `<li><span class="apN">${i+1}.</span><span class="apName">${esc(s.name)}${two}${notes.length?` <small>(${esc(notes.join(" • "))})</small>`:""}</span><span class="apAge">${age!==""?age+" anos":""}</span></li>`;
+    }).join("");
+    const empty=blanks?Array.from({length:r.free},(_,k)=>`<li class="apBlank"><span class="apN">${r.list.length+k+1}.</span><span class="apName"></span><span class="apAge"></span></li>`).join(""):"";
+    return `<div class="apSlot"><div class="apHead"><div><b>${esc(r.sch)}</b>${mode==="day"?`<small>${esc(r.cat)}</small>`:""}</div><div class="apCount">${Math.min(r.list.length,r.cap)}/${r.cap} ${status}</div></div><ol>${lines}${empty}${!r.list.length&&!blanks?'<li class="apNone">Nenhum aluno</li>':""}</ol></div>`;
+  };
+  let body="";
+  if(mode==="day"){
+    _DAYS.forEach(d=>{const rs=rows.filter(r=>scheduleDay(r.sch)===d).sort((a,b)=>_schSortKey(a.sch)-_schSortKey(b.sch));if(rs.length)body+=`<section class="apGroup"><h2>${d}</h2><div class="apGrid">${rs.map(slotHTML).join("")}</div></section>`;});
+    const other=rows.filter(r=>!_DAYS.includes(scheduleDay(r.sch)));if(other.length)body+=`<section class="apGroup"><h2>Outros</h2><div class="apGrid">${other.map(slotHTML).join("")}</div></section>`;
+  }else{
+    cats.forEach(c=>{const rs=rows.filter(r=>r.cat===c).sort((a,b)=>_schSortKey(a.sch)-_schSortKey(b.sch));if(!rs.length)return;
+      const al=new Set(rs.flatMap(r=>r.list.map(s=>s.id))).size,fr=rs.reduce((a,r)=>a+r.free,0);
+      body+=`<section class="apGroup"><h2>${esc(c)}<small>${al} aluno(s) • ${fr} vaga(s) livre(s)</small></h2><div class="apGrid">${rs.map(slotHTML).join("")}</div></section>`;});
+  }
+  const title=cat==="all"?"Todas as categorias":cat;
+  let sheet=document.getElementById("agendaPrintSheet");
+  if(!sheet){sheet=document.createElement("div");sheet.id="agendaPrintSheet";document.body.appendChild(sheet);}
+  sheet.innerHTML=`<div class="apBar noPrintAp"><button class="secondary" onclick="closeAgendaPrint()">✕ Fechar</button><button class="success" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div>
+  <div class="apPaper">
+    <header class="apTop"><img src="primo-logo.png" alt=""><div><h1>AGENDA DE TREINOS</h1><p>${esc(m)} ${new Date().getFullYear()} • ${esc(title)}</p></div></header>
+    <div class="apStats"><span><b>${tot.sch}</b> horários</span><span><b>${tot.alunos}</b> alunos</span><span><b>${tot.ocup}/${tot.vagas}</b> vagas ocupadas</span><span><b>${tot.vagas-tot.ocup}</b> vagas livres</span></div>
+    ${body||'<p>Nenhum horário cadastrado.</p>'}
+    <footer class="apFoot">Primo Soccer • gerado em ${new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})} • 🔁 = treina em 2 horários</footer>
+  </div>`;
+  document.body.classList.add("printingAgenda");window.scrollTo(0,0);
+}
+function closeAgendaPrint(){document.body.classList.remove("printingAgenda");const s=document.getElementById("agendaPrintSheet");if(s)s.innerHTML="";}
+(function(){var _ra=renderAll;renderAll=function(){const r=_ra.apply(this,arguments);try{renderAgendaPrintControls();}catch(e){}return r;};})();
 
 window.addEventListener("beforeunload",()=>{try{saveLocal()}catch(e){}});
 if(typeof isParentMode==="function" && isParentMode()){

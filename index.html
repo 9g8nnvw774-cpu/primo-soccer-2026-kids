@@ -235,6 +235,7 @@ body.parentMode #appHero .heroChev svg{height:.55em}
       <select id="agendaCategory" onchange="setCategory(this.value)"></select>
       <button onclick="showPage('disputa')" class="success">Ir para disputa</button>
     </div>
+    <button onclick="openAgendaPrint(activeCategory)" class="secondary" style="margin-top:8px">🖨️ Imprimir agenda desta categoria</button>
     <p>Selecione um aluno e coloque no horário. Todos os horários têm 6 vagas.</p>
     <div class="form agendaForm">
       <select id="studentPicker"></select>
@@ -334,6 +335,15 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 
 <section id="page-imprimir" class="page hidden">
+  <div class="card noPrint">
+    <h2>Imprimir agenda</h2>
+    <p class="smallText">Todos os horários, os alunos de cada um e as vagas livres. Abre uma folha para conferir e imprimir (ou salvar em PDF).</p>
+    <select id="agPrintCat"></select>
+    <select id="agPrintMonth"></select>
+    <select id="agPrintMode"><option value="cat">Organizar por categoria</option><option value="day">Organizar por dia da semana</option></select>
+    <label class="v91Chk"><input type="checkbox" id="agPrintBlank" checked> <span>Mostrar linhas em branco nas vagas livres</span></label>
+    <button onclick="openAgendaPrint()" class="success">🖨️ Gerar agenda para imprimir</button>
+  </div>
   <div class="card noPrint">
     <h2>Baixar classificação — Story Instagram (HD)</h2>
     <select id="printCategory"></select>
@@ -459,8 +469,8 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 </main>
 
-<script src="supabase-config.js?v=94"></script>
-<script src="script.js?v=95"></script>
+<script src="supabase-config.js?v=96"></script>
+<script src="script.js?v=96"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -677,6 +687,48 @@ body.disputeFocus .scoreCards{display:none!important}
 .storyPreviewImgBox img{width:100%;height:auto;display:block;border-radius:12px}
 .storyPreviewBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .storyPreviewBtns button{min-height:48px;border-radius:12px;font-weight:900;font-size:15px}
+
+/* ===== V96 - imprimir agenda ===== */
+#agendaPrintSheet{display:none}
+body.printingAgenda #agendaPrintSheet{display:block;position:fixed;inset:0;z-index:99997;overflow:auto;background:#e5e7eb;padding:0 0 30px}
+.apBar{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:1fr 2fr;gap:8px;padding:10px;background:#020817}
+.apPaper{background:#fff;color:#0f172a;max-width:900px;margin:12px auto;padding:22px;border-radius:6px;font-family:Arial,Helvetica,sans-serif}
+.apTop{display:flex;align-items:center;gap:14px;border-bottom:3px solid #06117a;padding-bottom:10px}
+.apTop img{width:64px;height:64px;object-fit:contain}
+.apTop h1{margin:0;font-size:24px;color:#06117a;letter-spacing:1px}
+.apTop p{margin:2px 0 0;font-weight:700;color:#334155}
+.apStats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.apStats span{border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:13px;color:#334155}
+.apStats b{color:#06117a;font-size:15px}
+.apGroup h2{break-after:avoid;page-break-after:avoid;font-size:17px;margin:16px 0 8px;padding:6px 10px;background:#06117a;color:#fff;border-radius:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-transform:uppercase}
+.apGroup h2 small{font-size:12px;font-weight:700;text-transform:none;opacity:.9}
+.apGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.apSlot{border:1.5px solid #94a3b8;border-radius:8px;padding:8px 10px;break-inside:avoid;page-break-inside:avoid}
+.apHead{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;border-bottom:1px solid #cbd5e1;padding-bottom:5px;margin-bottom:4px;font-size:13px}
+.apHead small{display:block;color:#64748b;font-weight:700}
+.apCount{font-weight:800;white-space:nowrap;text-align:right;font-size:13px}
+.apFree{display:block;color:#15803d;font-size:11px}
+.apFull{display:block;color:#b91c1c;font-size:11px}
+.apSlot ol{list-style:none;margin:0;padding:0}
+.apSlot li{display:grid;grid-template-columns:22px 1fr auto;gap:6px;align-items:end;padding:4px 0;border-bottom:1px dotted #cbd5e1;font-size:13px;font-weight:700;min-height:22px}
+.apSlot li small{color:#64748b;font-weight:600;font-size:11px}
+.apN{color:#64748b}.apAge{color:#475569;font-size:12px;white-space:nowrap}
+.apBlank .apName{border-bottom:1px solid #94a3b8;height:14px}
+.apNone{color:#94a3b8;font-style:italic}
+.apFoot{margin-top:16px;padding-top:8px;border-top:1px solid #cbd5e1;font-size:11px;color:#64748b;text-align:center}
+@media(max-width:640px){.apGrid{grid-template-columns:1fr}.apPaper{margin:8px;padding:14px}}
+@media print{
+  body.printingAgenda{background:#fff!important}
+  body.printingAgenda > *:not(#agendaPrintSheet){display:none!important}
+  body.printingAgenda #agendaPrintSheet{position:static!important;display:block!important;overflow:visible!important;background:#fff!important;padding:0!important}
+  body.printingAgenda .noPrintAp{display:none!important}
+  body.printingAgenda .apPaper{max-width:none;margin:0;padding:0;border-radius:0}
+  body.printingAgenda .apGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  body.printingAgenda .apGroup h2{break-after:avoid!important;page-break-after:avoid!important}
+  body.printingAgenda .apGroup h2 + .apGrid > .apSlot:first-child{break-before:avoid}
+  body.printingAgenda .apGroup h2,body.printingAgenda .apStats b,body.printingAgenda .apTop h1{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4;margin:12mm}
+}
 </style>
 </body>
 </html>
