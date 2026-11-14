@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="94";
+const APP_VERSION="95";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1901,7 +1901,7 @@ async function downloadStoryImage(type){
     if(limit!=="all")list=list.slice(0,+limit);
     if(!list.length){setSync("Nenhum aluno para gerar a imagem.","warn");alert("Não há alunos com pontos nessa classificação ainda.");return;}
     await _loadStoryFonts();
-    const bg=await _loadImg("bg-classificacao-v2.png?v=1");
+    const bg=await _loadImg("bg-classificacao-v3.png?v=1");
     const photos=await Promise.all(list.map(s=>_loadImg(photoSrc(s))));
     const W=1080,H=1920;
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
@@ -1925,9 +1925,9 @@ async function downloadStoryImage(type){
     chrome(catLabel,546,367,73,"italic 800",500);
     chrome(String(currentMonth||"").toUpperCase(),548,470,52,"800",420);
     // ===== linhas (todas as atletas dentro do painel) =====
-    const X0=102,X1=994,TOP=628,BOT=1482;
+    const X0=102,X1=994,TOP=626,BOT=1584;   // V95 - painel mais alto (patrocinadores na borda de baixo)
     const n=list.length;
-    const P=Math.min(61,(BOT-TOP)/n);           // altura de cada linha
+    const P=Math.min(70,(BOT-TOP)/n);           // altura de cada linha
     const h=P-Math.max(2,P*0.05);                // barra
     const rad=Math.min(h*0.32,18);
     const k=P/60;                                // escala em relação ao modelo
@@ -1962,24 +1962,24 @@ async function downloadStoryImage(type){
       // posição
       const capC=0.70;
       ctx.textBaseline="alphabetic";
-      let fs=Math.min(35,h*0.62);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="center";ctx.fillStyle=S.pos;
+      let fs=Math.min(40,h*0.66);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="center";ctx.fillStyle=S.pos;
       if(S.pos==="#ffffff"){ctx.shadowColor="rgba(0,0,0,.45)";ctx.shadowBlur=4*k;}
       ctx.fillText(pos+"°",X0+59,cy+fs*capC/2);ctx.shadowBlur=0;ctx.shadowColor="transparent";
       // foto
-      const r=Math.min(26,h*0.45),pcx=X0+170,ph=photos[i];
+      const r=Math.min(30,h*0.46),pcx=X0+170,ph=photos[i];
       ctx.save();ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.clip();
       if(ph)_cover(ctx,ph,pcx-r,cy-r,2*r,2*r);else{ctx.fillStyle="#0b1c44";ctx.fillRect(pcx-r,cy-r,2*r,2*r);ctx.fillStyle="#7dd3fc";ctx.font=`700 ${r*0.8}px ${PSF}`;ctx.textAlign="center";ctx.fillText(initials(st.name),pcx,cy+r*0.28);}
       ctx.restore();
       ctx.save();ctx.lineWidth=Math.max(1.2,2*k);ctx.strokeStyle="#d8a948";ctx.shadowColor="rgba(0,0,0,.5)";ctx.shadowBlur=3;ctx.beginPath();ctx.arc(pcx,cy,r,0,7);ctx.stroke();ctx.restore();
       // nome
-      fs=Math.min(30,h*0.57);ctx.font=`600 ${fs}px ${PSF}`;ctx.textAlign="left";ctx.fillStyle="#ffffff";
+      fs=Math.min(36,h*0.68);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="left";ctx.fillStyle="#ffffff";   // V95 - nomes maiores e em negrito
       ctx.shadowColor="rgba(0,0,0,.45)";ctx.shadowBlur=4*k;
       const nameX=X0+249, maxName=(X1-170)-nameX;
       let nm=String(st.name).toUpperCase();
-      while(ctx.measureText(nm).width>maxName&&fs>10){fs-=0.5;ctx.font=`600 ${fs}px ${PSF}`;}
+      while(ctx.measureText(nm).width>maxName&&fs>10){fs-=0.5;ctx.font=`700 ${fs}px ${PSF}`;}
       ctx.fillText(_fitDots(ctx,nm,maxName),nameX,cy+fs*capC/2);
       // pontos
-      fs=Math.min(32,h*0.6);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="right";
+      fs=Math.min(37,h*0.66);ctx.font=`700 ${fs}px ${PSF}`;ctx.textAlign="right";
       ctx.fillText(st.total+" PTS",X0+852,cy+fs*capC/2);
       ctx.shadowBlur=0;ctx.shadowColor="transparent";
     }
@@ -1996,7 +1996,7 @@ async function downloadTop3Image(){
     const cats=CATEGORIES.map(c=>({name:c[0],top:ranked(c[0]).filter(s=>s.total>0).slice(0,3)}));
     if(!cats.some(c=>c.top.length)){setSync("Sem pontuação ainda.","warn");alert("Nenhuma categoria tem pontuação neste mês ainda.");return;}
     await _loadStoryFonts();
-    const bg=await _loadImg("bg-top3.png?v=1");
+    const bg=await _loadImg("bg-top3-v2.png?v=1");
     const photos={};for(const c of cats)for(const s of c.top){if(!(s.id in photos))photos[s.id]=await _loadImg(photoSrc(s));}
     const W=1080,H=1920;
     const cv=document.createElement("canvas");cv.width=W;cv.height=H;const ctx=cv.getContext("2d");
@@ -2018,21 +2018,22 @@ async function downloadTop3Image(){
     // um cartão do pódio
     function card(x,y,w,h,hh,place,st){
       const col=place===1?"#ffd54a":place===2?"#dfe7f2":"#f2955a";
+      if(place===1){ctx.save();ctx.shadowColor="rgba(255,213,74,.75)";ctx.shadowBlur=22;ctx.fillStyle="rgba(8,14,30,1)";ctx.fillRect(x,y,w,h);ctx.restore();}   // V95 - brilho dourado no campeão
       ctx.save();ctx.shadowColor="rgba(0,0,0,.6)";ctx.shadowBlur=14;ctx.shadowOffsetY=4;
       let g=ctx.createLinearGradient(0,y,0,y+h);g.addColorStop(0,"rgba(8,14,30,.97)");g.addColorStop(1,"rgba(2,6,18,.97)");
       ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.restore();
-      ctx.save();ctx.lineWidth=1;ctx.strokeStyle="rgba(120,170,240,.35)";ctx.strokeRect(x+.5,y+.5,w-1,h-1);ctx.restore();
+      ctx.save();ctx.lineWidth=place===1?2:1;ctx.strokeStyle=place===1?"rgba(255,213,74,.9)":"rgba(120,170,240,.35)";ctx.strokeRect(x+.5,y+.5,w-1,h-1);ctx.restore();
       // filete colorido no topo (como o vermelho do exemplo)
-      ctx.save();ctx.shadowColor=col;ctx.shadowBlur=10;ctx.fillStyle=col;ctx.fillRect(x,y,w,4);ctx.restore();
+      ctx.save();ctx.shadowColor=col;ctx.shadowBlur=10;ctx.fillStyle=col;ctx.fillRect(x,y,w,5);ctx.restore();
       // título do cartão
       ctx.save();ctx.textAlign="center";ctx.fillStyle="#ffffff";
-      if(place===1){fitFont("CAMPEÃO","800",23,w-12,12);ctx.fillStyle=col;ctx.fillText("CAMPEÃO",x+w/2,y+hh-4);}
-      else{ctx.textAlign="left";let tx0=x+8;ctx.font=`800 24px ${PSF}`;ctx.fillText(String(place),tx0,y+hh-3);tx0+=ctx.measureText(String(place)).width+1;
-           ctx.font=`800 13px ${PSF}`;ctx.fillText("º",tx0,y+hh-13);tx0+=ctx.measureText("º").width+6;
-           ctx.font=`700 13px ${PSF}`;ctx.fillStyle=col;ctx.fillText("LUGAR",tx0,y+hh-5);}
+      if(place===1){fitFont("CAMPEÃO","800",27,w-12,12);ctx.fillStyle=col;ctx.fillText("CAMPEÃO",x+w/2,y+hh-5);}
+      else{ctx.textAlign="left";let tx0=x+8;ctx.font=`800 27px ${PSF}`;ctx.fillText(String(place),tx0,y+hh-4);tx0+=ctx.measureText(String(place)).width+1;
+           ctx.font=`800 15px ${PSF}`;ctx.fillText("º",tx0,y+hh-15);tx0+=ctx.measureText("º").width+6;
+           ctx.font=`700 15px ${PSF}`;ctx.fillStyle=col;ctx.fillText("LUGAR",tx0,y+hh-6);}
       ctx.restore();
       // foto retangular
-      const px=x+5,py=y+hh+3,pw=w-10,ph=place===1?h-hh-3-66:h-hh-3-60;
+      const px=x+5,py=y+hh+3,pw=w-10,ph=place===1?h-hh-3-80:h-hh-3-71;
       ctx.save();ctx.beginPath();ctx.rect(px,py,pw,ph);ctx.clip();
       if(st&&photos[st.id])_cover(ctx,photos[st.id],px,py,pw,ph);
       else{g=ctx.createLinearGradient(0,py,0,py+ph);g.addColorStop(0,"#0f2c66");g.addColorStop(1,"#061331");ctx.fillStyle=g;ctx.fillRect(px,py,pw,ph);
@@ -2045,23 +2046,24 @@ async function downloadTop3Image(){
       const nb=py+ph;ctx.save();ctx.textAlign="left";const tx=x+8,mw=w-16;
       if(st){
         const parts=String(st.name).trim().split(/\s+/);const first=parts.length>1?tcase(parts[0]):"";const last=(parts.length>1?parts.slice(1).join(" "):parts[0]).toUpperCase();
-        if(first){fitFont(first,"600",13,mw,9);ctx.fillStyle="#dbe7f7";ctx.fillText(first,tx,nb+17);}
-        fitFont(last,"800",place===1?17:15,mw,9);ctx.fillStyle="#ffffff";ctx.fillText(_fitDots(ctx,last,mw),tx,nb+(first?36:30));
-        ctx.font=`700 ${place===1?15:14}px ${PSF}`;ctx.fillStyle="#ffd54a";ctx.fillText(st.total+" PTS",tx,nb+(place===1?56:53));
-      }else{ctx.font=`700 14px ${PSF}`;ctx.fillStyle="#99b9e2";ctx.fillText("A DEFINIR",tx,nb+30);}
+        // V95 - nome e pontos maiores
+        if(first){fitFont(first,"600",place===1?16:14.5,mw,9);ctx.fillStyle="#dbe7f7";ctx.fillText(first,tx,nb+(place===1?21:19));}
+        fitFont(last,"800",place===1?21:18,mw,9);ctx.fillStyle="#ffffff";ctx.fillText(_fitDots(ctx,last,mw),tx,nb+(first?(place===1?45:40):(place===1?38:34)));
+        ctx.font=`800 ${place===1?19:16.5}px ${PSF}`;ctx.fillStyle="#ffd54a";ctx.fillText(st.total+" PTS",tx,nb+(place===1?69:61));
+      }else{ctx.font=`700 15px ${PSF}`;ctx.fillStyle="#99b9e2";ctx.fillText("A DEFINIR",tx,nb+34);}
       ctx.restore();
     }
     // grade 2 x 3 dentro do painel
-    const GX=92,GY=588,GW=912,GH=892,gap=12,bw=(GW-gap)/2,bh=(GH-2*gap)/3;
+    const GX=92,GY=586,GW=912,GH=996,gap=12,bw=(GW-gap)/2,bh=(GH-2*gap)/3;   // V95 - painel mais alto
     cats.forEach((c,i)=>{
       const bx=GX+(i%2)*(bw+gap),by=GY+Math.floor(i/2)*(bh+gap),cx=bx+bw/2;
       // fundo do bloco
       ctx.save();_rr(ctx,bx,by,bw,bh,16);ctx.fillStyle="rgba(4,22,62,.45)";ctx.fill();ctx.lineWidth=1.2;ctx.strokeStyle="rgba(90,160,240,.45)";ctx.stroke();ctx.restore();
-      chrome(catLabel(c.name),cx,by+29,24,"italic 800",bw-30);
-      const cw=146,sw=128;
-      card(cx-sw-cw/2-8,by+76,sw,bh-84,26,2,c.top[1]||null);
-      card(cx-cw/2,by+40,cw,bh-48,30,1,c.top[0]||null);
-      card(cx+cw/2+8,by+76,sw,bh-84,26,3,c.top[2]||null);
+      chrome(catLabel(c.name),cx,by+32,28,"italic 800",bw-30);
+      const cw=156,sw=136,cg=5;                  // V95 - cartões maiores
+      card(cx-sw-cw/2-cg,by+82,sw,bh-90,30,2,c.top[1]||null);
+      card(cx+cw/2+cg,by+82,sw,bh-90,30,3,c.top[2]||null);
+      card(cx-cw/2,by+44,cw,bh-52,34,1,c.top[0]||null);
     });
     _showStoryPreview(cv,`primo-top3-${String(currentMonth||"").toLowerCase()}.png`,"✅ Prévia do pódio gerada. Confira e toque em Baixar.");
   }catch(e){console.error(e);setSync("Erro ao gerar o pódio: "+(e.message||e),"error");alert("Não consegui gerar a imagem do pódio. Tente de novo.");}
