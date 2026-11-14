@@ -337,7 +337,7 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 <section id="page-imprimir" class="page hidden">
   <div class="card noPrint">
     <h2>Imprimir agenda</h2>
-    <p class="smallText">Todos os horários, os alunos de cada um e as vagas livres. Abre uma folha para conferir e imprimir (ou salvar em PDF).</p>
+    <p class="smallText">Todos os horários, os alunos de cada um e as vagas livres. Abre uma folha para conferir; depois toque em <strong>📄 Salvar PDF</strong> para guardar ou mandar o arquivo.</p>
     <select id="agPrintCat"></select>
     <select id="agPrintMonth"></select>
     <select id="agPrintMode"><option value="cat">Organizar por categoria</option><option value="day">Organizar por dia da semana</option></select>
@@ -469,8 +469,8 @@ body.parentMode #appHero .heroChev svg{height:.55em}
 </section>
 </main>
 
-<script src="supabase-config.js?v=96"></script>
-<script src="script.js?v=96"></script>
+<script src="supabase-config.js?v=97"></script>
+<script src="script.js?v=97"></script>
 <div id="cropOverlay" class="cropOverlay hidden">
   <div class="cropCard">
     <h3>Ajustar foto</h3>
@@ -691,7 +691,10 @@ body.disputeFocus .scoreCards{display:none!important}
 /* ===== V96 - imprimir agenda ===== */
 #agendaPrintSheet{display:none}
 body.printingAgenda #agendaPrintSheet{display:block;position:fixed;inset:0;z-index:99997;overflow:auto;background:#e5e7eb;padding:0 0 30px}
-.apBar{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:1fr 2fr;gap:8px;padding:10px;background:#020817}
+.apBar{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:1fr 1.6fr 1.2fr;gap:8px;padding:10px;background:#020817}
+.apPdfMsg{max-width:900px;margin:10px auto 0;padding:12px;border-radius:12px;background:#ecfdf5;border:1px solid #86efac;color:#14532d;font-weight:700;text-align:center}
+.apPdfMsg a{color:#15803d;font-size:17px}
+.apPdfMsg small{color:#166534;font-weight:600}
 .apPaper{background:#fff;color:#0f172a;max-width:900px;margin:12px auto;padding:22px;border-radius:6px;font-family:Arial,Helvetica,sans-serif}
 .apTop{display:flex;align-items:center;gap:14px;border-bottom:3px solid #06117a;padding-bottom:10px}
 .apTop img{width:64px;height:64px;object-fit:contain}

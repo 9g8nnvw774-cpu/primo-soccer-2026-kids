@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="96";
+const APP_VERSION="97";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -1669,7 +1669,7 @@ function addStudentSchedule(id){
 }
 
 /* =====================================================================
-   V96 - IMPRIMIR AGENDA: todos os horários, alunos e vagas livres
+   V97 - IMPRIMIR AGENDA + SALVAR PDF DE VERDADE (funciona no iPhone)
    ===================================================================== */
 const _DAYS=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
 function _schSortKey(sch){
@@ -1688,50 +1688,169 @@ function renderAgendaPrintControls(){
   if(c&&!c.dataset.ready){c.innerHTML=`<option value="all">Todas as categorias</option>`+CATEGORIES.map(x=>`<option value="${esc(x[0])}">${esc(x[0])}</option>`).join("");c.dataset.ready="1";}
   if(mo){const v=mo.value;mo.innerHTML=MONTHS.map(x=>`<option value="${x}">${x}</option>`).join("");mo.value=v&&MONTHS.includes(v)?v:currentMonth;}
 }
-function openAgendaPrint(catArg){
-  if(!requireAdmin())return;
+/* monta os dados uma vez (usados na folha da tela e no PDF) */
+let _agData=null;
+function _agendaData(catArg){
   const cat=catArg||document.getElementById("agPrintCat")?.value||"all";
   const m=document.getElementById("agPrintMonth")?.value||currentMonth;
   const mode=document.getElementById("agPrintMode")?.value||"cat";
   const blanks=document.getElementById("agPrintBlank")?document.getElementById("agPrintBlank").checked:true;
   const cats=cat==="all"?CATEGORIES.map(c=>c[0]):[cat];
-  let rows=cats.flatMap(c=>_agendaRows(c,m));
-  const tot={sch:rows.length,alunos:new Set(rows.flatMap(r=>r.list.map(s=>s.id))).size,vagas:rows.reduce((a,r)=>a+r.cap,0),ocup:rows.reduce((a,r)=>a+Math.min(r.cap,r.list.length),0)};
-  const slotHTML=r=>{
-    const status=r.free===0?`<span class="apFull">LOTADO</span>`:`<span class="apFree">${r.free} vaga${r.free>1?"s":""} livre${r.free>1?"s":""}</span>`;
-    const lines=r.list.map((s,i)=>{
-      const age=ageFromBirth(s.birth);const notes=[];
-      if(s.category!==r.cat)notes.push(s.category);
-      const rc=rankCatOf(s,m);if(rc!==s.category)notes.push("pontua em "+rc);
-      if(dupNameSet().has(_nk(s.name)))notes.push("#"+shortId(s));
-      const two=(participant(s.id,false,m)?.schedules||[]).length>1?" 🔁":"";
-      return `<li><span class="apN">${i+1}.</span><span class="apName">${esc(s.name)}${two}${notes.length?` <small>(${esc(notes.join(" • "))})</small>`:""}</span><span class="apAge">${age!==""?age+" anos":""}</span></li>`;
-    }).join("");
-    const empty=blanks?Array.from({length:r.free},(_,k)=>`<li class="apBlank"><span class="apN">${r.list.length+k+1}.</span><span class="apName"></span><span class="apAge"></span></li>`).join(""):"";
-    return `<div class="apSlot"><div class="apHead"><div><b>${esc(r.sch)}</b>${mode==="day"?`<small>${esc(r.cat)}</small>`:""}</div><div class="apCount">${Math.min(r.list.length,r.cap)}/${r.cap} ${status}</div></div><ol>${lines}${empty}${!r.list.length&&!blanks?'<li class="apNone">Nenhum aluno</li>':""}</ol></div>`;
-  };
-  let body="";
+  const rows=cats.flatMap(c=>_agendaRows(c,m));
+  rows.forEach(r=>{r.people=r.list.map(s=>{
+    const age=ageFromBirth(s.birth);const notes=[];
+    if(s.category!==r.cat)notes.push(s.category);
+    const rc=rankCatOf(s,m);if(rc!==s.category)notes.push("pontua em "+rc);
+    if(dupNameSet().has(_nk(s.name)))notes.push("#"+shortId(s));
+    return {name:s.name,two:(participant(s.id,false,m)?.schedules||[]).length>1,notes,age:age!==""?age+" anos":""};
+  });});
+  const groups=[];
   if(mode==="day"){
-    _DAYS.forEach(d=>{const rs=rows.filter(r=>scheduleDay(r.sch)===d).sort((a,b)=>_schSortKey(a.sch)-_schSortKey(b.sch));if(rs.length)body+=`<section class="apGroup"><h2>${d}</h2><div class="apGrid">${rs.map(slotHTML).join("")}</div></section>`;});
-    const other=rows.filter(r=>!_DAYS.includes(scheduleDay(r.sch)));if(other.length)body+=`<section class="apGroup"><h2>Outros</h2><div class="apGrid">${other.map(slotHTML).join("")}</div></section>`;
+    _DAYS.forEach(d=>{const rs=rows.filter(r=>scheduleDay(r.sch)===d).sort((a,b)=>_schSortKey(a.sch)-_schSortKey(b.sch));if(rs.length)groups.push({title:d,sub:"",rows:rs});});
+    const other=rows.filter(r=>!_DAYS.includes(scheduleDay(r.sch)));if(other.length)groups.push({title:"Outros",sub:"",rows:other});
   }else{
     cats.forEach(c=>{const rs=rows.filter(r=>r.cat===c).sort((a,b)=>_schSortKey(a.sch)-_schSortKey(b.sch));if(!rs.length)return;
       const al=new Set(rs.flatMap(r=>r.list.map(s=>s.id))).size,fr=rs.reduce((a,r)=>a+r.free,0);
-      body+=`<section class="apGroup"><h2>${esc(c)}<small>${al} aluno(s) • ${fr} vaga(s) livre(s)</small></h2><div class="apGrid">${rs.map(slotHTML).join("")}</div></section>`;});
+      groups.push({title:c,sub:`${al} aluno(s) • ${fr} vaga(s) livre(s)`,rows:rs});});
   }
-  const title=cat==="all"?"Todas as categorias":cat;
+  const tot={sch:rows.length,alunos:new Set(rows.flatMap(r=>r.list.map(s=>s.id))).size,vagas:rows.reduce((a,r)=>a+r.cap,0),ocup:rows.reduce((a,r)=>a+Math.min(r.cap,r.list.length),0)};
+  return {cat,m,mode,blanks,title:cat==="all"?"Todas as categorias":cat,groups,tot,year:new Date().getFullYear(),when:new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})};
+}
+function openAgendaPrint(catArg){
+  if(!requireAdmin())return;
+  const D=_agData=_agendaData(catArg);
+  const slotHTML=r=>{
+    const status=r.free===0?`<span class="apFull">LOTADO</span>`:`<span class="apFree">${r.free} vaga${r.free>1?"s":""} livre${r.free>1?"s":""}</span>`;
+    const lines=r.people.map((p,i)=>`<li><span class="apN">${i+1}.</span><span class="apName">${esc(p.name)}${p.two?" 🔁":""}${p.notes.length?` <small>(${esc(p.notes.join(" • "))})</small>`:""}</span><span class="apAge">${esc(p.age)}</span></li>`).join("");
+    const empty=D.blanks?Array.from({length:r.free},(_,k)=>`<li class="apBlank"><span class="apN">${r.list.length+k+1}.</span><span class="apName"></span><span class="apAge"></span></li>`).join(""):"";
+    return `<div class="apSlot"><div class="apHead"><div><b>${esc(r.sch)}</b>${D.mode==="day"?`<small>${esc(r.cat)}</small>`:""}</div><div class="apCount">${Math.min(r.list.length,r.cap)}/${r.cap} ${status}</div></div><ol>${lines}${empty}${!r.list.length&&!D.blanks?'<li class="apNone">Nenhum aluno</li>':""}</ol></div>`;
+  };
+  const body=D.groups.map(g=>`<section class="apGroup"><h2>${esc(g.title)}${g.sub?`<small>${esc(g.sub)}</small>`:""}</h2><div class="apGrid">${g.rows.map(slotHTML).join("")}</div></section>`).join("");
   let sheet=document.getElementById("agendaPrintSheet");
   if(!sheet){sheet=document.createElement("div");sheet.id="agendaPrintSheet";document.body.appendChild(sheet);}
-  sheet.innerHTML=`<div class="apBar noPrintAp"><button class="secondary" onclick="closeAgendaPrint()">✕ Fechar</button><button class="success" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div>
+  sheet.innerHTML=`<div class="apBar noPrintAp"><button class="secondary" onclick="closeAgendaPrint()">✕ Fechar</button><button class="success" id="apPdfBtn" onclick="saveAgendaPdf()">📄 Salvar PDF</button><button class="secondary" onclick="window.print()">🖨️ Imprimir</button></div>
+  <div id="apPdfMsg" class="apPdfMsg noPrintAp hidden"></div>
   <div class="apPaper">
-    <header class="apTop"><img src="primo-logo.png" alt=""><div><h1>AGENDA DE TREINOS</h1><p>${esc(m)} ${new Date().getFullYear()} • ${esc(title)}</p></div></header>
-    <div class="apStats"><span><b>${tot.sch}</b> horários</span><span><b>${tot.alunos}</b> alunos</span><span><b>${tot.ocup}/${tot.vagas}</b> vagas ocupadas</span><span><b>${tot.vagas-tot.ocup}</b> vagas livres</span></div>
+    <header class="apTop"><img src="primo-logo.png" alt=""><div><h1>AGENDA DE TREINOS</h1><p>${esc(D.m)} ${D.year} • ${esc(D.title)}</p></div></header>
+    <div class="apStats"><span><b>${D.tot.sch}</b> horários</span><span><b>${D.tot.alunos}</b> alunos</span><span><b>${D.tot.ocup}/${D.tot.vagas}</b> vagas ocupadas</span><span><b>${D.tot.vagas-D.tot.ocup}</b> vagas livres</span></div>
     ${body||'<p>Nenhum horário cadastrado.</p>'}
-    <footer class="apFoot">Primo Soccer • gerado em ${new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})} • 🔁 = treina em 2 horários</footer>
+    <footer class="apFoot">Primo Soccer • gerado em ${esc(D.when)} • 🔁 = treina em 2 horários</footer>
   </div>`;
   document.body.classList.add("printingAgenda");window.scrollTo(0,0);
+  _prepAgendaPdf();   // já carrega a ferramenta do PDF e o logo, para o botão responder na hora
 }
 function closeAgendaPrint(){document.body.classList.remove("printingAgenda");const s=document.getElementById("agendaPrintSheet");if(s)s.innerHTML="";}
+
+/* ---------- PDF ---------- */
+let _jspdfP=null,_agLogo=null;
+function _loadJsPdf(){
+  if(window.jspdf&&window.jspdf.jsPDF)return Promise.resolve();
+  if(_jspdfP)return _jspdfP;
+  _jspdfP=new Promise((res,rej)=>{const s=document.createElement("script");s.src="jspdf.umd.min.js?v=2.5.1";s.onload=()=>res();s.onerror=()=>{_jspdfP=null;rej(new Error("não carregou a ferramenta de PDF"));};document.head.appendChild(s);});
+  return _jspdfP;
+}
+function _prepAgendaPdf(){
+  _loadJsPdf().catch(()=>{});
+  if(!_agLogo){_loadImg("primo-logo.png").then(im=>{if(!im)return;try{const c=document.createElement("canvas");c.width=c.height=240;c.getContext("2d").drawImage(im,0,0,240,240);_agLogo=c.toDataURL("image/png");}catch(e){}});}
+}
+function _pdfTxt(t){return String(t||"").replace(/🔁/g,"(2x)").replace(/[^\u0000-ÿ•–—]/g,"")}
+function buildAgendaPdf(D){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
+  const W=210,H=297,M=12,G=6,CW=(W-2*M-G)/2,BOTTOM=H-14,ROW=6,HEAD=12;
+  const NAVY=[6,17,122],GRAY=[100,116,139],LINE=[203,213,225];
+  let y=M;
+  function header(first){
+    if(first){
+      if(_agLogo){try{doc.addImage(_agLogo,"PNG",M,y,17,17);}catch(e){}}
+      doc.setTextColor(...NAVY);doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text("AGENDA DE TREINOS",M+21,y+8);
+      doc.setTextColor(51,65,85);doc.setFontSize(10.5);doc.text(_pdfTxt(`${D.m} ${D.year} • ${D.title}`),M+21,y+14);
+      y+=19;doc.setDrawColor(...NAVY);doc.setLineWidth(0.8);doc.line(M,y,W-M,y);y+=4;
+      const st=[[D.tot.sch,"horários"],[D.tot.alunos,"alunos"],[`${D.tot.ocup}/${D.tot.vagas}`,"vagas ocupadas"],[D.tot.vagas-D.tot.ocup,"vagas livres"]];
+      let x=M;doc.setFontSize(9);
+      st.forEach(([v,l])=>{doc.setFont("helvetica","bold");const vw=doc.getTextWidth(String(v));doc.setFont("helvetica","normal");const lw=doc.getTextWidth(" "+_pdfTxt(l));const bw=vw+lw+6;
+        doc.setDrawColor(...LINE);doc.setLineWidth(0.3);doc.roundedRect(x,y,bw,7,1.5,1.5);
+        doc.setTextColor(...NAVY);doc.setFont("helvetica","bold");doc.text(String(v),x+3,y+4.8);doc.setTextColor(51,65,85);doc.setFont("helvetica","normal");doc.text(" "+_pdfTxt(l),x+3+vw,y+4.8);x+=bw+3;});
+      y+=11;
+    }else{y=M;}
+  }
+  function fit(t,maxW){t=_pdfTxt(t);if(doc.getTextWidth(t)<=maxW)return t;while(t.length>1&&doc.getTextWidth(t+"...")>maxW)t=t.slice(0,-1);return t.trimEnd()+"...";}
+  function slotH(r){const n=r.people.length+(D.blanks?r.free:0);return HEAD+Math.max(1,n)*ROW+2.5;}
+  function drawSlot(r,x,y0,h){
+    doc.setDrawColor(148,163,184);doc.setLineWidth(0.35);doc.roundedRect(x,y0,CW,h,2,2);
+    const count=`${Math.min(r.list.length,r.cap)}/${r.cap}`;
+    doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(15,23,42);const cw=doc.getTextWidth(count);
+    doc.setFontSize(9);doc.text(fit(r.sch,CW-9-cw),x+3,y0+5);doc.setFontSize(10);doc.text(count,x+CW-3,y0+5,{align:"right"});
+    doc.setFont("helvetica","bold");doc.setFontSize(7.5);
+    if(r.free===0){doc.setTextColor(185,28,28);doc.text("LOTADO",x+CW-3,y0+9.2,{align:"right"});}
+    else{doc.setTextColor(21,128,61);doc.text(`${r.free} vaga${r.free>1?"s":""} livre${r.free>1?"s":""}`,x+CW-3,y0+9.2,{align:"right"});}
+    if(D.mode==="day"){doc.setTextColor(...GRAY);doc.text(fit(r.cat,CW-30),x+3,y0+9.2);}
+    let yy=y0+HEAD;
+    doc.setDrawColor(...LINE);doc.setLineWidth(0.25);doc.line(x+2,yy-1,x+CW-2,yy-1);
+    const rowsOut=r.people.map(p=>({p}));if(D.blanks)for(let k=0;k<r.free;k++)rowsOut.push({blank:true});
+    if(!rowsOut.length){doc.setFont("helvetica","italic");doc.setFontSize(8.5);doc.setTextColor(148,163,184);doc.text("Nenhum aluno",x+3,yy+4);return;}
+    rowsOut.forEach((o,i)=>{
+      const by=yy+ROW*i+4.2;
+      doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(...GRAY);doc.text(`${i+1}.`,x+3,by);
+      if(o.blank){doc.setDrawColor(148,163,184);doc.setLineWidth(0.3);doc.line(x+9,by+0.6,x+CW-3,by+0.6);return;}
+      const p=o.p;doc.setFontSize(8);const ageW=p.age?doc.getTextWidth(p.age)+2:0;
+      if(p.age){doc.setTextColor(71,85,105);doc.text(p.age,x+CW-3,by,{align:"right"});}
+      doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(15,23,42);
+      const nm=_pdfTxt(p.name)+(p.two?" (2x)":"");const avail=CW-12-ageW;const nmFit=fit(nm,avail);doc.text(nmFit,x+9,by);
+      if(p.notes.length&&nmFit===nm){const used=doc.getTextWidth(nm+" ");doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...GRAY);const rest=avail-used;if(rest>8)doc.text(fit("("+p.notes.join(" • ")+")",rest),x+9+used,by);}
+      doc.setDrawColor(226,232,240);doc.setLineWidth(0.2);doc.setLineDashPattern([0.6,0.8],0);doc.line(x+2,by+1.6,x+CW-2,by+1.6);doc.setLineDashPattern([],0);
+    });
+  }
+  header(true);
+  D.groups.forEach(g=>{
+    const pairs=[];for(let i=0;i<g.rows.length;i+=2)pairs.push(g.rows.slice(i,i+2));
+    const firstH=Math.max(...pairs[0].map(slotH));
+    if(y+9+firstH>BOTTOM){doc.addPage();header(false);}
+    doc.setFillColor(...NAVY);doc.roundedRect(M,y,W-2*M,7.5,1.5,1.5,"F");
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text(_pdfTxt(g.title).toUpperCase(),M+3,y+5.2);
+    if(g.sub){doc.setFontSize(8);doc.text(_pdfTxt(g.sub),W-M-3,y+5.1,{align:"right"});}
+    y+=10;
+    pairs.forEach((pr,pi)=>{
+      const h=Math.max(...pr.map(slotH));
+      if(y+h>BOTTOM){doc.addPage();header(false);
+        doc.setTextColor(...NAVY);doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(_pdfTxt(g.title).toUpperCase()+" (continuação)",M,y+4);y+=7;}
+      pr.forEach((r,ci)=>drawSlot(r,M+ci*(CW+G),y,slotH(r)));
+      y+=h+4;
+    });
+    y+=2;
+  });
+  if(!D.groups.length){doc.setTextColor(...GRAY);doc.setFontSize(11);doc.text("Nenhum horário cadastrado.",M,y+6);}
+  const n=doc.getNumberOfPages();
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(...GRAY);
+    doc.text(_pdfTxt(`Primo Soccer • ${D.m} ${D.year} • gerado em ${D.when} • (2x) = treina em 2 horários`),M,H-7);doc.text(`Página ${i} de ${n}`,W-M,H-7,{align:"right"});}
+  return doc;
+}
+function _agPdfMsg(html){const el=document.getElementById("apPdfMsg");if(!el)return;el.innerHTML=html;el.classList.toggle("hidden",!html);}
+async function saveAgendaPdf(){
+  const D=_agData;if(!D)return;
+  const btn=document.getElementById("apPdfBtn");
+  if(!(window.jspdf&&window.jspdf.jsPDF)){
+    if(btn){btn.disabled=true;btn.textContent="Preparando PDF...";}
+    try{await _loadJsPdf();}catch(e){if(btn){btn.disabled=false;btn.textContent="📄 Salvar PDF";}alert("Não consegui preparar o PDF agora. Verifique a internet e tente de novo.");return;}
+    if(btn){btn.disabled=false;btn.textContent="📄 Salvar PDF";}
+  }
+  let blob;
+  try{blob=buildAgendaPdf(D).output("blob");}catch(e){console.error(e);alert("Erro ao montar o PDF: "+(e.message||e));return;}
+  const fname=`agenda-primo-${String(D.m).toLowerCase()}-${D.cat==="all"?"todas":D.cat.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}.pdf`;
+  const file=new File([blob],fname,{type:"application/pdf"});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:"Agenda Primo Soccer"});
+      _agPdfMsg("");setSync("✅ PDF da agenda pronto.","ok");return;
+    }
+  }catch(err){
+    if(err&&err.name==="AbortError")return;
+    console.warn("share falhou:",err);
+  }
+  // plano B: link para abrir/baixar o PDF (toque nele)
+  const url=URL.createObjectURL(blob);
+  _agPdfMsg(`PDF pronto: <a href="${url}" download="${esc(fname)}" target="_blank" rel="noopener">📄 Toque aqui para abrir o PDF</a><br><small>No iPhone, depois de abrir, toque em Compartilhar → Salvar em Arquivos (ou Imprimir).</small>`);
+  try{const a=document.createElement("a");a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();}catch(e){}
+}
 (function(){var _ra=renderAll;renderAll=function(){const r=_ra.apply(this,arguments);try{renderAgendaPrintControls();}catch(e){}return r;};})();
 
 window.addEventListener("beforeunload",()=>{try{saveLocal()}catch(e){}});
