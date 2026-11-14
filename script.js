@@ -3,7 +3,7 @@ function normalizeSupabaseUrl(u){u=String(u||"").trim(); if(!u)return ""; if(!/^
 const SUPABASE_URL=normalizeSupabaseUrl(DB_OVERRIDE.url||window.PRIMO_SUPABASE_CONFIG?.url);
 const SUPABASE_KEY=String(DB_OVERRIDE.anonKey||window.PRIMO_SUPABASE_CONFIG?.anonKey||"").trim();
 const APP_ID=String(DB_OVERRIDE.appId||window.PRIMO_SUPABASE_CONFIG?.appId||"primo_soccer_kids_league_2026").trim();
-const APP_VERSION="92";
+const APP_VERSION="94";
 const STEP_POINTS=5; // quantos pontos cada toque no + / − adiciona no P/D e P/E
 const MONTHS=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
 const CATEGORIES=[["Futbaby 2-3 Anos","futbaby23"],["Futbaby 4-5 Anos","futbaby45"],["Sub 6-7-8 anos","sub678"],["Sub 8-9-10 anos","sub8910"],["Sub 11-12-13-14 anos","sub1114"],["Adulto","adulto"]];
@@ -331,7 +331,12 @@ const MULTI_SCHEDULE_CATEGORIES = ["Futbaby 4-5 Anos","Sub 6-7-8 anos","Sub 8-9-
 function canHaveTwoSchedules(cat){return MULTI_SCHEDULE_CATEGORIES.includes(cat)}
 function annualTotalStudent(id){return MONTHS.reduce((sum,m)=>sum+totalStudent(id,m),0)}
 function rankedAnnual(cat=null){return state.students.filter(s=>s.active!==false&&(!cat||s.category===cat)).map(s=>({...s,total:annualTotalStudent(s.id)})).filter(s=>s.total>0).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name))}
-function studentOptionLabel(s){const p=participant(s.id,false);const count=p?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";return `${icon} ${s.name} • ${s.category}`}
+/* V94 - ALUNOS COM O MESMO NOME: tudo é somado pelo ID; aqui só mostramos quem é quem */
+function _nk(n){return String(n||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ").trim().toLowerCase()}
+function dupNameSet(){const c={};(state.students||[]).filter(s=>s.active!==false).forEach(s=>{const k=_nk(s.name);c[k]=(c[k]||0)+1;});return new Set(Object.keys(c).filter(k=>c[k]>1));}
+function shortId(s){const id=String((s&&(s.studentCode||s.id))||"");return id.split("-").pop().slice(-4)}
+function idTag(s){if(!s||!dupNameSet().has(_nk(s.name)))return "";return ` <small class="v94Id">${esc(s.category)} • #${esc(shortId(s))}</small>`;}
+function studentOptionLabel(s){const p=participant(s.id,false);const count=p?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";return `${icon} ${s.name} • ${s.category}`+(dupNameSet().has(_nk(s.name))?` • #${shortId(s)}`:"")}
 function restoreSelectValue(id,value){const el=document.getElementById(id);if(el&&value&&[...el.options].some(o=>o.value===value))el.value=value}
 function scheduleDay(sch){return String(sch||"").split(" ")[0]||""}
 function trainingKey(cat,week,sch){return `${cat}__S${week+1}__${sch}`}
@@ -403,7 +408,7 @@ function renderSelectors(){
   document.getElementById("studentCategory").innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");
   ["agendaCategory","disputeCategory"].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML=CATEGORIES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join("");el.value=activeCategory});
   const sp=document.getElementById("studentPicker");
-  if(sp){const own=state.students.filter(s=>s.active!==false&&s.category===activeCategory),others=state.students.filter(s=>s.active!==false&&s.category!==activeCategory).sort((a,b)=>(a.category+a.name).localeCompare(b.category+b.name));sp.innerHTML=(own.length?`<optgroup label="${esc(activeCategory)}">${own.map(s=>`<option value="${s.id}">${esc(studentOptionLabel(s))}</option>`).join("")}</optgroup>`:`<option value="">Cadastre alunos nesta categoria</option>`)+(others.length?`<optgroup label="Alunos de outras categorias">${others.map(s=>`<option value="${s.id}">${esc(s.name)} — ${esc(s.category)}</option>`).join("")}</optgroup>`:"");restoreSelectValue("studentPicker",currentStudent);if(typeof renderRankCatPicker==="function")renderRankCatPicker();}
+  if(sp){const own=state.students.filter(s=>s.active!==false&&s.category===activeCategory),others=state.students.filter(s=>s.active!==false&&s.category!==activeCategory).sort((a,b)=>(a.category+a.name).localeCompare(b.category+b.name));sp.innerHTML=(own.length?`<optgroup label="${esc(activeCategory)}">${own.map(s=>`<option value="${s.id}">${esc(studentOptionLabel(s))}</option>`).join("")}</optgroup>`:`<option value="">Cadastre alunos nesta categoria</option>`)+(others.length?`<optgroup label="Alunos de outras categorias">${others.map(s=>`<option value="${s.id}">${esc(s.name)} — ${esc(s.category)}${dupNameSet().has(_nk(s.name))?" • #"+esc(shortId(s)):""}</option>`).join("")}</optgroup>`:"");restoreSelectValue("studentPicker",currentStudent);if(typeof renderRankCatPicker==="function")renderRankCatPicker();}
   const sch=schedulesFor(activeCategory);
   const ap=document.getElementById("schedulePicker");if(ap){ap.innerHTML=sch.map(s=>`<option value="${s}">${s}</option>`).join("");restoreSelectValue("schedulePicker",currentSchedule)}
   const daySel=document.getElementById("scoreDay");
@@ -547,6 +552,8 @@ function removeCustomSchedule(cat,index){
 async function addStudent(){
   const name=document.getElementById("studentName").value.trim(),birth=document.getElementById("studentBirth").value,category=document.getElementById("studentCategory").value;
   if(!name)return alert("Digite o nome do aluno.");
+  {const same=(state.students||[]).filter(s=>s.active!==false&&_nk(s.name)===_nk(name));
+   if(same.length&&!confirm(`Já existe aluno com o nome "${name}":\n\n`+same.map(s=>`• ${s.name} — ${s.category} (ID ${s.studentCode||s.id})`).join("\n")+`\n\nOs pontos são separados pelo ID, mas os nomes vão aparecer iguais. Dica: acrescente o sobrenome.\n\nCadastrar mesmo assim?`))return;}
   const id=uid();
   let photo="", photoPath="", dataUrl=pendingStudentPhoto||"";
   if(dataUrl){
@@ -581,7 +588,7 @@ function renderStudents(){
       <td>${i+1}</td>
       <td><code class="studentIdCode">${esc(s.studentCode||s.id)}</code></td>
       <td>${photoPickerHtml(s)}</td>
-      <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)">${agendaSummary(s)}</td>
+      <td><input value="${esc(s.name)}" oninput="editStudent('${s.id}','name',this.value)">${dupNameSet().has(_nk(s.name))?'<small class="v94Id">⚠️ nome repetido — confira pelo ID</small>':""}${agendaSummary(s)}</td>
       <td><input type="date" value="${s.birth||""}" oninput="editStudent('${s.id}','birth',this.value)"></td>
       <td>${ageFromBirth(s.birth)} anos</td>
       <td><select onchange="editStudent('${s.id}','category',this.value)">
@@ -658,7 +665,7 @@ function renderAgenda(){
   document.getElementById("agendaGrid").innerHTML=schList.map(sch=>{
     const cap=slotCapacity(activeCategory,sch);
     const list=studentsInSchedule(sch);
-    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="secondary compactGo" onclick='openEditSchedule(${JSON.stringify(sch)})'>✏️ Editar / mover horário</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}${guestTag(s)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
+    return`<div class="slotCard"><div class="slotTitle"><span>${sch}</span><span class="badge">${list.length}/${cap}</span></div><div class="slotBtns"><button class="success compactGo" onclick='goToDisputeSlot(${JSON.stringify(sch)})'>Ir para disputa desta turma</button><button class="secondary compactGo" onclick='openEditSchedule(${JSON.stringify(sch)})'>✏️ Editar / mover horário</button><button class="danger compactGo" onclick='deleteSchedule(${JSON.stringify(sch)})'>Apagar horário</button></div>${list.map(s=>{const count=participant(s.id,false)?.schedules?.length||0;const icon=count>=2?"🔥":count===1?"✅":"⚽";const cls=count>=2?"multiSchedule":"singleSchedule";return `<div class="item ${cls}"><span>${icon} ${esc(s.name)}${idTag(s)}${guestTag(s)}</span><button class="danger" onclick="removeFromSchedule('${s.id}','${sch}')">Remover</button></div>`}).join("")||"<p>Nenhum aluno.</p>"}</div>`;
   }).join("");
 }
 /* V68 - apagar qualquer horário da agenda (default ou extra) */
@@ -708,7 +715,7 @@ function setScore(id,week,sch,field,value,el){const sc=getScore(id,week,sch);sc[
 function adjustScore(id,week,sch,field,delta,el){if(el&&el.blur)el.blur();const sc=getScore(id,week,sch);sc[field]=Math.max(0,(+sc[field]||0)+delta*STEP_POINTS);updateScoreDisplays(id,week,sch);scheduleSave(250);renderRankings()}
 function clearTrainingScore(){const sch=document.getElementById("scoreSchedule").value,week=+document.getElementById("scoreWeek").value;if(!confirm("Limpar pontuação deste treino?"))return;activeByCategory().forEach(s=>{const p=participant(s.id,false);if(p?.weeks?.[week]?.[sch])p.weeks[week][sch]=emptyScore()});scheduleSave();renderAll()}
 async function finishTraining(){const sch=document.getElementById("scoreSchedule")?.value,week=+document.getElementById("scoreWeek")?.value||0;if(!sch)return alert("Selecione um horário para finalizar.");const mo=monthObj();mo.finishedTrainings=mo.finishedTrainings||{};mo.finishedTrainings[trainingKey(activeCategory,week,sch)]={category:activeCategory,week:week+1,schedule:sch,month:currentMonth,finishedAt:new Date().toISOString()};saveLocal();setSync("Finalizando e salvando treino online...","warn");const ok=await saveCloudNow();renderScore();renderRankings();if(isParentMode())renderParentMode();alert(ok?"Treino finalizado e salvo no banco online!":"Treino salvo neste celular, mas houve erro no banco online. Toque em Sincronizar agora quando a internet melhorar.");}
-function rankRow(s,i){return`<div class="rankRow"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}</span></div><strong>${s.total} pts</strong></div>`}
+function rankRow(s,i){return`<div class="rankRow v94Click" onclick="if(!(typeof isParentMode==='function'&&isParentMode()))openStudentAgenda('${s.id}')"><div class="rankLeft"><span>${i===0?"🥇":i===1?"🥈":i===2?"🥉":"⚽"}</span>${avatarHtml(s)}<span>${i+1}º - ${esc(s.name)}${idTag(s)}</span></div><strong>${s.total} pts</strong></div>`}
 function renderRankings(){
   const categoryRanking=document.getElementById("categoryRanking");
   if(categoryRanking){const monthList=ranked(activeCategory),yearList=rankedAnnual(activeCategory);categoryRanking.innerHTML=`<h3>🏆 Pontuação mensal • ${currentMonth}</h3>${monthList.map(rankRow).join("")||"<p>Nenhum aluno ativo nesta categoria.</p>"}<h3 class="annualTitle">📅 Pontuação geral do ano</h3>${yearList.map(rankRow).join("")||"<p>Nenhuma pontuação anual nesta categoria.</p>"}`}
@@ -1587,7 +1594,37 @@ function _studentSchedules(id,m=currentMonth){return (participant(id,false,m)?.s
 function agendaSummary(s){
   const sch=_studentSchedules(s.id),rc=rankCatOf(s),pts=totalStudent(s.id);
   return `<div class="v92Ag"><span>📅 ${esc(currentMonth)}: ${sch.length?sch.map(x=>`<b>${esc(x)}</b>`).join(" • "):"<i>fora da agenda</i>"}${rc!==s.category?` <small class="v92Tag">conta em ${esc(rc)}</small>`:""} • ${pts} pts</span>
-    <button class="secondary v92Btn" onclick="openStudentAgenda('${s.id}')">📅 Agenda / categoria</button></div>`;
+    <button class="secondary v92Btn" onclick="openStudentAgenda('${s.id}')">📅 Agenda / pontos</button></div>`;
+}
+/* V93 - EXTRATO DE PONTOS DO ALUNO: mostra de onde vem cada ponto do total do ranking */
+function pointsStatement(id,m=currentMonth){
+  const s=studentById(id);if(!s)return "";
+  const P=participant(id,false,m);const cat=rankCatOf(s,m);const mine=(P&&P.schedules)||[];const best=isBestOfWeek(cat);
+  const carried=P&&P.week1FromPrev&&P.week1FromPrev===prevMonthOf(m);
+  let rows="";
+  ((P&&P.weeks)||[]).forEach((w,wi)=>{
+    const ents=Object.entries(w||{}).map(([sch,sc])=>[sch,scoreTotal(sc||{}),sc||{}]).filter(e=>e[1]>0);
+    if(!ents.length)return;
+    const wk=weekPoints(w,cat,"all");const maxV=Math.max(...ents.map(e=>e[1]));let used=false;
+    rows+=`<div class="v93Wk"><div class="v93WkH"><span>Semana ${wi+1}${wi===0&&carried?` <small class="v92Tag">veio da 5ª semana de ${esc(P.week1FromPrev)}</small>`:""}</span><b>${wk} pts</b></div>`+
+      ents.map(([sch,v,sc])=>{
+        let counts=true;if(best){counts=!used&&v===maxV;if(counts)used=true;}
+        const off=!mine.includes(sch);
+        const det=`P/D ${+sc.pd||0} • P/E ${+sc.pe||0}`+((+sc.uniforme||0)?` • 👕${+sc.uniforme}`:"")+((+sc.fruta||0)?` • 🍎${+sc.fruta}`:"")+((+sc.comportamento||0)?` • 😇${+sc.comportamento}`:"");
+        return `<div class="v93Ln${counts?"":" v93Off"}"><span>${esc(sch)}${off?` <small class="v92Tag">fora da agenda</small>`:""}<br><small>${det}${counts?"":" • não conta (vale a maior da semana)"}</small></span><b>${v}</b><button class="danger v92Btn" title="Apagar estes pontos" onclick='clearPointsEntry(${esc(JSON.stringify(id))},${esc(JSON.stringify(m))},${wi},${esc(JSON.stringify(sch))})'>🗑</button></div>`;
+      }).join("")+`</div>`;
+  });
+  return `<label class="v91Lbl">Extrato de pontos • ${esc(m)}</label>${rows||'<p class="smallText"><i>Sem pontos neste mês.</i></p>'}
+    <div class="v93Tot">Total no ranking (${esc(cat)}): <b>${totalStudent(id,m)} pts</b></div>
+    ${best?"":`<p class="smallText">Em ${esc(cat)}, se o aluno treina 2x na semana, os dois treinos somam.</p>`}`;
+}
+function clearPointsEntry(id,m,wi,sch){
+  if(!requireAdmin())return;
+  const P=participant(id,false,m);const w=P&&P.weeks&&P.weeks[wi];if(!w||!w[sch])return;
+  const s=studentById(id);const v=scoreTotal(w[sch]);
+  if(!confirm(`Apagar ${v} pontos de ${s?s.name:"aluno"}?\n\n${m} • Semana ${wi+1}\n${sch}\n\nSó faça isso se esses pontos estiverem errados.`))return;
+  delete w[sch];
+  scheduleSave();renderAll();openStudentAgenda(id);
 }
 function openStudentAgenda(id){
   if(!requireAdmin())return;
@@ -1595,7 +1632,8 @@ function openStudentAgenda(id){
   const mine=_studentSchedules(id),rc=rankCatOf(s);
   const groups=CATEGORIES.map(c=>{const opts=schedulesFor(c[0]).filter(x=>!mine.includes(x));return opts.length?`<optgroup label="${esc(c[0])}">${opts.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")}</optgroup>`:"";}).join("");
   _modal(`<h2>${esc(s.name)}</h2>
-    <p class="smallText">Cadastro: <strong>${esc(s.category)}</strong> • ${esc(currentMonth)} • <strong>${totalStudent(id)} pts</strong></p>
+    <p class="smallText">ID: <code class="studentIdCode">${esc(s.studentCode||s.id)}</code>${dupNameSet().has(_nk(s.name))?' <small class="v94Id">tem outro aluno com este nome</small>':""}<br>Cadastro: <strong>${esc(s.category)}</strong> • ${esc(currentMonth)} • <strong>${totalStudent(id)} pts</strong></p>
+    ${pointsStatement(id)}
     <label class="v91Lbl">Pontuação conta na categoria (ranking de ${esc(currentMonth)})</label>
     <select id="v92Rank" onchange="setRankCat('${id}',this.value)">${CATEGORIES.map(c=>`<option value="${esc(c[0])}" ${c[0]===rc?"selected":""}>${esc(c[0])}${c[0]===s.category?" (categoria do aluno)":""}</option>`).join("")}</select>
     <label class="v91Lbl">Horários na agenda</label>
@@ -1709,7 +1747,7 @@ scoreCardHtml = function(s,i,week,sch,score){
   const bonus=(field,label)=>`<div class="srItem"><label>${label}</label><button type="button" class="bonusMini srBonus ${(+score[field]||0)>0?"active":""}" onclick='toggleBonus(${id},${week},${safeSch},${JSON.stringify(field)},this)' title="${label}"><small data-bonus="${field}">${+score[field]||0}</small></button></div>`;
   const shortLbl={uniforme:"Unif",fruta:"Fru",comportamento:"Com"};
   const bonusHtml=bonusFieldsFor(activeCategory).map(f=>bonus(f,shortLbl[f])).join("");
-  return `<div class="scorePlayerCard scoreRowV37" data-score-key="${key}"><div class="srScroll"><div class="srAthlete"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<strong class="srName">${esc(s.name)}</strong></div><div class="srCtrls"><div class="srItem srStep"><label>P/D</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div><div class="srItem srStep"><label>P/E</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>${bonusHtml}</div><div class="srTotal"><b data-total>${scoreTotal(score)}</b><small>pts</small></div></div></div>`;
+  return `<div class="scorePlayerCard scoreRowV37" data-score-key="${key}"><div class="srScroll"><div class="srAthlete"><span class="scorePos">${i+1}</span>${avatarHtml(s)}<strong class="srName">${esc(s.name)}${idTag(s)}</strong></div><div class="srCtrls"><div class="srItem srStep"><label>P/D</label>${scoreStepperHtml(s.id,week,sch,"pd",score.pd)}</div><div class="srItem srStep"><label>P/E</label>${scoreStepperHtml(s.id,week,sch,"pe",score.pe)}</div>${bonusHtml}</div><div class="srTotal"><b data-total>${scoreTotal(score)}</b><small>pts</small></div></div></div>`;
 };
 
 renderScore = function(){
@@ -1752,7 +1790,7 @@ renderRankings = function(){
   if(typeof renderReportStudentSelect==="function")renderReportStudentSelect();
 };
 
-function renderReportStudentSelect(){const el=document.getElementById("reportStudentSelect");if(!el)return;const old=el.value;el.innerHTML=state.students.filter(s=>s.active!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${s.id}">${esc(s.name)} • ${esc(s.category)}</option>`).join("");if([...el.options].some(o=>o.value===old))el.value=old}
+function renderReportStudentSelect(){const el=document.getElementById("reportStudentSelect");if(!el)return;const old=el.value;el.innerHTML=state.students.filter(s=>s.active!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${s.id}">${esc(s.name)} • ${esc(s.category)}${dupNameSet().has(_nk(s.name))?" • #"+esc(shortId(s)):""}</option>`).join("");if([...el.options].some(o=>o.value===old))el.value=old}
 function exportBackup(){if(!requireAdmin())return;norm();const blob=new Blob([JSON.stringify({app:"Primo Soccer Kids",version:"v32-pro",exportedAt:new Date().toISOString(),state},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`backup-primo-soccer-kids-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function importBackup(event){if(!requireAdmin())return;const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=async()=>{try{const json=JSON.parse(reader.result);const incoming=json.state||json;if(!incoming.students||!incoming.months)throw new Error("Arquivo inválido");if(!confirm("Restaurar este backup? Isso substituirá os dados deste aparelho e salvará no banco online."))return;state=incoming;currentMonth=state.currentMonth||currentMonth;norm();saveLocal();renderAll();await saveCloudNow();alert("Backup restaurado com sucesso!");}catch(e){alert("Não consegui importar esse backup: "+e.message)}finally{event.target.value=""}};reader.readAsText(file)}
 function reportRows(cat=null){return state.students.filter(s=>s.active!==false&&(!cat||s.category===cat)).map(s=>({s,total:totalStudent(s.id),annual:annualTotalStudent(s.id),presence:presenceCount(s.id),possible:trainingCountPossible(s.id)})).sort((a,b)=>b.total-a.total||a.s.name.localeCompare(b.s.name))}
